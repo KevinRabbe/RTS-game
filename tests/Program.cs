@@ -32,6 +32,7 @@ namespace RtsGame.Tests
                 new TestCase("test runner parses filter argument", TestRunnerParsesFilterArgument),
                 new TestCase("test runner matches filter case insensitive", TestRunnerMatchesFilterCaseInsensitive),
                 new TestCase("test runner runs all without filter", TestRunnerRunsAllWithoutFilter),
+                new TestCase("test runner detects list argument", TestRunnerDetectsListArgument),
                 new TestCase("nomad start creates initial units", NomadStartCreatesInitialUnits),
                 new TestCase("nomad map creates center resources", NomadMapCreatesCenterResources),
                 new TestCase("placement rejects overlapping building", PlacementRejectsOverlappingBuilding),
@@ -221,6 +222,22 @@ namespace RtsGame.Tests
             int failed = 0;
             int selected = 0;
             string filter = GetFilter(args);
+            if (ShouldList(args))
+            {
+                foreach (TestCase test in tests)
+                {
+                    if (ShouldRun(test, filter))
+                    {
+                        selected++;
+                        Console.WriteLine(test.Name);
+                    }
+                }
+
+                string listSuffix = filter.Length == 0 ? "" : " filter=\"" + filter + "\"";
+                Console.WriteLine("tests=" + selected + " listed=1" + listSuffix);
+                return selected == 0 ? 1 : 0;
+            }
+
             foreach (TestCase test in tests)
             {
                 if (!ShouldRun(test, filter))
@@ -267,6 +284,21 @@ namespace RtsGame.Tests
                 return "";
             }
 
+            if (args[0] == "--list" && args.Length >= 3 && args[1] == "--filter")
+            {
+                return args[2];
+            }
+
+            if (args[0] == "--list" && args.Length >= 2 && args[1].StartsWith("--filter=", StringComparison.Ordinal))
+            {
+                return args[1].Substring("--filter=".Length);
+            }
+
+            if (args[0] == "--list")
+            {
+                return "";
+            }
+
             if (args.Length >= 2 && args[0] == "--filter")
             {
                 return args[1];
@@ -278,6 +310,11 @@ namespace RtsGame.Tests
             }
 
             return args[0];
+        }
+
+        private static bool ShouldList(string[] args)
+        {
+            return args.Length >= 1 && args[0] == "--list";
         }
 
         private static bool ShouldRun(TestCase test, string filter)
@@ -310,6 +347,15 @@ namespace RtsGame.Tests
             var test = new TestCase("empty tick determinism", EmptyTickDeterminism);
 
             AssertEqual(true, ShouldRun(test, ""), "empty filter should run every test");
+        }
+
+        private static void TestRunnerDetectsListArgument()
+        {
+            AssertEqual(true, ShouldList(new[] { "--list" }), "test runner should detect list mode");
+            AssertEqual(true, ShouldList(new[] { "--list", "--filter", "godot" }), "test runner should detect filtered list mode");
+            AssertEqual(false, ShouldList(new[] { "--filter", "godot" }), "test runner should not list during normal filter mode");
+            AssertEqual("godot", GetFilter(new[] { "--list", "--filter", "godot" }), "list mode should parse separated filter argument");
+            AssertEqual("lockstep", GetFilter(new[] { "--list", "--filter=lockstep" }), "list mode should parse inline filter argument");
         }
 
         private static void CommandOrdering()

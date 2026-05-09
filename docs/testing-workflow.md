@@ -25,6 +25,13 @@ Filtering is case-insensitive and matches against registered test names.
 
 No arguments means all tests run.
 
+To list registered test names without executing them:
+
+```powershell
+dotnet run --project tests\RtsGame.Tests.csproj --no-build -- --list
+dotnet run --project tests\RtsGame.Tests.csproj --no-build -- --list --filter godot
+```
+
 ## Suggested Loop
 
 For small presentation or tooling slices:
