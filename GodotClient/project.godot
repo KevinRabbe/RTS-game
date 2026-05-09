@@ -1,0 +1,9 @@
+; Engine configuration file.
+; This shell is intentionally minimal until the snapshot boundary is stable.
+
+config_version=5
+
+[application]
+
+config/name="RTS Game Client"
+config/features=PackedStringArray("4.3", "C#")

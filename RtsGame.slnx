@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="src/sim/RtsGame.Sim.csproj" />
+  <Project Path="src/presentation/RtsGame.Presentation.csproj" />
   <Project Path="src/net/RtsGame.Net.csproj" />
   <Project Path="src/tools/Stress/RtsGame.Stress.csproj" />
   <Project Path="src/tools/Headless/RtsGame.Headless.csproj" />

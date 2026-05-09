@@ -1,4 +1,5 @@
 using RtsGame.Net.Lockstep;
+using RtsGame.Presentation.Snapshots;
 using RtsGame.Sim.Checksums;
 using RtsGame.Sim.Commands;
 using RtsGame.Sim.Core;
@@ -78,6 +79,10 @@ namespace RtsGame.Tests
                 new TestCase("explored visibility persists", ExploredVisibilityPersists),
                 new TestCase("visibility replay determinism", VisibilityReplayDeterminism),
                 new TestCase("visibility lockstep", VisibilityLockstep),
+                new TestCase("presentation snapshot includes visible local state", PresentationSnapshotIncludesVisibleLocalState),
+                new TestCase("presentation snapshot hides invisible enemies", PresentationSnapshotHidesInvisibleEnemies),
+                new TestCase("presentation snapshot does not mutate checksum", PresentationSnapshotDoesNotMutateChecksum),
+                new TestCase("simulation does not reference presentation", SimulationDoesNotReferencePresentation),
                 new TestCase("train infantry completes", TrainInfantryCompletes),
                 new TestCase("train cavalry completes", TrainCavalryCompletes),
                 new TestCase("cavalry moves faster than infantry", CavalryMovesFasterThanInfantry),
@@ -1193,6 +1198,63 @@ namespace RtsGame.Tests
 
             AssertEqual(0, session.DesyncReports.Count, "visibility lockstep should not desync");
             AssertEqual(session.Peers[0].LocalState.LastChecksum, session.Peers[1].LocalState.LastChecksum, "visibility peer checksums should match");
+        }
+
+        private static void PresentationSnapshotIncludesVisibleLocalState()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = GameInitializer.CreateNomadStart(63, 1);
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(0, 0));
+            state.PlayerStates.Players[0].Resources.Food = 100;
+            state.PlayerStates.Players[0].Resources.Wood = 200;
+            state.PlayerStates.Players[0].Resources.Gold = 300;
+            new TickRunner().AdvanceOneTick(state, rules, new CommandBuffer());
+
+            GameSnapshot snapshot = GameSnapshotBuilder.Build(state, 0);
+
+            AssertEqual(state.Tick, snapshot.Tick, "snapshot should copy tick");
+            AssertEqual(0, snapshot.LocalPlayerIndex, "snapshot should copy local player index");
+            AssertEqual(true, snapshot.Units.Count > 0, "snapshot should include visible local units");
+            AssertEqual(true, snapshot.Buildings.Count > 0, "snapshot should include visible local buildings");
+            AssertEqual(100, snapshot.LocalPlayer.Food, "snapshot should copy local food");
+            AssertEqual(200, snapshot.LocalPlayer.Wood, "snapshot should copy local wood");
+            AssertEqual(300, snapshot.LocalPlayer.Gold, "snapshot should copy local gold");
+            AssertEqual(GameData.CapitalPopulationBonus, snapshot.LocalPlayer.PopulationCap, "snapshot should copy local population cap");
+            AssertEqual(true, snapshot.LocalPlayer.CapitalBonusActive, "snapshot should copy capital status");
+        }
+
+        private static void PresentationSnapshotHidesInvisibleEnemies()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = GameInitializer.CreateNomadStart(64, 2);
+            new TickRunner().AdvanceOneTick(state, rules, new CommandBuffer());
+
+            GameSnapshot snapshot = GameSnapshotBuilder.Build(state, 0);
+
+            for (int i = 0; i < snapshot.Units.Count; i++)
+            {
+                AssertFalse(snapshot.Units[i].OwnerPlayerIndex == 1, "snapshot should not include invisible enemy units");
+            }
+        }
+
+        private static void PresentationSnapshotDoesNotMutateChecksum()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = GameInitializer.CreateNomadStart(65, 1);
+            new TickRunner().AdvanceOneTick(state, rules, new CommandBuffer());
+            ulong before = StateChecksum.Compute(state, rules);
+
+            GameSnapshotBuilder.Build(state, 0);
+            ulong after = StateChecksum.Compute(state, rules);
+
+            AssertEqual(before, after, "building a presentation snapshot must not mutate simulation state");
+        }
+
+        private static void SimulationDoesNotReferencePresentation()
+        {
+            string simProject = System.IO.File.ReadAllText(System.IO.Path.Combine("src", "sim", "RtsGame.Sim.csproj"));
+
+            AssertFalse(simProject.Contains("presentation") || simProject.Contains("Presentation"), "simulation project must not reference presentation layer");
         }
 
         private static void TrainInfantryCompletes()

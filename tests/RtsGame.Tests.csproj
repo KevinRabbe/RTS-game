@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\src\sim\RtsGame.Sim.csproj" />
+    <ProjectReference Include="..\src\presentation\RtsGame.Presentation.csproj" />
     <ProjectReference Include="..\src\net\RtsGame.Net.csproj" />
     <ProjectReference Include="..\src\tools\Stress\RtsGame.Stress.csproj" />
   </ItemGroup>
