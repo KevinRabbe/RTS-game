@@ -93,6 +93,8 @@ namespace RtsGame.Tests
                 new TestCase("simulation does not reference presentation", SimulationDoesNotReferencePresentation),
                 new TestCase("simulation source does not reference presentation", SimulationSourceDoesNotReferencePresentation),
                 new TestCase("godot bridge does not reference godot api", GodotBridgeDoesNotReferenceGodotApi),
+                new TestCase("godot client script does not reference simulation core", GodotClientScriptDoesNotReferenceSimulationCore),
+                new TestCase("godot client script does not switch on raw primitive kind", GodotClientScriptDoesNotSwitchOnRawPrimitiveKind),
                 new TestCase("visual frame creates ugly prototype primitives", VisualFrameCreatesUglyPrototypePrimitives),
                 new TestCase("visual frame marks capital larger than normal building", VisualFrameMarksCapitalLargerThanNormalBuilding),
                 new TestCase("visual frame includes type ids", VisualFrameIncludesTypeIds),
@@ -1402,6 +1404,24 @@ namespace RtsGame.Tests
                 AssertFalse(text.Contains("using Godot;"), "Godot bridge helpers must stay engine-api free file=" + files[i]);
                 AssertFalse(text.Contains("Godot.Vector") || text.Contains("Godot.Color") || text.Contains("Node2D"), "Godot bridge helpers must not use Godot engine types file=" + files[i]);
             }
+        }
+
+        private static void GodotClientScriptDoesNotReferenceSimulationCore()
+        {
+            string script = System.IO.File.ReadAllText(System.IO.Path.Combine("GodotClient", "Scripts", "RtsClientRoot.cs"));
+
+            AssertFalse(script.Contains("RtsGame.Sim"), "Godot client script must not reference simulation namespaces directly");
+            AssertFalse(script.Contains("GameState"), "Godot client script must not reference GameState directly");
+            AssertFalse(script.Contains("TickRunner"), "Godot client script must not reference TickRunner directly");
+            AssertFalse(script.Contains("StateChecksum"), "Godot client script must not reference checksums directly");
+        }
+
+        private static void GodotClientScriptDoesNotSwitchOnRawPrimitiveKind()
+        {
+            string script = System.IO.File.ReadAllText(System.IO.Path.Combine("GodotClient", "Scripts", "RtsClientRoot.cs"));
+
+            AssertFalse(script.Contains("switch (primitive.Kind)"), "Godot client script must not switch on raw primitive kind values");
+            AssertFalse(script.Contains("case 1:") || script.Contains("case 2:") || script.Contains("case 3:"), "Godot client script must not use raw primitive kind case labels");
         }
 
         private static void VisualFrameCreatesUglyPrototypePrimitives()
