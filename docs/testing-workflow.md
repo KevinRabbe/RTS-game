@@ -9,6 +9,12 @@ dotnet build tests\RtsGame.Tests.csproj --no-restore
 dotnet run --project tests\RtsGame.Tests.csproj --no-build
 ```
 
+Equivalent local helper:
+
+```powershell
+.\scripts\test.ps1
+```
+
 The full run covers deterministic simulation, replay, lockstep, presentation boundaries, Godot bridge helpers, and chaos stress smoke scenarios.
 
 GitHub Actions uses the same build and full-suite commands in `.github/workflows/ci.yml`.
@@ -23,6 +29,12 @@ dotnet run --project tests\RtsGame.Tests.csproj --no-build -- --filter=lockstep
 dotnet run --project tests\RtsGame.Tests.csproj --no-build -- chaos
 ```
 
+Equivalent local helper:
+
+```powershell
+.\scripts\test.ps1 -Filter godot
+```
+
 Filtering is case-insensitive and matches against registered test names.
 
 No arguments means all tests run.
@@ -34,6 +46,12 @@ dotnet run --project tests\RtsGame.Tests.csproj --no-build -- --list
 dotnet run --project tests\RtsGame.Tests.csproj --no-build -- --list --filter godot
 ```
 
+Equivalent local helper:
+
+```powershell
+.\scripts\test.ps1 -List -Filter godot -NoBuild
+```
+
 To stop on the first failure during a focused or full run:
 
 ```powershell
@@ -41,10 +59,22 @@ dotnet run --project tests\RtsGame.Tests.csproj --no-build -- --filter godot --f
 dotnet run --project tests\RtsGame.Tests.csproj --no-build -- --fail-fast
 ```
 
+Equivalent local helper:
+
+```powershell
+.\scripts\test.ps1 -Filter godot -FailFast -NoBuild
+```
+
 To print the runner options:
 
 ```powershell
 dotnet run --project tests\RtsGame.Tests.csproj --no-build -- --help
+```
+
+Equivalent local helper:
+
+```powershell
+.\scripts\test.ps1 -Help -NoBuild
 ```
 
 ## Suggested Loop
