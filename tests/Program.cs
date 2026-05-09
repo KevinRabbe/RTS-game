@@ -1,5 +1,6 @@
 using RtsGame.Net.Lockstep;
 using RtsGame.Presentation.ClientInput;
+using RtsGame.Presentation.LocalPlay;
 using RtsGame.Presentation.Snapshots;
 using RtsGame.Presentation.Visuals;
 using RtsGame.Sim.Checksums;
@@ -92,6 +93,11 @@ namespace RtsGame.Tests
                 new TestCase("client intent maps movement command", ClientIntentMapsMovementCommand),
                 new TestCase("client intent maps local 1v1 command flow", ClientIntentMapsLocal1v1CommandFlow),
                 new TestCase("client command mapping does not mutate checksum", ClientCommandMappingDoesNotMutateChecksum),
+                new TestCase("local play session advances with automatic noops", LocalPlaySessionAdvancesWithAutomaticNoOps),
+                new TestCase("local play session queues without mutating before tick", LocalPlaySessionQueuesWithoutMutatingBeforeTick),
+                new TestCase("local play session completes 1v1 capitals", LocalPlaySessionCompletes1v1Capitals),
+                new TestCase("local play session exposes visual frame", LocalPlaySessionExposesVisualFrame),
+                new TestCase("local play session rejects invalid intent through sim", LocalPlaySessionRejectsInvalidIntentThroughSim),
                 new TestCase("train infantry completes", TrainInfantryCompletes),
                 new TestCase("train cavalry completes", TrainCavalryCompletes),
                 new TestCase("cavalry moves faster than infantry", CavalryMovesFasterThanInfantry),
@@ -1385,6 +1391,75 @@ namespace RtsGame.Tests
             ulong after = StateChecksum.Compute(state, rules);
 
             AssertEqual(before, after, "mapping client intent should not mutate simulation state");
+        }
+
+        private static void LocalPlaySessionAdvancesWithAutomaticNoOps()
+        {
+            LocalPlaySession session = LocalPlaySession.Create1v1(71);
+
+            session.QueueIntent(0, ClientCommandIntent.MoveUnits(new[] { 5 }, FixedVector2.FromInts(2, 2)));
+            session.AdvanceOneTick();
+
+            AssertEqual(1, session.CurrentTick, "local session should advance one tick");
+            AssertEqual(2, session.ExecutedCommandCount, "local session should fill missing player input with noop");
+            AssertEqual(0, session.RejectedCommandCount, "automatic noop fill should not reject");
+        }
+
+        private static void LocalPlaySessionQueuesWithoutMutatingBeforeTick()
+        {
+            LocalPlaySession session = LocalPlaySession.Create1v1(72);
+
+            session.QueueIntent(0, ClientCommandIntent.PlaceTownCenter(FixedVector2.FromInts(10, 10)));
+            GameSnapshot snapshot = session.GetSnapshot(0);
+
+            AssertEqual(0, session.CurrentTick, "queuing should not advance simulation");
+            AssertEqual(false, snapshot.LocalPlayer.HasCapitalBeenPlaced, "queued command should not mutate player capital state before tick execution");
+            AssertEqual(0, session.ExecutedCommandCount, "queued command should not execute before tick");
+        }
+
+        private static void LocalPlaySessionCompletes1v1Capitals()
+        {
+            LocalPlaySession session = LocalPlaySession.Create1v1(73);
+
+            session.QueueIntent(0, ClientCommandIntent.PlaceTownCenter(FixedVector2.FromInts(10, 10)));
+            session.QueueIntent(1, ClientCommandIntent.PlaceTownCenter(FixedVector2.FromInts(50, 10)));
+            session.AdvanceOneTick();
+            session.QueueIntent(0, ClientCommandIntent.AssignBuild(11, new[] { 1, 2, 3, 4 }));
+            session.QueueIntent(1, ClientCommandIntent.AssignBuild(12, new[] { 6, 7, 8, 9 }));
+            session.AdvanceOneTick();
+            session.AdvanceOneTick();
+
+            GameSnapshot playerZero = session.GetSnapshot(0);
+            GameSnapshot playerOne = session.GetSnapshot(1);
+
+            AssertEqual(true, playerZero.LocalPlayer.CapitalBonusActive, "player 0 capital should complete through local session commands");
+            AssertEqual(true, playerOne.LocalPlayer.CapitalBonusActive, "player 1 capital should complete through local session commands");
+            AssertEqual(0, session.RejectedCommandCount, "local 1v1 capital flow should not reject");
+        }
+
+        private static void LocalPlaySessionExposesVisualFrame()
+        {
+            LocalPlaySession session = LocalPlaySession.Create1v1(74);
+
+            session.AdvanceOneTick();
+            VisualFrame frame = session.GetVisualFrame(0);
+
+            AssertEqual(1, frame.Tick, "visual frame should match local session tick");
+            AssertEqual(true, HasPrimitive(frame, VisualPrimitiveKind.FogOverlay), "local visual frame should include fog primitive");
+            AssertEqual(true, HasPrimitive(frame, VisualPrimitiveKind.UnitSquare), "local visual frame should include visible local units");
+        }
+
+        private static void LocalPlaySessionRejectsInvalidIntentThroughSim()
+        {
+            LocalPlaySession session = LocalPlaySession.Create1v1(75);
+
+            session.QueueIntent(0, ClientCommandIntent.PlaceTownCenter(FixedVector2.FromInts(10, 10)));
+            session.AdvanceOneTick();
+            session.QueueIntent(0, ClientCommandIntent.PlaceTownCenter(FixedVector2.FromInts(20, 20)));
+            session.AdvanceOneTick();
+
+            AssertEqual(1, session.RejectedCommandCount, "invalid local intent should be rejected by simulation validation");
+            AssertEqual(true, session.GetSnapshot(0).LocalPlayer.HasCapitalBeenPlaced, "valid first capital should remain placed");
         }
 
         private static void TrainInfantryCompletes()

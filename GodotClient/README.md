@@ -22,3 +22,9 @@ Input path:
 `Godot input -> ClientCommandIntent -> CommandEnvelope -> simulation command validation`
 
 Godot collects intent only. The simulation remains the only authority that validates and executes commands.
+
+Local 1v1 prototype path:
+
+`Godot input -> ClientCommandIntent -> LocalPlaySession -> GameSnapshot -> VisualFrame`
+
+`LocalPlaySession` lives in `src/presentation/LocalPlay`. It owns a private local `GameState` for prototype play, fills missing 1v1 input with deterministic no-ops, advances only through `TickRunner`, and exposes snapshots/visual frames for drawing.
