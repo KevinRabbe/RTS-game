@@ -41,6 +41,7 @@ Current Godot shell:
 - `Scripts/RtsClientRoot.cs` creates a local 1v1 facade and draws primitive rectangles/lines.
 - Left click selects a visible local unit.
 - Right click issues a move intent for selected units.
+- Right click on an enemy unit or building issues an attack intent for selected units.
 - Right click on visible food, wood, or gold issues a gather intent for selected units.
 - `C` queues a local Town Center placement at the mouse tile.
 - Left click a local building, then `V` queues villager training.

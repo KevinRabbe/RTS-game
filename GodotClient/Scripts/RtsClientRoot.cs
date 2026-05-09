@@ -120,8 +120,13 @@ public partial class RtsClientRoot : Node2D
 
         if (mouse.ButtonIndex == MouseButton.Right && _selectedUnitIds.Count > 0)
         {
+            int attackTargetId = FindEnemyTargetAt(mouse.Position);
             int resourceNodeId = FindResourceAt(mouse.Position);
-            if (resourceNodeId != 0)
+            if (attackTargetId != 0)
+            {
+                _facade!.QueueAttack(LocalPlayerIndex, _selectedUnitIds.ToArray(), attackTargetId);
+            }
+            else if (resourceNodeId != 0)
             {
                 _facade!.QueueGatherResource(LocalPlayerIndex, resourceNodeId, _selectedUnitIds.ToArray());
             }
@@ -356,6 +361,32 @@ public partial class RtsClientRoot : Node2D
         {
             GodotPrimitiveDto primitive = _frame.Primitives[i];
             if (primitive.Kind < 7 || primitive.Kind > 9)
+            {
+                continue;
+            }
+
+            if (PrimitiveRect(primitive).HasPoint(screenPosition))
+            {
+                return primitive.EntityId;
+            }
+        }
+
+        return 0;
+    }
+
+    private int FindEnemyTargetAt(Vector2 screenPosition)
+    {
+        if (_frame == null)
+        {
+            return 0;
+        }
+
+        for (int i = 0; i < _frame.Primitives.Length; i++)
+        {
+            GodotPrimitiveDto primitive = _frame.Primitives[i];
+            if ((primitive.Kind != 1 && primitive.Kind != 2 && primitive.Kind != 3)
+                || primitive.OwnerPlayerIndex == LocalPlayerIndex
+                || primitive.OwnerPlayerIndex < 0)
             {
                 continue;
             }

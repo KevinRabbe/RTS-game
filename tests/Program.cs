@@ -109,6 +109,7 @@ namespace RtsGame.Tests
                 new TestCase("godot facade exposes resource primitive dto", GodotFacadeExposesResourcePrimitiveDto),
                 new TestCase("godot facade routes gather command", GodotFacadeRoutesGatherCommand),
                 new TestCase("godot facade routes training command", GodotFacadeRoutesTrainingCommand),
+                new TestCase("godot facade routes attack command", GodotFacadeRoutesAttackCommand),
                 new TestCase("train infantry completes", TrainInfantryCompletes),
                 new TestCase("train cavalry completes", TrainCavalryCompletes),
                 new TestCase("cavalry moves faster than infantry", CavalryMovesFasterThanInfantry),
@@ -1619,6 +1620,17 @@ namespace RtsGame.Tests
             AssertEqual(10, frame.LocalPlayer.Food, "godot facade should spend villager food cost through training command");
             AssertEqual(6, frame.LocalPlayer.PopulationUsed, "training should reserve one villager population through simulation");
             AssertEqual(0, facade.RejectedCommandCount, "valid facade training flow should not reject");
+        }
+
+        private static void GodotFacadeRoutesAttackCommand()
+        {
+            GodotClientFacade facade = GodotClientFacade.CreateLocal1v1(86);
+
+            facade.QueueAttack(0, new[] { 1 }, 6);
+            facade.AdvanceOneTick();
+
+            AssertEqual(2, facade.ExecutedCommandCount, "facade attack should execute alongside automatic local noop");
+            AssertEqual(0, facade.RejectedCommandCount, "valid facade attack command should not reject");
         }
 
         private static void TrainInfantryCompletes()
