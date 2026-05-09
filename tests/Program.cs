@@ -136,6 +136,9 @@ namespace RtsGame.Tests
                 new TestCase("godot visual style resolves resources", GodotVisualStyleResolvesResources),
                 new TestCase("godot primitive draw kind resolves known primitives", GodotPrimitiveDrawKindResolvesKnownPrimitives),
                 new TestCase("godot primitive draw kind returns none for unknown", GodotPrimitiveDrawKindReturnsNoneForUnknown),
+                new TestCase("godot coordinate mapper converts raw to pixels", GodotCoordinateMapperConvertsRawToPixels),
+                new TestCase("godot coordinate mapper converts screen to raw", GodotCoordinateMapperConvertsScreenToRaw),
+                new TestCase("godot coordinate mapper floors screen tile", GodotCoordinateMapperFloorsScreenTile),
                 new TestCase("train infantry completes", TrainInfantryCompletes),
                 new TestCase("train cavalry completes", TrainCavalryCompletes),
                 new TestCase("cavalry moves faster than infantry", CavalryMovesFasterThanInfantry),
@@ -2029,6 +2032,26 @@ namespace RtsGame.Tests
             GodotPrimitiveDto primitive = CreateGodotPrimitive((VisualPrimitiveKind)999, 160, 0, 1, 1);
 
             AssertEqual(GodotPrimitiveDrawKind.None, GodotPrimitiveDrawKindResolver.Resolve(primitive), "unknown primitive kind should resolve to none");
+        }
+
+        private static void GodotCoordinateMapperConvertsRawToPixels()
+        {
+            float pixels = GodotCoordinateMapper.RawToPixels(Fixed.FromInt(3).Raw, 16.0f);
+
+            AssertEqual(48.0f, pixels, "three fixed tiles should convert to forty-eight pixels at sixteen pixels per tile");
+        }
+
+        private static void GodotCoordinateMapperConvertsScreenToRaw()
+        {
+            long raw = GodotCoordinateMapper.ScreenToRaw(24.0f, 16.0f);
+
+            AssertEqual(Fixed.FromRatio(3, 2).Raw, raw, "twenty-four pixels should convert to one and a half raw tiles at sixteen pixels per tile");
+        }
+
+        private static void GodotCoordinateMapperFloorsScreenTile()
+        {
+            AssertEqual(1, GodotCoordinateMapper.ScreenToTile(31.9f, 16.0f), "positive screen coordinates should floor to tile index");
+            AssertEqual(-1, GodotCoordinateMapper.ScreenToTile(-0.1f, 16.0f), "negative screen coordinates should floor down, not truncate toward zero");
         }
 
         private static void TrainInfantryCompletes()

@@ -7,7 +7,6 @@ public partial class RtsClientRoot : Node2D
 {
     private const int LocalPlayerIndex = 0;
     private const float TilePixels = 16.0f;
-    private const long FixedOneRaw = 1L << 16;
     private const double TickSeconds = 1.0 / 20.0;
     private const int VillagerUnitTypeId = 1;
     private const int InfantryUnitTypeId = 3;
@@ -328,18 +327,18 @@ public partial class RtsClientRoot : Node2D
 
     private static float RawToPixels(long raw)
     {
-        return (float)((raw / (double)FixedOneRaw) * TilePixels);
+        return GodotCoordinateMapper.RawToPixels(raw, TilePixels);
     }
 
     private static long ScreenToRaw(float screenCoordinate)
     {
-        return (long)((screenCoordinate / TilePixels) * FixedOneRaw);
+        return GodotCoordinateMapper.ScreenToRaw(screenCoordinate, TilePixels);
     }
 
     private static Vector2I ScreenToTile(Vector2 screenPosition)
     {
-        int x = Mathf.FloorToInt(screenPosition.X / TilePixels);
-        int y = Mathf.FloorToInt(screenPosition.Y / TilePixels);
+        int x = GodotCoordinateMapper.ScreenToTile(screenPosition.X, TilePixels);
+        int y = GodotCoordinateMapper.ScreenToTile(screenPosition.Y, TilePixels);
         return new Vector2I(x, y);
     }
 

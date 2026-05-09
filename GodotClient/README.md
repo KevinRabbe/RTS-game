@@ -56,5 +56,6 @@ Current Godot shell:
 - HUD text is assembled by a presentation-only bridge helper so status formatting is testable outside Godot.
 - Visual style keys are resolved by a presentation-only bridge helper; the Godot script maps those keys to actual colors.
 - Primitive draw kinds are resolved by a presentation-only bridge helper so the Godot script does not switch on raw DTO kind numbers.
+- Fixed raw, pixel, and tile coordinate conversions are centralized in a presentation-only bridge helper.
 
 The script may convert fixed raw coordinates to pixels for drawing. It must not contain combat, economy, placement, pathing, or validation rules.
