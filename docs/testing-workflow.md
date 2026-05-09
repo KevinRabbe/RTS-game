@@ -11,6 +11,8 @@ dotnet run --project tests\RtsGame.Tests.csproj --no-build
 
 The full run covers deterministic simulation, replay, lockstep, presentation boundaries, Godot bridge helpers, and chaos stress smoke scenarios.
 
+GitHub Actions uses the same build and full-suite commands in `.github/workflows/ci.yml`.
+
 ## Focused Runs
 
 The runner supports a deterministic name filter for faster local iteration:
