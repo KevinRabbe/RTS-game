@@ -1,4 +1,5 @@
 using RtsGame.Net.Lockstep;
+using RtsGame.Presentation.ClientInput;
 using RtsGame.Presentation.Snapshots;
 using RtsGame.Presentation.Visuals;
 using RtsGame.Sim.Checksums;
@@ -88,6 +89,9 @@ namespace RtsGame.Tests
                 new TestCase("visual frame marks capital larger than normal building", VisualFrameMarksCapitalLargerThanNormalBuilding),
                 new TestCase("visual frame includes trade route line", VisualFrameIncludesTradeRouteLine),
                 new TestCase("visual frame does not mutate checksum", VisualFrameDoesNotMutateChecksum),
+                new TestCase("client intent maps movement command", ClientIntentMapsMovementCommand),
+                new TestCase("client intent maps local 1v1 command flow", ClientIntentMapsLocal1v1CommandFlow),
+                new TestCase("client command mapping does not mutate checksum", ClientCommandMappingDoesNotMutateChecksum),
                 new TestCase("train infantry completes", TrainInfantryCompletes),
                 new TestCase("train cavalry completes", TrainCavalryCompletes),
                 new TestCase("cavalry moves faster than infantry", CavalryMovesFasterThanInfantry),
@@ -1324,6 +1328,63 @@ namespace RtsGame.Tests
             ulong after = StateChecksum.Compute(state, rules);
 
             AssertEqual(before, after, "building visual frame must not mutate simulation state");
+        }
+
+        private static void ClientIntentMapsMovementCommand()
+        {
+            CommandEnvelope envelope = ClientCommandMapper.ToCommandEnvelope(
+                ClientCommandIntent.MoveUnits(new[] { 1, 2 }, FixedVector2.FromInts(5, 6)),
+                12,
+                0,
+                7);
+
+            AssertEqual(12, envelope.Header.Tick, "client intent should copy command tick");
+            AssertEqual(0, envelope.Header.PlayerIndex, "client intent should copy player index");
+            AssertEqual(7u, envelope.Header.Sequence, "client intent should copy sequence");
+            AssertEqual(CommandType.MoveUnits, envelope.Header.CommandType, "client movement intent should map to movement command");
+            AssertEqual(CommandType.MoveUnits, envelope.Payload.Type, "payload should be movement command");
+        }
+
+        private static void ClientIntentMapsLocal1v1CommandFlow()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = GameInitializer.CreateNomadStart(69, 2);
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+
+            buffer.Add(ClientCommandMapper.ToCommandEnvelope(ClientCommandIntent.PlaceTownCenter(FixedVector2.FromInts(10, 10)), 0, 0, 0));
+            buffer.Add(ClientCommandMapper.ToCommandEnvelope(ClientCommandIntent.PlaceTownCenter(FixedVector2.FromInts(50, 10)), 0, 1, 0));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            buffer.Add(ClientCommandMapper.ToCommandEnvelope(ClientCommandIntent.AssignBuild(11, new[] { 1, 2, 3, 4 }), 1, 0, 1));
+            buffer.Add(ClientCommandMapper.ToCommandEnvelope(ClientCommandIntent.AssignBuild(12, new[] { 6, 7, 8, 9 }), 1, 1, 1));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            buffer.Add(ClientCommandMapper.ToCommandEnvelope(ClientCommandIntent.NoOp(), 2, 0, 2));
+            buffer.Add(ClientCommandMapper.ToCommandEnvelope(ClientCommandIntent.NoOp(), 2, 1, 2));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            buffer.Add(ClientCommandMapper.ToCommandEnvelope(ClientCommandIntent.MoveUnits(new[] { 5 }, FixedVector2.FromInts(12, 12)), 3, 0, 3));
+            buffer.Add(ClientCommandMapper.ToCommandEnvelope(ClientCommandIntent.NoOp(), 3, 1, 3));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(true, state.PlayerStates.Players[0].CapitalStatus.CapitalBonusActive, "client flow should complete player 0 capital through normal sim commands");
+            AssertEqual(true, state.PlayerStates.Players[1].CapitalStatus.CapitalBonusActive, "client flow should complete player 1 capital through normal sim commands");
+            AssertEqual(true, state.EntityState.Units[4].HasMoveTarget, "client movement intent should assign normal sim move target");
+            AssertEqual(0, state.DebugCounters.RejectedCommandCount, "client intent flow should not create invalid commands");
+        }
+
+        private static void ClientCommandMappingDoesNotMutateChecksum()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = GameInitializer.CreateNomadStart(70, 1);
+            new TickRunner().AdvanceOneTick(state, rules, new CommandBuffer());
+            ulong before = StateChecksum.Compute(state, rules);
+
+            ClientCommandMapper.ToCommandEnvelope(ClientCommandIntent.PlaceTownCenter(FixedVector2.FromInts(10, 10)), state.Tick, 0, 0);
+            ulong after = StateChecksum.Compute(state, rules);
+
+            AssertEqual(before, after, "mapping client intent should not mutate simulation state");
         }
 
         private static void TrainInfantryCompletes()

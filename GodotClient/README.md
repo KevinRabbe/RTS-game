@@ -16,3 +16,9 @@ Current presentation path:
 `GameState -> GameSnapshot -> VisualFrame -> Godot drawing`
 
 The first visual pass should draw intentionally plain primitives: colored unit squares, building rectangles, larger Capital rectangles, wall rectangles, trade route lines, health bars, and a simple fog overlay.
+
+Input path:
+
+`Godot input -> ClientCommandIntent -> CommandEnvelope -> simulation command validation`
+
+Godot collects intent only. The simulation remains the only authority that validates and executes commands.
