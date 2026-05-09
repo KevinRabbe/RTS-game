@@ -7,7 +7,8 @@ namespace RtsGame.Presentation.GodotBridge
         None = 0,
         Move = 1,
         GatherResource = 2,
-        Attack = 3
+        Attack = 3,
+        AssignBuild = 4
     }
 
     public readonly struct GodotInteractionIntent
@@ -37,6 +38,12 @@ namespace RtsGame.Presentation.GodotBridge
             if (targetId != 0)
             {
                 return new GodotInteractionIntent(GodotInteractionIntentKind.Attack, targetId, 0);
+            }
+
+            int buildTargetId = FindOwnBuildTargetAt(frame, localPlayerIndex, xRaw, yRaw);
+            if (buildTargetId != 0)
+            {
+                return new GodotInteractionIntent(GodotInteractionIntentKind.AssignBuild, buildTargetId, 0);
             }
 
             int resourceId = FindResourceAt(frame, xRaw, yRaw);
@@ -90,6 +97,45 @@ namespace RtsGame.Presentation.GodotBridge
             }
 
             return 0;
+        }
+
+        public static int FindOwnBuildTargetAt(GodotFrameDto frame, int localPlayerIndex, long xRaw, long yRaw)
+        {
+            for (int i = 0; i < frame.Primitives.Length; i++)
+            {
+                GodotPrimitiveDto primitive = frame.Primitives[i];
+                if ((primitive.Kind != (int)VisualPrimitiveKind.BuildingRectangle
+                        && primitive.Kind != (int)VisualPrimitiveKind.WallRectangle)
+                    || primitive.OwnerPlayerIndex != localPlayerIndex)
+                {
+                    continue;
+                }
+
+                if (!IsUnderConstruction(frame, primitive.EntityId))
+                {
+                    continue;
+                }
+
+                if (GodotPrimitiveHitTest.ContainsPoint(primitive, xRaw, yRaw))
+                {
+                    return primitive.EntityId;
+                }
+            }
+
+            return 0;
+        }
+
+        private static bool IsUnderConstruction(GodotFrameDto frame, int buildingId)
+        {
+            for (int i = 0; i < frame.BuildingStatuses.Length; i++)
+            {
+                if (frame.BuildingStatuses[i].BuildingId == buildingId)
+                {
+                    return frame.BuildingStatuses[i].IsUnderConstruction;
+                }
+            }
+
+            return false;
         }
     }
 }

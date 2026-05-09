@@ -129,6 +129,8 @@ namespace RtsGame.Tests
                 new TestCase("godot facade routes wall command", GodotFacadeRoutesWallCommand),
                 new TestCase("godot facade routes trade post command", GodotFacadeRoutesTradePostCommand),
                 new TestCase("godot interaction router prioritizes attack", GodotInteractionRouterPrioritizesAttack),
+                new TestCase("godot interaction router routes build assignment", GodotInteractionRouterRoutesBuildAssignment),
+                new TestCase("godot interaction router ignores completed build target", GodotInteractionRouterIgnoresCompletedBuildTarget),
                 new TestCase("godot interaction router routes resources", GodotInteractionRouterRoutesResources),
                 new TestCase("godot interaction router routes move fallback", GodotInteractionRouterRoutesMoveFallback),
                 new TestCase("godot interaction router ignores friendly target", GodotInteractionRouterIgnoresFriendlyTarget),
@@ -2037,6 +2039,42 @@ namespace RtsGame.Tests
             AssertEqual(0, intent.ResourceNodeId, "attack intent should not expose a resource id");
         }
 
+        private static void GodotInteractionRouterRoutesBuildAssignment()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(
+                new[]
+                {
+                    CreateGodotPrimitive(VisualPrimitiveKind.BuildingRectangle, 21, 0, 5, 5)
+                },
+                new[]
+                {
+                    new GodotBuildingStatusDto(21, (int)BuildingTypeId.TownCenter, true, 1, GameData.TownCenterBuildTicks, 0, 0, 0, 0)
+                });
+
+            GodotInteractionIntent intent = GodotInteractionRouter.RouteRightClick(frame, 0, true, Fixed.FromInt(5).Raw, Fixed.FromInt(5).Raw);
+
+            AssertEqual(GodotInteractionIntentKind.AssignBuild, intent.Kind, "own under-construction building should route to build assignment");
+            AssertEqual(21, intent.TargetEntityId, "build assignment intent should expose target building id");
+        }
+
+        private static void GodotInteractionRouterIgnoresCompletedBuildTarget()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(
+                new[]
+                {
+                    CreateGodotPrimitive(VisualPrimitiveKind.BuildingRectangle, 22, 0, 5, 5)
+                },
+                new[]
+                {
+                    new GodotBuildingStatusDto(22, (int)BuildingTypeId.TownCenter, false, GameData.TownCenterBuildTicks, GameData.TownCenterBuildTicks, 0, 0, 0, 0)
+                });
+
+            GodotInteractionIntent intent = GodotInteractionRouter.RouteRightClick(frame, 0, true, Fixed.FromInt(5).Raw, Fixed.FromInt(5).Raw);
+
+            AssertEqual(GodotInteractionIntentKind.Move, intent.Kind, "completed own building should not route to build assignment");
+            AssertEqual(0, intent.TargetEntityId, "completed own building should not be exposed as a build target");
+        }
+
         private static void GodotInteractionRouterRoutesResources()
         {
             GodotFrameDto frame = CreateGodotInteractionFrame(new[]
@@ -3829,6 +3867,11 @@ namespace RtsGame.Tests
 
         private static GodotFrameDto CreateGodotInteractionFrame(GodotPrimitiveDto[] primitives)
         {
+            return CreateGodotInteractionFrame(primitives, new GodotBuildingStatusDto[0]);
+        }
+
+        private static GodotFrameDto CreateGodotInteractionFrame(GodotPrimitiveDto[] primitives, GodotBuildingStatusDto[] buildingStatuses)
+        {
             return new GodotFrameDto(
                 0,
                 0,
@@ -3836,7 +3879,7 @@ namespace RtsGame.Tests
                 new GodotMatchDto(false, -1, -1),
                 primitives,
                 new GodotUnitStatusDto[0],
-                new GodotBuildingStatusDto[0]);
+                buildingStatuses);
         }
 
         private static GodotFrameDto CreateGodotHudFrame(

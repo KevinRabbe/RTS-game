@@ -43,6 +43,7 @@ Current Godot shell:
 - Left-click selection is resolved by a presentation-only selection router with priority: local unit, then local building or wall.
 - Right click issues a move intent for selected units.
 - Right click on an enemy unit or building issues an attack intent for selected units.
+- Right click on a visible own under-construction building or wall assigns selected units to build it.
 - Right click on visible food, wood, or gold issues a gather intent for selected units.
 - Right-click routing is resolved by a presentation-only interaction router with priority: attack target, resource gather, then move fallback.
 - `C` queues a local Town Center placement at the mouse tile.

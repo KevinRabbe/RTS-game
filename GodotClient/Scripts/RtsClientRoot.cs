@@ -148,6 +148,10 @@ public partial class RtsClientRoot : Node2D
             {
                 _facade!.QueueAttack(LocalPlayerIndex, _selectedUnitIds.ToArray(), intent.TargetEntityId);
             }
+            else if (intent.Kind == GodotInteractionIntentKind.AssignBuild)
+            {
+                _facade!.QueueAssignBuild(LocalPlayerIndex, intent.TargetEntityId, _selectedUnitIds.ToArray());
+            }
             else if (intent.Kind == GodotInteractionIntentKind.GatherResource)
             {
                 _facade!.QueueGatherResource(LocalPlayerIndex, intent.ResourceNodeId, _selectedUnitIds.ToArray());
