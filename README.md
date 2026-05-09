@@ -45,3 +45,16 @@ First prove:
 7. Capital destruction as a turning point.
 
 Only expand factions, trade depth, AI, spectator tools, and ranked infrastructure after the deterministic foundation is stable.
+
+## CNC / G-Code Demo
+
+Als kleiner Portfolio-Gag fuer meine Bewerbung als Zerspanungsmechaniker enthaelt dieses Projekt ein Tool, das Bewegungswege von RTS-Einheiten als Demo-G-Code exportiert.
+
+Der erzeugte G-Code ist **nicht fuer echte CNC-Maschinen gedacht**.
+
+Das Tool zeigt:
+
+- Koordinatentransformation.
+- Deterministische Bewegungsdaten.
+- Einfache G-Code-Struktur.
+- Technisches Interesse an CNC / Fertigungstechnik.

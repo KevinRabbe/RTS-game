@@ -3,5 +3,6 @@
   <Project Path="src/net/RtsGame.Net.csproj" />
   <Project Path="src/tools/Stress/RtsGame.Stress.csproj" />
   <Project Path="src/tools/Headless/RtsGame.Headless.csproj" />
+  <Project Path="src/tools/GCodeExport/RtsGame.GCodeExport.csproj" />
   <Project Path="tests/RtsGame.Tests.csproj" />
 </Solution>

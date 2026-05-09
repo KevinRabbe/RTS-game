@@ -11,6 +11,7 @@
     <ProjectReference Include="..\src\sim\RtsGame.Sim.csproj" />
     <ProjectReference Include="..\src\net\RtsGame.Net.csproj" />
     <ProjectReference Include="..\src\tools\Stress\RtsGame.Stress.csproj" />
+    <ProjectReference Include="..\src\tools\GCodeExport\RtsGame.GCodeExport.csproj" />
   </ItemGroup>
 
 </Project>

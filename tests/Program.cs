@@ -6,6 +6,7 @@ using RtsGame.Sim.Data;
 using RtsGame.Sim.Determinism;
 using RtsGame.Sim.Replay;
 using RtsGame.Stress;
+using RtsGame.GCodeExport;
 
 namespace RtsGame.Tests
 {
@@ -135,7 +136,13 @@ namespace RtsGame.Tests
                 new TestCase("chaos v1 stress smoke", ChaosV1StressSmoke),
                 new TestCase("chaos v2 stress smoke", ChaosV2StressSmoke),
                 new TestCase("chaos v3 stress smoke", ChaosV3StressSmoke),
-                new TestCase("chaos v4 stress smoke", ChaosV4StressSmoke)
+                new TestCase("chaos v4 stress smoke", ChaosV4StressSmoke),
+                new TestCase("g-code empty path", GCodeEmptyPath),
+                new TestCase("g-code single point path", GCodeSinglePointPath),
+                new TestCase("g-code multi point path", GCodeMultiPointPath),
+                new TestCase("g-code tile to mm scaling", GCodeTileToMmScaling),
+                new TestCase("g-code invariant decimal formatting", GCodeInvariantDecimalFormatting),
+                new TestCase("g-code includes demo safety warning", GCodeIncludesDemoSafetyWarning)
             };
 
             int failed = 0;
@@ -2126,6 +2133,64 @@ namespace RtsGame.Tests
             AssertEqual(1, result.ScenarioVersion, "chaos v4 version should be frozen at v1");
         }
 
+        private static void GCodeEmptyPath()
+        {
+            string gcode = GCodeExporter.ExportPath(new GCodePathPoint[0], GCodeExportConfig.Default);
+
+            AssertContains(gcode, "G21", "empty export should include millimeter units");
+            AssertContains(gcode, "G90", "empty export should include absolute positioning");
+            AssertContains(gcode, "M30", "empty export should end program");
+            AssertFalse(gcode.Contains("G1 X"), "empty export should not draw movement");
+        }
+
+        private static void GCodeSinglePointPath()
+        {
+            string gcode = GCodeExporter.ExportPath(new[] { new GCodePathPoint(5, 12, 8) }, GCodeExportConfig.Default);
+
+            AssertContains(gcode, "(tick 5)", "single point should include tick comment");
+            AssertContains(gcode, "G0 X120.000 Y80.000", "single point should rapid to scaled position");
+            AssertContains(gcode, "G1 Z-1.000 F600.000", "single point should lower to draw depth");
+        }
+
+        private static void GCodeMultiPointPath()
+        {
+            string gcode = GCodeExporter.ExportPath(new[]
+            {
+                new GCodePathPoint(1, 1, 1),
+                new GCodePathPoint(2, 2, 1),
+                new GCodePathPoint(3, 2, 3)
+            }, GCodeExportConfig.Default);
+
+            AssertContains(gcode, "G1 X20.000 Y10.000 F600.000", "second point should draw first segment");
+            AssertContains(gcode, "G1 X20.000 Y30.000 F600.000", "third point should draw second segment");
+        }
+
+        private static void GCodeTileToMmScaling()
+        {
+            var config = new GCodeExportConfig(2.5m, 7m, -0.5m, 123.45m);
+            string gcode = GCodeExporter.ExportPath(new[] { new GCodePathPoint(0, 4, 6) }, config);
+
+            AssertContains(gcode, "G0 X10.000 Y15.000", "tile coordinates should scale to millimeters");
+        }
+
+        private static void GCodeInvariantDecimalFormatting()
+        {
+            var config = new GCodeExportConfig(1.5m, 2.25m, -0.75m, 100.5m);
+            string gcode = GCodeExporter.ExportPath(new[] { new GCodePathPoint(0, 1, 1) }, config);
+
+            AssertContains(gcode, "X1.500 Y1.500", "decimal formatting should use invariant dot separator");
+            AssertFalse(gcode.Contains("1,500"), "decimal formatting should not use comma separator");
+        }
+
+        private static void GCodeIncludesDemoSafetyWarning()
+        {
+            string gcode = GCodeExporter.ExportPath(new[] { new GCodePathPoint(0, 0, 0) }, GCodeExportConfig.Default);
+
+            AssertContains(gcode, GCodeExporter.DemoWarning, "export must include demo safety warning");
+            AssertFalse(gcode.Contains("\nM3\n") || gcode.Contains("\nM3 "), "export must not include spindle commands");
+            AssertFalse(gcode.Contains("\nM8\n") || gcode.Contains("\nM8 "), "export must not include coolant commands");
+        }
+
         private static ulong RunNoOpSimulation(int ticks, int players, ulong seed)
         {
             var rules = GameRules.CreatePhaseZeroDefaults(players);
@@ -2417,6 +2482,14 @@ namespace RtsGame.Tests
             if (value)
             {
                 throw new InvalidOperationException(message);
+            }
+        }
+
+        private static void AssertContains(string text, string expected, string message)
+        {
+            if (!text.Contains(expected))
+            {
+                throw new InvalidOperationException(message + " expected to contain=" + expected);
             }
         }
 
