@@ -141,6 +141,7 @@ namespace RtsGame.Presentation.GodotBridge
             return new GodotPrimitiveDto(
                 (int)primitive.Kind,
                 primitive.EntityId,
+                primitive.TypeId,
                 primitive.OwnerPlayerIndex,
                 primitive.Position.X.Raw,
                 primitive.Position.Y.Raw,

@@ -19,6 +19,7 @@ namespace RtsGame.Presentation.Visuals
     {
         public VisualPrimitiveKind Kind { get; }
         public int EntityId { get; }
+        public int TypeId { get; }
         public int OwnerPlayerIndex { get; }
         public FixedVector2 Position { get; }
         public FixedVector2 EndPosition { get; }
@@ -30,6 +31,7 @@ namespace RtsGame.Presentation.Visuals
         public VisualPrimitive(
             VisualPrimitiveKind kind,
             int entityId,
+            int typeId,
             int ownerPlayerIndex,
             FixedVector2 position,
             FixedVector2 endPosition,
@@ -40,6 +42,7 @@ namespace RtsGame.Presentation.Visuals
         {
             Kind = kind;
             EntityId = entityId;
+            TypeId = typeId;
             OwnerPlayerIndex = ownerPlayerIndex;
             Position = position;
             EndPosition = endPosition;

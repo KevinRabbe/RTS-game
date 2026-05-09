@@ -42,6 +42,7 @@ namespace RtsGame.Presentation.Visuals
             primitives.Add(new VisualPrimitive(
                 VisualPrimitiveKind.FogOverlay,
                 0,
+                0,
                 GameData.NeutralOwnerPlayerIndex,
                 FixedVector2.FromInts(0, 0),
                 FixedVector2.FromInts(0, 0),
@@ -56,6 +57,7 @@ namespace RtsGame.Presentation.Visuals
             primitives.Add(new VisualPrimitive(
                 VisualPrimitiveKind.UnitSquare,
                 unit.Id,
+                (int)unit.UnitTypeId,
                 unit.OwnerPlayerIndex,
                 unit.Position,
                 unit.Position,
@@ -74,6 +76,7 @@ namespace RtsGame.Presentation.Visuals
             primitives.Add(new VisualPrimitive(
                 kind,
                 building.Id,
+                (int)building.BuildingTypeId,
                 building.OwnerPlayerIndex,
                 building.Position,
                 building.Position,
@@ -89,6 +92,7 @@ namespace RtsGame.Presentation.Visuals
             primitives.Add(new VisualPrimitive(
                 GetResourceKind(resource.ResourceType),
                 resource.Id,
+                (int)resource.ResourceType,
                 GameData.NeutralOwnerPlayerIndex,
                 resource.Position,
                 resource.Position,
@@ -118,6 +122,7 @@ namespace RtsGame.Presentation.Visuals
             primitives.Add(new VisualPrimitive(
                 VisualPrimitiveKind.HealthBar,
                 entityId,
+                0,
                 ownerPlayerIndex,
                 position,
                 position,
@@ -145,6 +150,7 @@ namespace RtsGame.Presentation.Visuals
                 primitives.Add(new VisualPrimitive(
                     VisualPrimitiveKind.TradeRouteLine,
                     unit.Id,
+                    (int)unit.UnitTypeId,
                     unit.OwnerPlayerIndex,
                     first.Position,
                     second.Position,

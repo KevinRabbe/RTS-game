@@ -10,7 +10,9 @@ public partial class RtsClientRoot : Node2D
     private const long FixedOneRaw = 1L << 16;
     private const double TickSeconds = 1.0 / 20.0;
     private const int VillagerUnitTypeId = 1;
+    private const int ScoutUnitTypeId = 2;
     private const int InfantryUnitTypeId = 3;
+    private const int CavalryUnitTypeId = 7;
 
     private readonly List<int> _selectedUnitIds = new List<int>();
     private GodotClientFacade? _facade;
@@ -225,7 +227,7 @@ public partial class RtsClientRoot : Node2D
     private void DrawUnit(GodotPrimitiveDto primitive)
     {
         Rect2 rect = PrimitiveRect(primitive);
-        Color color = primitive.OwnerPlayerIndex == LocalPlayerIndex ? Colors.DeepSkyBlue : Colors.IndianRed;
+        Color color = GetUnitColor(primitive);
         DrawRect(rect, color);
         if (_selectedUnitIds.Contains(primitive.EntityId))
         {
@@ -317,6 +319,36 @@ public partial class RtsClientRoot : Node2D
             + (_paused ? "  Paused" : "");
 
         DrawString(ThemeDB.FallbackFont, new Vector2(12.0f, 20.0f), text, HorizontalAlignment.Left, -1.0f, 16, Colors.White);
+    }
+
+    private static Color GetUnitColor(GodotPrimitiveDto primitive)
+    {
+        if (primitive.OwnerPlayerIndex != LocalPlayerIndex)
+        {
+            return Colors.IndianRed;
+        }
+
+        if (primitive.TypeId == VillagerUnitTypeId)
+        {
+            return Colors.DeepSkyBlue;
+        }
+
+        if (primitive.TypeId == ScoutUnitTypeId)
+        {
+            return Colors.Aqua;
+        }
+
+        if (primitive.TypeId == InfantryUnitTypeId)
+        {
+            return Colors.RoyalBlue;
+        }
+
+        if (primitive.TypeId == CavalryUnitTypeId)
+        {
+            return Colors.CornflowerBlue;
+        }
+
+        return Colors.SteelBlue;
     }
 
     private Rect2 PrimitiveRect(GodotPrimitiveDto primitive)

@@ -91,6 +91,7 @@ namespace RtsGame.Tests
                 new TestCase("simulation does not reference presentation", SimulationDoesNotReferencePresentation),
                 new TestCase("visual frame creates ugly prototype primitives", VisualFrameCreatesUglyPrototypePrimitives),
                 new TestCase("visual frame marks capital larger than normal building", VisualFrameMarksCapitalLargerThanNormalBuilding),
+                new TestCase("visual frame includes type ids", VisualFrameIncludesTypeIds),
                 new TestCase("visual frame includes resource primitives", VisualFrameIncludesResourcePrimitives),
                 new TestCase("visual frame includes trade route line", VisualFrameIncludesTradeRouteLine),
                 new TestCase("visual frame does not mutate checksum", VisualFrameDoesNotMutateChecksum),
@@ -106,6 +107,7 @@ namespace RtsGame.Tests
                 new TestCase("godot facade drives local capital flow", GodotFacadeDrivesLocalCapitalFlow),
                 new TestCase("godot facade rejects invalid commands through sim", GodotFacadeRejectsInvalidCommandsThroughSim),
                 new TestCase("godot facade exposes fixed raw coordinates", GodotFacadeExposesFixedRawCoordinates),
+                new TestCase("godot facade exposes primitive type ids", GodotFacadeExposesPrimitiveTypeIds),
                 new TestCase("godot facade exposes resource primitive dto", GodotFacadeExposesResourcePrimitiveDto),
                 new TestCase("godot facade routes gather command", GodotFacadeRoutesGatherCommand),
                 new TestCase("godot facade routes training command", GodotFacadeRoutesTrainingCommand),
@@ -1348,6 +1350,23 @@ namespace RtsGame.Tests
             AssertEqual(true, capital.Size.Raw > normalTownCenter.Size.Raw, "capital should render larger than normal town center");
         }
 
+        private static void VisualFrameIncludesTypeIds()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = GameInitializer.CreateNomadStart(87, 1);
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(0, 0));
+            new TickRunner().AdvanceOneTick(state, rules, new CommandBuffer());
+
+            VisualFrame frame = VisualFrameBuilder.Build(GameSnapshotBuilder.Build(state, 0));
+            VisualPrimitive villager = FindPrimitive(frame, VisualPrimitiveKind.UnitSquare, 1);
+            VisualPrimitive townCenter = FindPrimitive(frame, VisualPrimitiveKind.BuildingRectangle, state.PlayerStates.Players[0].CapitalStatus.CapitalBuildingId);
+            VisualPrimitive food = FindPrimitive(frame, VisualPrimitiveKind.FoodResourceCircle, 1);
+
+            AssertEqual((int)UnitTypeId.Villager, villager.TypeId, "unit visual primitive should expose unit type id");
+            AssertEqual((int)BuildingTypeId.TownCenter, townCenter.TypeId, "building visual primitive should expose building type id");
+            AssertEqual((int)ResourceType.Food, food.TypeId, "resource visual primitive should expose resource type id");
+        }
+
         private static void VisualFrameIncludesResourcePrimitives()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -1572,6 +1591,22 @@ namespace RtsGame.Tests
             AssertEqual(Fixed.FromInt(0).Raw, unit.XRaw, "godot facade should expose fixed raw X coordinate");
             AssertEqual(Fixed.FromInt(0).Raw, unit.YRaw, "godot facade should expose fixed raw Y coordinate");
             AssertEqual(Fixed.FromRatio(7, 10).Raw, unit.SizeRaw, "godot facade should expose fixed raw primitive size");
+        }
+
+        private static void GodotFacadeExposesPrimitiveTypeIds()
+        {
+            GodotClientFacade facade = GodotClientFacade.CreateLocal1v1(88);
+
+            facade.QueuePlaceTownCenter(0, 3, 8);
+            facade.AdvanceOneTick();
+            GodotFrameDto frame = facade.GetFrame(0);
+            GodotPrimitiveDto villager = FindGodotPrimitive(frame, VisualPrimitiveKind.UnitSquare, 1);
+            GodotPrimitiveDto townCenter = FindGodotPrimitive(frame, VisualPrimitiveKind.BuildingRectangle, 11);
+            GodotPrimitiveDto food = FindGodotPrimitive(frame, VisualPrimitiveKind.FoodResourceCircle, 1);
+
+            AssertEqual((int)UnitTypeId.Villager, villager.TypeId, "godot unit primitive should expose unit type id");
+            AssertEqual((int)BuildingTypeId.TownCenter, townCenter.TypeId, "godot building primitive should expose building type id");
+            AssertEqual((int)ResourceType.Food, food.TypeId, "godot resource primitive should expose resource type id");
         }
 
         private static void GodotFacadeExposesResourcePrimitiveDto()

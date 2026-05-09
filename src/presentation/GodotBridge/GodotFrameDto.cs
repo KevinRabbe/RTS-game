@@ -27,6 +27,7 @@ namespace RtsGame.Presentation.GodotBridge
     {
         public int Kind { get; }
         public int EntityId { get; }
+        public int TypeId { get; }
         public int OwnerPlayerIndex { get; }
         public long XRaw { get; }
         public long YRaw { get; }
@@ -40,6 +41,7 @@ namespace RtsGame.Presentation.GodotBridge
         public GodotPrimitiveDto(
             int kind,
             int entityId,
+            int typeId,
             int ownerPlayerIndex,
             long xRaw,
             long yRaw,
@@ -52,6 +54,7 @@ namespace RtsGame.Presentation.GodotBridge
         {
             Kind = kind;
             EntityId = entityId;
+            TypeId = typeId;
             OwnerPlayerIndex = ownerPlayerIndex;
             XRaw = xRaw;
             YRaw = yRaw;

@@ -48,5 +48,6 @@ Current Godot shell:
 - Left click a local building, then `I` queues infantry training.
 - `Space` pauses presentation tick advancement.
 - Visible food, wood, and gold are drawn as resource circles.
+- Visual DTOs include type ids so the shell can draw unit/building/resource types without guessing.
 
 The script may convert fixed raw coordinates to pixels for drawing. It must not contain combat, economy, placement, pathing, or validation rules.
