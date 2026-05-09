@@ -34,9 +34,13 @@ namespace RtsGame.Tests
                 new TestCase("first town center is free", FirstTownCenterIsFree),
                 new TestCase("second town center pays wood", SecondTownCenterPaysWood),
                 new TestCase("second town center rejects missing wood", SecondTownCenterRejectsMissingWood),
+                new TestCase("town center expansion cost stays meaningful", TownCenterExpansionCostStaysMeaningful),
                 new TestCase("first town center becomes capital", FirstTownCenterBecomesCapital),
                 new TestCase("second town center stays normal", SecondTownCenterStaysNormal),
+                new TestCase("completed normal town center stays weaker than capital", CompletedNormalTownCenterStaysWeakerThanCapital),
                 new TestCase("capital loss removes bonus", CapitalLossRemovesBonus),
+                new TestCase("town center after capital loss stays normal", TownCenterAfterCapitalLossStaysNormal),
+                new TestCase("normal town center does not inherit capital bonus", NormalTownCenterDoesNotInheritCapitalBonus),
                 new TestCase("capital placement replay determinism", CapitalPlacementReplayDeterminism),
                 new TestCase("capital placement lockstep", CapitalPlacementLockstep),
                 new TestCase("gather waits for completed town center", GatherWaitsForCompletedTownCenter),
@@ -406,6 +410,12 @@ namespace RtsGame.Tests
             AssertEqual(1, state.DebugCounters.RejectedCommandCount, "missing town center wood should count as rejected");
         }
 
+        private static void TownCenterExpansionCostStaysMeaningful()
+        {
+            AssertEqual(true, GameData.TownCenterWoodCost > GameData.TradePostWoodCost, "normal town center should cost more wood than a trade post");
+            AssertEqual(true, GameData.TownCenterWoodCost > GameData.WallWoodCost * 20, "normal town center should be meaningfully more expensive than walling");
+        }
+
         private static void FirstTownCenterBecomesCapital()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(2);
@@ -459,6 +469,27 @@ namespace RtsGame.Tests
             AssertEqual(GameData.CapitalPopulationBonus, state.PlayerStates.Players[0].PopulationCap, "capital bonus should apply only once");
         }
 
+        private static void CompletedNormalTownCenterStaysWeakerThanCapital()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            var state = GameInitializer.CreateNomadStart(15, 1);
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            CompleteCapitalForPlayerZero(rules, state, buffer, runner);
+            state.PlayerStates.Players[0].Resources.Wood = GameData.TownCenterWoodCost;
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 3, CommandType.PlaceTownCenter), new PlaceTownCenterCommand(FixedVector2.FromInts(20, 20))));
+            runner.AdvanceOneTick(state, rules, buffer);
+            int normalTownCenterId = state.EntityState.Buildings[1].Id;
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 4, CommandType.AssignBuild), new AssignBuildCommand(normalTownCenterId, new[] { 1, 2, 3, 4 })));
+            runner.AdvanceOneTick(state, rules, buffer);
+            AddNoOp(buffer, state.Tick, 0, 5);
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(false, state.EntityState.Buildings[1].IsUnderConstruction, "normal town center should complete");
+            AssertEqual(GameData.TownCenterHitPoints, state.EntityState.Buildings[1].HitPoints, "completed normal town center should use normal hit points");
+            AssertEqual(true, state.EntityState.Buildings[0].HitPoints > state.EntityState.Buildings[1].HitPoints, "capital should remain stronger than normal town center");
+        }
+
         private static void CapitalLossRemovesBonus()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -479,6 +510,45 @@ namespace RtsGame.Tests
             AssertEqual(false, state.PlayerStates.Players[0].CapitalStatus.IsCapitalAlive, "capital should no longer be alive");
             AssertEqual(false, state.PlayerStates.Players[0].CapitalStatus.CapitalBonusActive, "capital bonus should be inactive after loss");
             AssertEqual(0, state.PlayerStates.Players[0].PopulationCap, "capital population bonus should be removed");
+        }
+
+        private static void TownCenterAfterCapitalLossStaysNormal()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            var state = GameInitializer.CreateNomadStart(16, 1);
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            CompleteCapitalForPlayerZero(rules, state, buffer, runner);
+            state.EntityState.Buildings[0].IsDead = true;
+            runner.AdvanceOneTick(state, rules, buffer);
+            state.PlayerStates.Players[0].Resources.Wood = GameData.TownCenterWoodCost;
+
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 3, CommandType.PlaceTownCenter), new PlaceTownCenterCommand(FixedVector2.FromInts(20, 20))));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(1, state.EntityState.Buildings.Count, "replacement town center should place after capital loss");
+            AssertEqual(false, state.EntityState.Buildings[0].IsCapital, "capital cannot be rebuilt");
+            AssertEqual(GameData.TownCenterHitPoints, state.EntityState.Buildings[0].HitPoints, "post-loss town center should use normal hit points");
+            AssertEqual(true, state.PlayerStates.Players[0].CapitalStatus.HasCapitalBeenPlaced, "capital placement history should remain permanent");
+            AssertEqual(false, state.PlayerStates.Players[0].CapitalStatus.CapitalBonusActive, "capital bonus should not reactivate");
+        }
+
+        private static void NormalTownCenterDoesNotInheritCapitalBonus()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = CreateBuildingCombatState();
+            state.EntityState.Buildings[0].HitPoints = GameData.InfantryAttackDamage;
+            EntityFactory.CreateTownCenter(state, 1, FixedVector2.FromInts(3, 0));
+            state.EntityState.Buildings[1].IsUnderConstruction = false;
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.Attack), new AttackCommand(new[] { 11 }, 12)));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(1, state.EntityState.Buildings.Count, "normal town center should remain after capital loss");
+            AssertEqual(false, state.EntityState.Buildings[0].IsCapital, "remaining town center should stay normal");
+            AssertEqual(0, state.PlayerStates.Players[1].PopulationCap, "capital population bonus should not transfer to normal town center");
+            AssertEqual(false, state.PlayerStates.Players[1].CapitalStatus.CapitalBonusActive, "capital bonus should remain inactive");
         }
 
         private static void CapitalPlacementReplayDeterminism()
