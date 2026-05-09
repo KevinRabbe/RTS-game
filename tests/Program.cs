@@ -33,6 +33,7 @@ namespace RtsGame.Tests
                 new TestCase("test runner matches filter case insensitive", TestRunnerMatchesFilterCaseInsensitive),
                 new TestCase("test runner runs all without filter", TestRunnerRunsAllWithoutFilter),
                 new TestCase("test runner detects list argument", TestRunnerDetectsListArgument),
+                new TestCase("test runner detects fail fast argument", TestRunnerDetectsFailFastArgument),
                 new TestCase("nomad start creates initial units", NomadStartCreatesInitialUnits),
                 new TestCase("nomad map creates center resources", NomadMapCreatesCenterResources),
                 new TestCase("placement rejects overlapping building", PlacementRejectsOverlappingBuilding),
@@ -222,6 +223,7 @@ namespace RtsGame.Tests
             int failed = 0;
             int selected = 0;
             string filter = GetFilter(args);
+            bool failFast = ShouldFailFast(args);
             if (ShouldList(args))
             {
                 foreach (TestCase test in tests)
@@ -256,6 +258,10 @@ namespace RtsGame.Tests
                     failed++;
                     Console.WriteLine("FAIL " + test.Name);
                     Console.WriteLine(ex.Message);
+                    if (failFast)
+                    {
+                        break;
+                    }
                 }
             }
 
@@ -266,7 +272,8 @@ namespace RtsGame.Tests
             }
 
             string suffix = filter.Length == 0 ? "" : " filter=\"" + filter + "\"";
-            Console.WriteLine("tests=" + selected + " failed=" + failed + suffix);
+            string failFastSuffix = failFast ? " failFast=1" : "";
+            Console.WriteLine("tests=" + selected + " failed=" + failed + suffix + failFastSuffix);
             return failed == 0 ? 0 : 1;
         }
 
@@ -279,42 +286,46 @@ namespace RtsGame.Tests
 
         private static string GetFilter(string[] args)
         {
-            if (args.Length == 0)
+            for (int i = 0; i < args.Length; i++)
             {
-                return "";
+                if (args[i] == "--filter" && i + 1 < args.Length)
+                {
+                    return args[i + 1];
+                }
+
+                if (args[i].StartsWith("--filter=", StringComparison.Ordinal))
+                {
+                    return args[i].Substring("--filter=".Length);
+                }
             }
 
-            if (args[0] == "--list" && args.Length >= 3 && args[1] == "--filter")
+            for (int i = 0; i < args.Length; i++)
             {
-                return args[2];
+                if (!args[i].StartsWith("--", StringComparison.Ordinal))
+                {
+                    return args[i];
+                }
             }
 
-            if (args[0] == "--list" && args.Length >= 2 && args[1].StartsWith("--filter=", StringComparison.Ordinal))
-            {
-                return args[1].Substring("--filter=".Length);
-            }
-
-            if (args[0] == "--list")
-            {
-                return "";
-            }
-
-            if (args.Length >= 2 && args[0] == "--filter")
-            {
-                return args[1];
-            }
-
-            if (args.Length >= 1 && args[0].StartsWith("--filter=", StringComparison.Ordinal))
-            {
-                return args[0].Substring("--filter=".Length);
-            }
-
-            return args[0];
+            return "";
         }
 
         private static bool ShouldList(string[] args)
         {
             return args.Length >= 1 && args[0] == "--list";
+        }
+
+        private static bool ShouldFailFast(string[] args)
+        {
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (args[i] == "--fail-fast")
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool ShouldRun(TestCase test, string filter)
@@ -332,6 +343,7 @@ namespace RtsGame.Tests
             AssertEqual("godot", GetFilter(new[] { "--filter", "godot" }), "test runner should parse separated filter argument");
             AssertEqual("lockstep", GetFilter(new[] { "--filter=lockstep" }), "test runner should parse inline filter argument");
             AssertEqual("chaos", GetFilter(new[] { "chaos" }), "test runner should treat first positional argument as filter");
+            AssertEqual("godot", GetFilter(new[] { "--fail-fast", "--filter", "godot" }), "test runner should skip fail-fast when parsing filter argument");
         }
 
         private static void TestRunnerMatchesFilterCaseInsensitive()
@@ -356,6 +368,13 @@ namespace RtsGame.Tests
             AssertEqual(false, ShouldList(new[] { "--filter", "godot" }), "test runner should not list during normal filter mode");
             AssertEqual("godot", GetFilter(new[] { "--list", "--filter", "godot" }), "list mode should parse separated filter argument");
             AssertEqual("lockstep", GetFilter(new[] { "--list", "--filter=lockstep" }), "list mode should parse inline filter argument");
+        }
+
+        private static void TestRunnerDetectsFailFastArgument()
+        {
+            AssertEqual(true, ShouldFailFast(new[] { "--fail-fast" }), "test runner should detect fail-fast mode");
+            AssertEqual(true, ShouldFailFast(new[] { "--filter", "godot", "--fail-fast" }), "test runner should detect fail-fast after filter");
+            AssertEqual(false, ShouldFailFast(new[] { "--filter", "godot" }), "test runner should not use fail-fast unless explicitly requested");
         }
 
         private static void CommandOrdering()

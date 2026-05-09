@@ -32,6 +32,13 @@ dotnet run --project tests\RtsGame.Tests.csproj --no-build -- --list
 dotnet run --project tests\RtsGame.Tests.csproj --no-build -- --list --filter godot
 ```
 
+To stop on the first failure during a focused or full run:
+
+```powershell
+dotnet run --project tests\RtsGame.Tests.csproj --no-build -- --filter godot --fail-fast
+dotnet run --project tests\RtsGame.Tests.csproj --no-build -- --fail-fast
+```
+
 ## Suggested Loop
 
 For small presentation or tooling slices:
