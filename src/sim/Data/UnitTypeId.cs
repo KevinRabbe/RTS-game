@@ -7,6 +7,7 @@ namespace RtsGame.Sim.Data
         Infantry = 3,
         SiegeCannon = 4,
         TradeCart = 5,
-        Mangonel = 6
+        Mangonel = 6,
+        Cavalry = 7
     }
 }

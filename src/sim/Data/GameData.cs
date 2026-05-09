@@ -8,6 +8,7 @@ namespace RtsGame.Sim.Data
         public const int SiegeCannonHitPoints = 90;
         public const int TradeCartHitPoints = 50;
         public const int MangonelHitPoints = 75;
+        public const int CavalryHitPoints = 85;
         public const int TownCenterHitPoints = 2400;
         public const int WallHitPoints = 300;
         public const int TradePostHitPoints = 900;
@@ -24,6 +25,9 @@ namespace RtsGame.Sim.Data
         public const int VillagerFoodCost = 50;
         public const int InfantryTrainTicks = 4;
         public const int InfantryFoodCost = 60;
+        public const int CavalryTrainTicks = 5;
+        public const int CavalryFoodCost = 80;
+        public const int CavalryGoldCost = 40;
         public const int SiegeCannonTrainTicks = 8;
         public const int SiegeCannonWoodCost = 120;
         public const int SiegeCannonGoldCost = 80;
@@ -39,6 +43,8 @@ namespace RtsGame.Sim.Data
         public const int ScoutMoveSpeedTilesPerTickDenominator = 1;
         public const int InfantryMoveSpeedTilesPerTickNumerator = 2;
         public const int InfantryMoveSpeedTilesPerTickDenominator = 5;
+        public const int CavalryMoveSpeedTilesPerTickNumerator = 4;
+        public const int CavalryMoveSpeedTilesPerTickDenominator = 5;
         public const int SiegeCannonMoveSpeedTilesPerTickNumerator = 1;
         public const int SiegeCannonMoveSpeedTilesPerTickDenominator = 5;
         public const int MangonelMoveSpeedTilesPerTickNumerator = 1;
@@ -50,6 +56,7 @@ namespace RtsGame.Sim.Data
         public const int VillagerSightRadiusTiles = 4;
         public const int ScoutSightRadiusTiles = 8;
         public const int InfantrySightRadiusTiles = 5;
+        public const int CavalrySightRadiusTiles = 5;
         public const int SiegeCannonSightRadiusTiles = 6;
         public const int TradeCartSightRadiusTiles = 5;
         public const int MangonelSightRadiusTiles = 6;
@@ -60,9 +67,11 @@ namespace RtsGame.Sim.Data
         public const int VillagerAttackDamage = 2;
         public const int ScoutAttackDamage = 3;
         public const int InfantryAttackDamage = 12;
+        public const int CavalryAttackDamage = 16;
         public const int VillagerAttackCooldownTicks = 8;
         public const int ScoutAttackCooldownTicks = 6;
         public const int InfantryAttackCooldownTicks = 5;
+        public const int CavalryAttackCooldownTicks = 5;
         public const int SiegeCannonSetupTicks = 3;
         public const int SiegeCannonReloadTicks = 6;
         public const int SiegeCannonBuildingDamage = 220;
@@ -136,6 +145,8 @@ namespace RtsGame.Sim.Data
                     return 1;
                 case UnitTypeId.Infantry:
                     return 1;
+                case UnitTypeId.Cavalry:
+                    return 2;
                 case UnitTypeId.SiegeCannon:
                     return 3;
                 case UnitTypeId.TradeCart:
@@ -157,6 +168,8 @@ namespace RtsGame.Sim.Data
                     return ScoutHitPoints;
                 case UnitTypeId.Infantry:
                     return InfantryHitPoints;
+                case UnitTypeId.Cavalry:
+                    return CavalryHitPoints;
                 case UnitTypeId.SiegeCannon:
                     return SiegeCannonHitPoints;
                 case UnitTypeId.TradeCart:
@@ -176,6 +189,8 @@ namespace RtsGame.Sim.Data
                     return VillagerTrainTicks;
                 case UnitTypeId.Infantry:
                     return InfantryTrainTicks;
+                case UnitTypeId.Cavalry:
+                    return CavalryTrainTicks;
                 case UnitTypeId.SiegeCannon:
                     return SiegeCannonTrainTicks;
                 case UnitTypeId.TradeCart:
@@ -198,6 +213,10 @@ namespace RtsGame.Sim.Data
                 case UnitTypeId.Infantry:
                     cost.Food = InfantryFoodCost;
                     break;
+                case UnitTypeId.Cavalry:
+                    cost.Food = CavalryFoodCost;
+                    cost.Gold = CavalryGoldCost;
+                    break;
                 case UnitTypeId.SiegeCannon:
                     cost.Wood = SiegeCannonWoodCost;
                     cost.Gold = SiegeCannonGoldCost;
@@ -218,7 +237,7 @@ namespace RtsGame.Sim.Data
         public static bool CanTrain(BuildingTypeId buildingTypeId, UnitTypeId unitTypeId)
         {
             return (buildingTypeId == BuildingTypeId.TownCenter
-                    && (unitTypeId == UnitTypeId.Villager || unitTypeId == UnitTypeId.Infantry || unitTypeId == UnitTypeId.SiegeCannon || unitTypeId == UnitTypeId.Mangonel))
+                    && (unitTypeId == UnitTypeId.Villager || unitTypeId == UnitTypeId.Infantry || unitTypeId == UnitTypeId.Cavalry || unitTypeId == UnitTypeId.SiegeCannon || unitTypeId == UnitTypeId.Mangonel))
                 || (buildingTypeId == BuildingTypeId.TradePost && unitTypeId == UnitTypeId.TradeCart);
         }
 
@@ -230,6 +249,8 @@ namespace RtsGame.Sim.Data
                     return Determinism.Fixed.FromRatio(ScoutMoveSpeedTilesPerTickNumerator, ScoutMoveSpeedTilesPerTickDenominator);
                 case UnitTypeId.Infantry:
                     return Determinism.Fixed.FromRatio(InfantryMoveSpeedTilesPerTickNumerator, InfantryMoveSpeedTilesPerTickDenominator);
+                case UnitTypeId.Cavalry:
+                    return Determinism.Fixed.FromRatio(CavalryMoveSpeedTilesPerTickNumerator, CavalryMoveSpeedTilesPerTickDenominator);
                 case UnitTypeId.SiegeCannon:
                     return Determinism.Fixed.FromRatio(SiegeCannonMoveSpeedTilesPerTickNumerator, SiegeCannonMoveSpeedTilesPerTickDenominator);
                 case UnitTypeId.Mangonel:
@@ -251,6 +272,8 @@ namespace RtsGame.Sim.Data
                     return ScoutSightRadiusTiles;
                 case UnitTypeId.Infantry:
                     return InfantrySightRadiusTiles;
+                case UnitTypeId.Cavalry:
+                    return CavalrySightRadiusTiles;
                 case UnitTypeId.SiegeCannon:
                     return SiegeCannonSightRadiusTiles;
                 case UnitTypeId.Mangonel:
@@ -298,6 +321,8 @@ namespace RtsGame.Sim.Data
             {
                 case UnitTypeId.Infantry:
                     return InfantryAttackDamage;
+                case UnitTypeId.Cavalry:
+                    return CavalryAttackDamage;
                 case UnitTypeId.Scout:
                     return ScoutAttackDamage;
                 case UnitTypeId.Villager:
@@ -316,6 +341,8 @@ namespace RtsGame.Sim.Data
             {
                 case UnitTypeId.Infantry:
                     return InfantryAttackCooldownTicks;
+                case UnitTypeId.Cavalry:
+                    return CavalryAttackCooldownTicks;
                 case UnitTypeId.Scout:
                     return ScoutAttackCooldownTicks;
                 case UnitTypeId.Villager:
