@@ -1,0 +1,174 @@
+using RtsGame.Sim.Core;
+using RtsGame.Sim.Data;
+using RtsGame.Sim.Determinism;
+
+namespace RtsGame.Sim.Checksums
+{
+    public static class StateChecksum
+    {
+        private const ulong Offset = 14695981039346656037UL;
+        private const ulong Prime = 1099511628211UL;
+
+        public static ulong Compute(GameState state, GameRules rules)
+        {
+            var writer = new CanonicalWriter();
+            WriteState(writer, state, rules);
+            return Fnv1A64(writer.ToArray());
+        }
+
+        private static void WriteState(CanonicalWriter writer, GameState state, GameRules rules)
+        {
+            writer.WriteUInt32(rules.RulesVersion);
+            writer.WriteInt32(rules.TickRate);
+            writer.WriteInt32(rules.MaxPlayers);
+            writer.WriteInt32(rules.InputDelayTicks);
+            writer.WriteInt32(rules.ChecksumIntervalTicks);
+            writer.WriteInt32(state.Tick);
+            writer.WriteUInt64(state.MatchSeed);
+            writer.WriteUInt64(state.RngState.Value);
+
+            writer.WriteInt32(state.EntityState.NextEntityId);
+            writer.WriteListCount(state.EntityState.Units.Count);
+            foreach (Unit unit in state.EntityState.Units)
+            {
+                writer.WriteInt32(unit.Id);
+                writer.WriteInt32(unit.OwnerPlayerIndex);
+                writer.WriteUInt16((ushort)unit.UnitTypeId);
+                writer.WriteFixed(unit.Position.X);
+                writer.WriteFixed(unit.Position.Y);
+                writer.WriteBool(unit.HasMoveTarget);
+                writer.WriteFixed(unit.MoveTarget.X);
+                writer.WriteFixed(unit.MoveTarget.Y);
+                writer.WriteInt32(unit.LastMovedTick);
+                writer.WriteInt32(unit.HitPoints);
+                writer.WriteInt32(unit.CurrentBuildTargetId);
+                writer.WriteInt32(unit.CurrentResourceNodeId);
+                writer.WriteUInt16((ushort)unit.CarriedResourceType);
+                writer.WriteInt32(unit.CarriedAmount);
+                writer.WriteInt32(unit.AttackTargetId);
+                writer.WriteInt32(unit.AttackCooldownTicksRemaining);
+                writer.WriteBool(unit.IsSiegeDeployed);
+                writer.WriteInt32(unit.SiegeSetupTicksRemaining);
+                writer.WriteInt32(unit.SiegeReloadTicksRemaining);
+                writer.WriteInt32(unit.TradeRouteAId);
+                writer.WriteInt32(unit.TradeRouteBId);
+                writer.WriteInt32(unit.TradeDestinationId);
+                writer.WriteInt32(unit.TradeIncomePerTrip);
+                writer.WriteInt32(unit.DespawnTicksRemaining);
+                writer.WriteBool(unit.IsDead);
+            }
+
+            writer.WriteListCount(state.EntityState.Buildings.Count);
+            foreach (Building building in state.EntityState.Buildings)
+            {
+                writer.WriteInt32(building.Id);
+                writer.WriteInt32(building.OwnerPlayerIndex);
+                writer.WriteUInt16((ushort)building.BuildingTypeId);
+                writer.WriteFixed(building.Position.X);
+                writer.WriteFixed(building.Position.Y);
+                writer.WriteInt32(building.HitPoints);
+                writer.WriteBool(building.IsUnderConstruction);
+                writer.WriteInt32(building.BuildProgressTicks);
+                writer.WriteListCount(building.AssignedBuilderIds.Count);
+                foreach (int builderId in building.AssignedBuilderIds)
+                {
+                    writer.WriteInt32(builderId);
+                }
+
+                writer.WriteListCount(building.TrainingQueue.Count);
+                foreach (TrainingQueueItem item in building.TrainingQueue)
+                {
+                    writer.WriteUInt16((ushort)item.UnitTypeId);
+                    writer.WriteInt32(item.ProgressTicks);
+                    writer.WriteInt32(item.RequiredTicks);
+                }
+
+                writer.WriteBool(building.IsCapital);
+                writer.WriteInt32(building.DespawnTicksRemaining);
+                writer.WriteBool(building.IsDead);
+            }
+
+            writer.WriteListCount(state.PlayerStates.Players.Count);
+            foreach (PlayerState player in state.PlayerStates.Players)
+            {
+                writer.WriteInt32(player.PlayerIndex);
+                writer.WriteBool(player.IsConnected);
+                writer.WriteBool(player.IsDefeated);
+                writer.WriteBool(player.IsResigned);
+                writer.WriteInt32(player.Placement);
+                writer.WriteInt32(player.PopulationUsed);
+                writer.WriteInt32(player.PopulationCap);
+                writer.WriteInt32(player.Resources.Food);
+                writer.WriteInt32(player.Resources.Wood);
+                writer.WriteInt32(player.Resources.Gold);
+                writer.WriteBool(player.CapitalStatus.HasCapitalBeenPlaced);
+                writer.WriteInt32(player.CapitalStatus.CapitalBuildingId);
+                writer.WriteBool(player.CapitalStatus.IsCapitalAlive);
+                writer.WriteBool(player.CapitalStatus.CapitalBonusActive);
+            }
+
+            writer.WriteInt32(state.RankingState.NextPlacement);
+            writer.WriteListCount(state.RankingState.PlacementOrder.Count);
+            foreach (int playerIndex in state.RankingState.PlacementOrder)
+            {
+                writer.WriteInt32(playerIndex);
+            }
+
+            writer.WriteBool(state.MatchResultState.IsFinished);
+            writer.WriteInt32(state.MatchResultState.WinnerPlayerIndex);
+            writer.WriteInt32(state.MatchResultState.FinishedTick);
+
+            writer.WriteUInt32(state.EconomyState.PlaceholderVersion);
+            writer.WriteInt32(state.EconomyState.NextResourceNodeId);
+            writer.WriteListCount(state.EconomyState.ResourceNodes.Count);
+            foreach (ResourceNode node in state.EconomyState.ResourceNodes)
+            {
+                writer.WriteInt32(node.Id);
+                writer.WriteUInt16((ushort)node.ResourceType);
+                writer.WriteFixed(node.Position.X);
+                writer.WriteFixed(node.Position.Y);
+                writer.WriteInt32(node.RemainingAmount);
+            }
+
+            writer.WriteUInt32(state.PopulationState.PlaceholderVersion);
+            writer.WriteUInt64(state.MapState.MapSeed);
+            writer.WriteInt32(state.MapState.WidthTiles);
+            writer.WriteInt32(state.MapState.HeightTiles);
+            writer.WriteUInt32(state.MapState.PlaceholderVersion);
+            writer.WriteUInt32(state.VisibilityState.PlaceholderVersion);
+            writer.WriteInt32(state.VisibilityState.WidthTiles);
+            writer.WriteInt32(state.VisibilityState.HeightTiles);
+            writer.WriteListCount(state.VisibilityState.Players.Count);
+            foreach (PlayerVisibility visibility in state.VisibilityState.Players)
+            {
+                writer.WriteListCount(visibility.VisibleTiles.Length);
+                for (int i = 0; i < visibility.VisibleTiles.Length; i++)
+                {
+                    writer.WriteBool(visibility.VisibleTiles[i]);
+                }
+
+                writer.WriteListCount(visibility.ExploredTiles.Length);
+                for (int i = 0; i < visibility.ExploredTiles.Length; i++)
+                {
+                    writer.WriteBool(visibility.ExploredTiles[i]);
+                }
+            }
+
+            writer.WriteInt32(state.DebugCounters.ExecutedCommandCount);
+            writer.WriteInt32(state.DebugCounters.RejectedCommandCount);
+            writer.WriteInt32(state.DebugCounters.DebugCounter);
+        }
+
+        private static ulong Fnv1A64(byte[] bytes)
+        {
+            ulong hash = Offset;
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                hash ^= bytes[i];
+                hash *= Prime;
+            }
+
+            return hash;
+        }
+    }
+}

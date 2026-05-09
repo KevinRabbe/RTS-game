@@ -1,0 +1,820 @@
+Best choice: create the long-term execution plan now, but keep it architecture-first and market-aware.
+
+Not “feature wishlist”.
+Not “dream roadmap”.
+A practical plan to turn this into a serious RTS that could compete with AoE4 players’ attention.
+
+Below is the plan I would give Codex / your project as the next master direction.
+
+MASTER PLAN — RTS ENGINE TO COMPETITIVE INDIE RTS
+Current Status
+
+You currently have a serious deterministic RTS simulation foundation:
+
+Fixed 20 TPS simulation
+Command-driven architecture
+Replay from command stream
+Lockstep verification
+State checksums
+ChaosV1 frozen and versioned
+5000 tick 6-player stress passing
+Capital system
+Economy
+Trade foundation
+Siege foundation
+Wall blocking v1
+Placement validation
+Resignation / elimination / ranking scaffold
+101 tests passing
+
+Current weakness:
+
+Spatial layer is incomplete.
+No unit-to-unit occupancy.
+No congestion resolution.
+No pathfinding.
+No area damage.
+No Godot client yet.
+
+The next mission is to turn this from stable simulation prototype into competitive RTS foundation.
+
+STAGE 1 — ENGINE FOUNDATION COMPLETION
+Goal
+
+Make the deterministic core trustworthy under spatial chaos.
+
+Until this stage is complete:
+
+No Godot.
+No factions.
+No balance tuning.
+No polish.
+No visual client.
+No extra units except required test units.
+
+This stage proves the engine.
+
+Phase 1.1 — Tile Occupancy Resolution
+Objective
+
+Units cannot overlap and movement conflicts resolve identically on every peer.
+
+Required Implementation
+
+Add deterministic occupancy handling:
+
+Tile occupancy model
+Single unit per tile
+Wall/building blocking already exists
+Unit blocking added
+No pathfinding yet
+Movement Conflict Rules
+
+Use this rule set:
+
+Stationary unit holds its tile.
+Moving unit cannot enter a tile occupied by a stationary unit.
+If multiple moving units attempt to enter the same empty tile, nobody moves.
+If two moving units attempt to swap tiles, both fail.
+No pushing.
+No sliding.
+No alternate path.
+No random priority.
+No hidden EntityId advantage for gameplay resolution unless used only as a final deterministic ordering tool for processing.
+Definition of Stationary
+
+A unit is stationary if it did not successfully move during the previous resolved movement tick.
+
+Tests Required
+Unit blocked by wall
+Unit blocked by stationary unit
+Two units attempt same tile
+Three units attempt same tile
+Two units attempt tile swap
+Unit dies same tick another tries to enter its tile
+Wall destroyed same tick unit tries to move through
+Replay determinism
+2-peer lockstep determinism
+Exit Criteria
+Full test suite passes
+ChaosV1 still passes unchanged
+No invariant failures
+No checksum drift
+Phase 1.2 — ChaosV2: Spatial Stress
+Objective
+
+Create a new frozen regression scenario for congestion and blocking.
+
+ChaosV1 proves macro/system lifecycle.
+ChaosV2 proves spatial truth.
+
+ChaosV2 Requirements
+
+6 players, 5000 ticks.
+
+Must include:
+
+Narrow choke
+Wall blockers
+Siege destroying walls
+Units repeatedly trying to pass through the same choke
+Simultaneous movement conflicts
+Simultaneous wall destruction + movement
+Simultaneous unit death + tile entry attempt
+Resignation during congestion
+Capital pressure while movement congestion exists
+Trade running while congestion occurs
+Invalid movement commands into blocked tiles
+Invariant Checks
+
+At end and periodically:
+
+No two living units occupy same tile
+No living unit occupies a wall-blocked tile
+No unit has invalid owner
+No dead entity remains after cleanup
+EntityLookup matches entity lists
+Population count matches living owned units
+No negative resources
+No invalid trade routes
+MatchResultState valid
+Checksums match across peers
+Exit Criteria
+ChaosV1 passes
+ChaosV2 passes
+5000 ticks
+6 players
+0 desync
+0 invariant failures
+
+Freeze ChaosV2 after passing.
+
+Add:
+
+ChaosV2Scenario.Version = 1
+
+Document:
+
+docs/chaos-v2-invariant-contract.md
+Phase 1.3 — Long-Run Drift Audit
+Objective
+
+Prove the engine does not drift over long deterministic execution.
+
+Required Stress
+ChaosV1 at 10,000 ticks
+ChaosV2 at 10,000 ticks
+6 players
+Same seed
+Same command stream
+Multi-peer checksum agreement
+Audit Items
+
+Confirm:
+
+No float gameplay math in movement
+No unordered iteration in simulation
+No async simulation mutation
+No system storing hidden mutable state
+All new movement state is checksummed
+All movement tie-breakers are explicit
+Exit Criteria
+10k tick ChaosV1 stable
+10k tick ChaosV2 stable
+No checksum divergence
+No invariant failures
+STAGE 2 — FIRST CONTROLLED NONLINEAR COMBAT
+
+Only after spatial truth passes.
+
+Phase 2.1 — Mangonel / Area Damage
+Objective
+
+Add first nonlinear combat mechanic safely.
+
+This is the first high-risk combat feature because one attack affects many entities.
+
+Rules
+No friendly fire for competitive mode
+Fixed-point or integer radius only
+Deterministic target collection
+Targets sorted by EntityId before damage application
+Damage applied in batch
+Death marking happens after full AoE resolution
+Cleanup remains last
+No projectile physics
+No visual timing dependency
+Required Data
+
+Add to unit definition:
+
+IsAreaDamage
+AreaRadius
+AreaDamage
+AreaCooldownTicks
+CanHitBuildings
+CanHitUnits
+Tests
+AoE hits multiple units deterministically
+AoE ignores friendly units
+AoE simultaneous deaths
+AoE near Capital
+AoE target ordering stable
+Replay determinism
+Lockstep determinism
+Phase 2.2 — ChaosV3: Area Damage Stress
+Objective
+
+Prove AoE does not break determinism.
+
+ChaosV3 Requirements
+6 players
+5000 ticks
+Clumped units
+Multiple mangonels firing same tick
+Overlapping AoE zones
+Capital under AoE pressure
+Infantry dying in batches
+Siege dying same tick it fires
+Ranking edge cases from AoE kills
+Exit Criteria
+ChaosV1 passes
+ChaosV2 passes
+ChaosV3 passes
+No desync
+No invariant failures
+
+Freeze ChaosV3.
+
+STAGE 3 — PATHFINDING FOUNDATION
+
+Only after area damage and spatial truth are stable.
+
+Phase 3.1 — Minimal Deterministic A*
+Objective
+
+Add true pathfinding without opening the complexity floodgate.
+
+Rules
+Grid-based
+No smoothing
+No physics
+No flow-field yet
+No dynamic push
+No sliding
+No float heuristic
+Stable open-set ordering
+Explicit tie-breakers:
+Lowest total cost
+Lowest heuristic
+Lowest tile index
+Fixed neighbor order
+Neighbor Order
+
+Must be fixed forever.
+
+Example:
+
+North, East, South, West
+
+or
+
+East, South, West, North
+
+Pick once. Document it.
+
+Tests
+Same start/end gives same path
+Wall blocks path
+Destroyed wall opens path next tick
+No path returns failure deterministically
+Multiple units request paths same tick
+Replay determinism
+Lockstep determinism
+Phase 3.2 — ChaosV4: Pathfinding Stress
+Objective
+
+Prove deterministic pathfinding under pressure.
+
+ChaosV4 Requirements
+Maze-like wall structures
+6 players
+Repeated path requests
+Wall destruction mid-path
+Siege opening new path
+Trade route path recalculation
+Units attempting clogged routes
+5000 ticks
+Exit Criteria
+ChaosV1–V4 all pass
+No desync
+No invariant failure
+
+Freeze ChaosV4.
+
+STAGE 4 — PLAYABLE SIMULATION BALANCE BASELINE
+
+Still no Godot yet unless engine is stable.
+
+Phase 4.1 — Unit Role Baseline
+
+Define minimal competitive roster:
+
+Villager
+Gathers
+Builds
+Weak melee defense
+1 pop
+Scout
+Fast
+Low damage
+High vision
+Harassment / information
+1 pop
+Infantry
+Basic frontline
+Reliable
+1 pop
+Cavalry
+Fast punish unit
+Strong vs exposed eco / siege
+2 pop
+Siege Cannon
+Anti-building
+Setup required
+Long reload
+3 pop
+Mangonel
+Anti-clump
+Area damage
+No friendly fire
+3 pop
+
+Do not add more units yet.
+
+Phase 4.2 — Combat Philosophy Enforcement
+
+Combat must remain:
+
+Strategy-first
+Decisive after commitment
+Not twitch-dominated
+Not slow grind
+Not burst-random
+
+Desired combat curve:
+
+Positioning phase → commitment → decisive resolution → recovery
+
+Disengagement:
+
+Possible
+Costly
+Not free
+Not impossible
+Phase 4.3 — Expansion Risk Baseline
+
+Second TC philosophy:
+
+High reward
+High risk
+Weaker than Capital
+Exposed
+Punishable
+
+Rules:
+
+First TC free
+Later TCs cost meaningful wood
+Normal TCs weaker than Capital
+Capital bonus never transfers
+Capital cannot be rebuilt
+STAGE 5 — GODOT CLIENT INTEGRATION
+
+Only after Stage 1–3 are stable and all chaos scenarios pass.
+
+Goal
+
+Build a visual client without corrupting simulation purity.
+
+Godot is presentation only.
+
+Simulation remains pure C# and headless.
+
+Phase 5.1 — Godot Project Shell
+
+Create:
+
+/GodotClient
+
+Godot may reference SimulationCore.
+
+SimulationCore may not reference Godot.
+
+Godot Responsibilities
+Rendering
+Camera
+Selection
+Input collection
+UI
+Audio
+Visual interpolation
+Godot Forbidden
+No gameplay logic
+No GameState mutation
+No physics for simulation
+No deltaTime affecting simulation
+No direct entity manipulation
+Phase 5.2 — Snapshot Adapter
+
+Create read-only snapshot layer:
+
+SimulationCore → Snapshot → GodotClient
+
+Snapshot contains:
+
+Visible units
+Visible buildings
+Positions
+Health
+Owner
+Capital status
+Resources for local player
+Population for local player
+Match state
+
+Godot reads snapshot only.
+
+Phase 5.3 — Minimal Visual Prototype
+
+Use ugly visuals first:
+
+Colored squares for units
+Larger square for Capital
+Rectangles for walls
+Lines for trade routes
+Simple health bars
+Simple fog overlay
+
+No art polish.
+
+Exit Criteria
+Can watch a simulation run visually
+Can issue commands through Godot
+Replay still works
+Headless still works
+Chaos tests still pass
+Phase 5.4 — Local Playable 1v1
+
+Before 6-player visual FFA:
+
+1v1 local
+Capital placement
+Movement
+Gather
+Train
+Attack
+Siege
+Win/loss
+Exit Criteria
+
+One full match playable visually.
+
+Phase 5.5 — Visual 6-Player FFA
+
+Then:
+
+6 players
+Local/hotseat/dev mode first
+Then LAN/lockstep client
+Exit Criteria
+Full FFA playable
+No simulation drift
+No Godot-side authority
+Replay can be viewed
+STAGE 6 — COMPETITIVE GAMEPLAY DEPTH
+
+Only once visual prototype exists and sim remains stable.
+
+Phase 6.1 — Tech Tree v1
+
+Minimal linear tech only.
+
+No branching.
+
+Possible upgrades:
+
+Infantry armor I
+Archer/mangonel damage later
+Cavalry speed I
+Siege durability I
+Villager gather rate I
+Trade efficiency I
+
+Rules:
+
+Tech modifies player modifier tables
+Base UnitStats remain immutable
+All modifiers integer/fixed-point
+Tech timing tick-based
+Checksum includes tech state
+Phase 6.2 — Trade Depth
+
+Current trade foundation becomes actual late-game system.
+
+Add:
+
+Distance scaling
+Route risk/reward
+Trade cart vulnerability
+Route invalidation rules
+Maybe center trade value
+
+Avoid:
+
+Passive infinite gold with no risk
+Too-safe turtle trade
+Phase 6.3 — Map Generator v1
+
+Competitive map generator must produce:
+
+6 sectors
+Fair but not mirrored
+Safe early resources
+Risky center value
+Defensive flanks
+No sealed pockets
+No spawn auto-loss
+
+Add map validation tests:
+
+Each player has viable Capital location
+Each player has food/wood/gold access
+Center access roughly fair
+No unreachable resource clusters
+No fully enclosed spawn
+Phase 6.4 — Competitive FFA Rules
+
+Ranked FFA rules:
+
+No formal alliances
+No shared vision
+No shared resources
+Temporary emergent cooperation only
+No pre-arranged collusion in tournament rules
+
+In-game information:
+
+No exact enemy resource counts
+No exact unit counts
+No exact army value
+Coarse status only
+Capital status can be visible if scouted or as coarse UI rule later
+STAGE 7 — NETWORKED PLAY
+
+Your sim already supports lockstep conceptually. Now make it product-usable.
+
+Phase 7.1 — Local Multi-Client Lockstep
+Multiple clients on same machine
+Input delay
+Command scheduling
+Checksum exchange
+Desync report
+Phase 7.2 — LAN Multiplayer
+2 players first
+Then 6 players
+Artificial latency tests
+Packet delay tests
+Missing input stalls simulation
+No state correction in ranked mode
+Phase 7.3 — Online Prototype
+Relay or host model
+Reconnect strategy later
+Match lobby
+Ready check
+Deterministic seed agreement
+Version agreement
+STAGE 8 — REPLAY AND SPECTATOR FOUNDATION
+
+This is a major advantage for your game.
+
+Replay v1
+Command stream playback
+Pause
+Speed up
+Jump to tick later
+Verify checksum
+Show Capital destruction events
+Show eliminations
+Spectator v1
+Observer camera
+Player vision toggle
+All vision toggle
+Capital status panel
+Timeline events
+
+No cinematic effects yet.
+
+STAGE 9 — ALPHA-READY GAME LOOP
+
+At this point, the game should be playable by outsiders.
+
+Alpha Requirements
+1 faction
+6-player FFA
+Working map generator
+Working economy
+Working combat
+Working siege
+Working trade
+Working replay
+Working multiplayer
+Stable lockstep
+No common desyncs
+Basic UI
+Basic audio cues
+Clear win/loss flow
+
+Not required:
+
+Good art
+Many factions
+Ranked ladder
+Spectator polish
+Campaign
+Matchmaking
+Steam release
+STAGE 10 — CLOSED COMPETITIVE TEST
+
+Now bring in players.
+
+Goals
+
+Test:
+
+Is Capital placement meaningful?
+Is second TC properly risky?
+Is leader naturally targetable?
+Does FFA feel strategic, not random?
+Does combat resolve decisively?
+Does trade prevent dead late-game?
+Does strict congestion feel good or too harsh?
+Do players blame themselves more than the game?
+
+Collect:
+
+Match length
+Capital death timing
+First elimination timing
+Average TC count
+Trade usage
+Siege usage
+Resign frequency
+Desync count
+Player frustration points
+
+This is where real design begins.
+
+STAGE 11 — PRODUCTIZATION
+
+Only after closed alpha proves the core.
+
+Add
+Main menu
+Match lobby
+Settings
+Hotkeys
+Rebinds
+Basic tutorial
+Replay browser
+Crash logs
+Desync logs
+Patch versioning
+Steam build pipeline later
+STAGE 12 — RELEASE STRATEGY
+
+Do not release too early.
+
+Minimum public demo should include:
+
+Stable 1v1
+Stable FFA test mode
+Replay support
+Clear Capital mechanic
+Basic tutorial
+No major desync issues
+Distinct visual readability
+
+Your selling point:
+
+A strategy-first competitive FFA RTS with deterministic replays, Capital assassination drama, and high-stakes map control.
+
+Not:
+
+“Like AoE4 but 2D.”
+
+You need your own identity.
+
+PERMANENT RULES FOR CODEX
+
+Put this into a file like:
+
+CODEX_EXECUTION_RULES.md
+Codex Must Always
+Work one phase at a time
+Keep simulation engine-agnostic
+Add tests for every mechanic
+Update checksum for every new state field
+Run ChaosV1 after core changes
+Run latest Chaos scenario after spatial/combat changes
+Avoid new mechanics before current phase passes
+Stop before changing tick order
+Stop before changing cleanup rules
+Stop before changing command validation model
+Codex Must Never
+Add Godot references to sim
+Add float gameplay math casually
+Add unordered iteration
+Modify ChaosV1 behavior
+Add inheritance-heavy unit classes
+Add hidden mutable state in systems
+Add visual logic into simulation
+Add “smart” behavior without deterministic tie-breakers
+IMMEDIATE NEXT TASK FOR CODEX
+
+Copy this exactly:
+
+Continue from the current state.
+
+Do not add new gameplay features.
+
+Implement Phase 1.1: deterministic tile occupancy resolution.
+
+Rules:
+- Stationary units hold their tile.
+- Moving units cannot enter occupied stationary tiles.
+- Multiple moving units attempting the same empty tile all fail.
+- Tile swaps fail.
+- No pathfinding.
+- No pushing.
+- No sliding.
+- No alternate routing.
+
+Add checksum coverage for any new movement/occupancy state.
+Add replay and lockstep tests.
+Ensure ChaosV1 still passes unchanged.
+
+After this, create ChaosV2 as a frozen spatial congestion stress scenario.
+Do not proceed to area damage, pathfinding, tech, Godot, or new units.
+
+That is the correct next move.
+
+Bottom Line
+
+You are building something that could attract AoE4-style RTS players only if you protect what makes this different:
+
+Deterministic trust
+Capital drama
+Strategic FFA
+Heavy positional play
+No gimmick chaos in ranked
+Replay-first competitive integrity
+
+The next 2–3 phases decide whether this becomes a serious RTS foundation or just a feature pile.
+
+The path is now clear:
+
+Occupancy → ChaosV2 → Movement audit → Area damage → Pathfinding → Godot.
+
+good we continue here when i have tokens
+
+Perfect. When you’re back with tokens, continue from this exact next task:
+
+Continue from the current state.
+
+Do not add new gameplay features.
+
+Implement Phase 1.1: deterministic tile occupancy resolution.
+
+Rules:
+- Stationary units hold their tile.
+- Moving units cannot enter occupied stationary tiles.
+- Multiple moving units attempting the same empty tile all fail.
+- Tile swaps fail.
+- No pathfinding.
+- No pushing.
+- No sliding.
+- No alternate routing.
+
+Add checksum coverage for any new movement/occupancy state.
+Add replay and lockstep tests.
+Ensure ChaosV1 still passes unchanged.
+
+After this, create ChaosV2 as a frozen spatial congestion stress scenario.
+Do not proceed to area damage, pathfinding, tech, Godot, or new units.
+
+And the roadmap headline stays:
+
+Occupancy → ChaosV2 → Movement audit → Area damage → Pathfinding → Godot.
+
+Stop there for now. No more planning creep.

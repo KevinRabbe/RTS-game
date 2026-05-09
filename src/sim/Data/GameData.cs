@@ -1,0 +1,332 @@
+namespace RtsGame.Sim.Data
+{
+    public static class GameData
+    {
+        public const int VillagerHitPoints = 25;
+        public const int ScoutHitPoints = 45;
+        public const int InfantryHitPoints = 60;
+        public const int SiegeCannonHitPoints = 90;
+        public const int TradeCartHitPoints = 50;
+        public const int TownCenterHitPoints = 2400;
+        public const int WallHitPoints = 300;
+        public const int TradePostHitPoints = 900;
+        public const int WallUnderConstructionHitPoints = 60;
+        public const int TradePostUnderConstructionHitPoints = 180;
+        public const int CapitalHitPointBonus = 400;
+        public const int CapitalPopulationBonus = 10;
+        public const int TownCenterBuildTicks = 5;
+        public const int WallBuildTicks = 4;
+        public const int TradePostBuildTicks = 6;
+        public const int VillagerGatherPerTick = 5;
+        public const int VillagerCarryCapacity = 10;
+        public const int VillagerTrainTicks = 3;
+        public const int VillagerFoodCost = 50;
+        public const int InfantryTrainTicks = 4;
+        public const int InfantryFoodCost = 60;
+        public const int SiegeCannonTrainTicks = 8;
+        public const int SiegeCannonWoodCost = 120;
+        public const int SiegeCannonGoldCost = 80;
+        public const int TradeCartTrainTicks = 4;
+        public const int TradeCartWoodCost = 80;
+        public const int TradeCartGoldCost = 20;
+        public const int VillagerMoveSpeedTilesPerTickNumerator = 1;
+        public const int VillagerMoveSpeedTilesPerTickDenominator = 2;
+        public const int ScoutMoveSpeedTilesPerTickNumerator = 1;
+        public const int ScoutMoveSpeedTilesPerTickDenominator = 1;
+        public const int InfantryMoveSpeedTilesPerTickNumerator = 2;
+        public const int InfantryMoveSpeedTilesPerTickDenominator = 5;
+        public const int SiegeCannonMoveSpeedTilesPerTickNumerator = 1;
+        public const int SiegeCannonMoveSpeedTilesPerTickDenominator = 5;
+        public const int TradeCartMoveSpeedTilesPerTickNumerator = 3;
+        public const int TradeCartMoveSpeedTilesPerTickDenominator = 5;
+        public const int MapWidthTiles = 128;
+        public const int MapHeightTiles = 96;
+        public const int VillagerSightRadiusTiles = 4;
+        public const int ScoutSightRadiusTiles = 8;
+        public const int InfantrySightRadiusTiles = 5;
+        public const int SiegeCannonSightRadiusTiles = 6;
+        public const int TradeCartSightRadiusTiles = 5;
+        public const int TownCenterSightRadiusTiles = 6;
+        public const int TradePostSightRadiusTiles = 6;
+        public const int NeutralOwnerPlayerIndex = -1;
+        public const int ResignedAssetDespawnTicks = 1200;
+        public const int VillagerAttackDamage = 2;
+        public const int ScoutAttackDamage = 3;
+        public const int InfantryAttackDamage = 12;
+        public const int VillagerAttackCooldownTicks = 8;
+        public const int ScoutAttackCooldownTicks = 6;
+        public const int InfantryAttackCooldownTicks = 5;
+        public const int SiegeCannonSetupTicks = 3;
+        public const int SiegeCannonReloadTicks = 6;
+        public const int SiegeCannonBuildingDamage = 220;
+        public const int SiegeCannonRangeTiles = 8;
+        public const int TradeIncomePerTile = 2;
+        public const int StartingFoodAmount = 500;
+        public const int StartingWoodAmount = 700;
+        public const int StartingGoldAmount = 400;
+        public const int CenterFoodAmount = 900;
+        public const int CenterWoodAmount = 1000;
+        public const int CenterGoldAmount = 1200;
+        public const int TownCenterPlacementRadiusTiles = 2;
+        public const int WallPlacementRadiusTiles = 1;
+        public const int TradePostPlacementRadiusTiles = 2;
+        public const int ResourcePlacementRadiusTiles = 1;
+        public const int TownCenterWoodCost = 275;
+        public const int WallWoodCost = 5;
+        public const int TradePostWoodCost = 150;
+        public const int TradePostGoldCost = 50;
+
+        public static int GetBuildingPlacementRadiusTiles(BuildingTypeId buildingTypeId)
+        {
+            switch (buildingTypeId)
+            {
+                case BuildingTypeId.TownCenter:
+                    return TownCenterPlacementRadiusTiles;
+                case BuildingTypeId.Wall:
+                    return WallPlacementRadiusTiles;
+                case BuildingTypeId.TradePost:
+                    return TradePostPlacementRadiusTiles;
+                default:
+                    return 1;
+            }
+        }
+
+        public static ResourceStockpile GetBuildingCost(BuildingTypeId buildingTypeId, bool isFirstTownCenter)
+        {
+            var cost = new ResourceStockpile();
+            switch (buildingTypeId)
+            {
+                case BuildingTypeId.TownCenter:
+                    if (!isFirstTownCenter)
+                    {
+                        cost.Wood = TownCenterWoodCost;
+                    }
+
+                    break;
+                case BuildingTypeId.Wall:
+                    cost.Wood = WallWoodCost;
+                    break;
+                case BuildingTypeId.TradePost:
+                    cost.Wood = TradePostWoodCost;
+                    cost.Gold = TradePostGoldCost;
+                    break;
+            }
+
+            return cost;
+        }
+
+        public static int GetUnitPopulation(UnitTypeId unitTypeId)
+        {
+            switch (unitTypeId)
+            {
+                case UnitTypeId.Villager:
+                    return 1;
+                case UnitTypeId.Scout:
+                    return 1;
+                case UnitTypeId.Infantry:
+                    return 1;
+                case UnitTypeId.SiegeCannon:
+                    return 3;
+                case UnitTypeId.TradeCart:
+                    return 1;
+                default:
+                    return 0;
+            }
+        }
+
+        public static int GetUnitHitPoints(UnitTypeId unitTypeId)
+        {
+            switch (unitTypeId)
+            {
+                case UnitTypeId.Villager:
+                    return VillagerHitPoints;
+                case UnitTypeId.Scout:
+                    return ScoutHitPoints;
+                case UnitTypeId.Infantry:
+                    return InfantryHitPoints;
+                case UnitTypeId.SiegeCannon:
+                    return SiegeCannonHitPoints;
+                case UnitTypeId.TradeCart:
+                    return TradeCartHitPoints;
+                default:
+                    return 1;
+            }
+        }
+
+        public static int GetUnitTrainTicks(UnitTypeId unitTypeId)
+        {
+            switch (unitTypeId)
+            {
+                case UnitTypeId.Villager:
+                    return VillagerTrainTicks;
+                case UnitTypeId.Infantry:
+                    return InfantryTrainTicks;
+                case UnitTypeId.SiegeCannon:
+                    return SiegeCannonTrainTicks;
+                case UnitTypeId.TradeCart:
+                    return TradeCartTrainTicks;
+                default:
+                    return 1;
+            }
+        }
+
+        public static ResourceStockpile GetUnitCost(UnitTypeId unitTypeId)
+        {
+            var cost = new ResourceStockpile();
+            switch (unitTypeId)
+            {
+                case UnitTypeId.Villager:
+                    cost.Food = VillagerFoodCost;
+                    break;
+                case UnitTypeId.Infantry:
+                    cost.Food = InfantryFoodCost;
+                    break;
+                case UnitTypeId.SiegeCannon:
+                    cost.Wood = SiegeCannonWoodCost;
+                    cost.Gold = SiegeCannonGoldCost;
+                    break;
+                case UnitTypeId.TradeCart:
+                    cost.Wood = TradeCartWoodCost;
+                    cost.Gold = TradeCartGoldCost;
+                    break;
+            }
+
+            return cost;
+        }
+
+        public static bool CanTrain(BuildingTypeId buildingTypeId, UnitTypeId unitTypeId)
+        {
+            return (buildingTypeId == BuildingTypeId.TownCenter
+                    && (unitTypeId == UnitTypeId.Villager || unitTypeId == UnitTypeId.Infantry || unitTypeId == UnitTypeId.SiegeCannon))
+                || (buildingTypeId == BuildingTypeId.TradePost && unitTypeId == UnitTypeId.TradeCart);
+        }
+
+        public static Determinism.Fixed GetUnitMoveSpeed(UnitTypeId unitTypeId)
+        {
+            switch (unitTypeId)
+            {
+                case UnitTypeId.Scout:
+                    return Determinism.Fixed.FromRatio(ScoutMoveSpeedTilesPerTickNumerator, ScoutMoveSpeedTilesPerTickDenominator);
+                case UnitTypeId.Infantry:
+                    return Determinism.Fixed.FromRatio(InfantryMoveSpeedTilesPerTickNumerator, InfantryMoveSpeedTilesPerTickDenominator);
+                case UnitTypeId.SiegeCannon:
+                    return Determinism.Fixed.FromRatio(SiegeCannonMoveSpeedTilesPerTickNumerator, SiegeCannonMoveSpeedTilesPerTickDenominator);
+                case UnitTypeId.TradeCart:
+                    return Determinism.Fixed.FromRatio(TradeCartMoveSpeedTilesPerTickNumerator, TradeCartMoveSpeedTilesPerTickDenominator);
+                case UnitTypeId.Villager:
+                    return Determinism.Fixed.FromRatio(VillagerMoveSpeedTilesPerTickNumerator, VillagerMoveSpeedTilesPerTickDenominator);
+                default:
+                    return Determinism.Fixed.FromInt(0);
+            }
+        }
+
+        public static int GetUnitSightRadius(UnitTypeId unitTypeId)
+        {
+            switch (unitTypeId)
+            {
+                case UnitTypeId.Scout:
+                    return ScoutSightRadiusTiles;
+                case UnitTypeId.Infantry:
+                    return InfantrySightRadiusTiles;
+                case UnitTypeId.SiegeCannon:
+                    return SiegeCannonSightRadiusTiles;
+                case UnitTypeId.TradeCart:
+                    return TradeCartSightRadiusTiles;
+                case UnitTypeId.Villager:
+                    return VillagerSightRadiusTiles;
+                default:
+                    return 0;
+            }
+        }
+
+        public static int GetBuildingSightRadius(BuildingTypeId buildingTypeId)
+        {
+            switch (buildingTypeId)
+            {
+                case BuildingTypeId.TownCenter:
+                    return TownCenterSightRadiusTiles;
+                case BuildingTypeId.TradePost:
+                    return TradePostSightRadiusTiles;
+                default:
+                    return 0;
+            }
+        }
+
+        public static int GetBuildingCompletedHitPoints(BuildingTypeId buildingTypeId, bool isCapital)
+        {
+            switch (buildingTypeId)
+            {
+                case BuildingTypeId.TownCenter:
+                    return TownCenterHitPoints + (isCapital ? CapitalHitPointBonus : 0);
+                case BuildingTypeId.Wall:
+                    return WallHitPoints;
+                case BuildingTypeId.TradePost:
+                    return TradePostHitPoints;
+                default:
+                    return 1;
+            }
+        }
+
+        public static int GetUnitAttackDamage(UnitTypeId unitTypeId)
+        {
+            switch (unitTypeId)
+            {
+                case UnitTypeId.Infantry:
+                    return InfantryAttackDamage;
+                case UnitTypeId.Scout:
+                    return ScoutAttackDamage;
+                case UnitTypeId.Villager:
+                    return VillagerAttackDamage;
+                case UnitTypeId.SiegeCannon:
+                    return 0;
+                default:
+                    return 0;
+            }
+        }
+
+        public static int GetUnitAttackCooldownTicks(UnitTypeId unitTypeId)
+        {
+            switch (unitTypeId)
+            {
+                case UnitTypeId.Infantry:
+                    return InfantryAttackCooldownTicks;
+                case UnitTypeId.Scout:
+                    return ScoutAttackCooldownTicks;
+                case UnitTypeId.Villager:
+                    return VillagerAttackCooldownTicks;
+                default:
+                    return 1;
+            }
+        }
+
+        public static Determinism.Fixed GetUnitAttackRange(UnitTypeId unitTypeId)
+        {
+            return Determinism.Fixed.FromInt(1);
+        }
+
+        public static bool IsSiege(UnitTypeId unitTypeId)
+        {
+            return unitTypeId == UnitTypeId.SiegeCannon;
+        }
+
+        public static int GetSiegeSetupTicks(UnitTypeId unitTypeId)
+        {
+            return unitTypeId == UnitTypeId.SiegeCannon ? SiegeCannonSetupTicks : 0;
+        }
+
+        public static int GetSiegeReloadTicks(UnitTypeId unitTypeId)
+        {
+            return unitTypeId == UnitTypeId.SiegeCannon ? SiegeCannonReloadTicks : 0;
+        }
+
+        public static int GetSiegeBuildingDamage(UnitTypeId unitTypeId)
+        {
+            return unitTypeId == UnitTypeId.SiegeCannon ? SiegeCannonBuildingDamage : 0;
+        }
+
+        public static Determinism.Fixed GetSiegeAttackRange(UnitTypeId unitTypeId)
+        {
+            return unitTypeId == UnitTypeId.SiegeCannon ? Determinism.Fixed.FromInt(SiegeCannonRangeTiles) : Determinism.Fixed.FromInt(0);
+        }
+    }
+}
