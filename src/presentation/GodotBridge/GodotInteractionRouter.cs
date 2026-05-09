@@ -60,7 +60,7 @@ namespace RtsGame.Presentation.GodotBridge
                     continue;
                 }
 
-                if (ContainsPoint(primitive, xRaw, yRaw))
+                if (GodotPrimitiveHitTest.ContainsPoint(primitive, xRaw, yRaw))
                 {
                     return primitive.EntityId;
                 }
@@ -83,22 +83,13 @@ namespace RtsGame.Presentation.GodotBridge
                     continue;
                 }
 
-                if (ContainsPoint(primitive, xRaw, yRaw))
+                if (GodotPrimitiveHitTest.ContainsPoint(primitive, xRaw, yRaw))
                 {
                     return primitive.EntityId;
                 }
             }
 
             return 0;
-        }
-
-        private static bool ContainsPoint(GodotPrimitiveDto primitive, long xRaw, long yRaw)
-        {
-            long halfSize = primitive.SizeRaw / 2;
-            return xRaw >= primitive.XRaw - halfSize
-                && xRaw <= primitive.XRaw + halfSize
-                && yRaw >= primitive.YRaw - halfSize
-                && yRaw <= primitive.YRaw + halfSize;
         }
     }
 }

@@ -128,6 +128,8 @@ namespace RtsGame.Tests
                 new TestCase("godot hud text includes unit gather status", GodotHudTextIncludesUnitGatherStatus),
                 new TestCase("godot hud text includes building training status", GodotHudTextIncludesBuildingTrainingStatus),
                 new TestCase("godot hud text handles missing status", GodotHudTextHandlesMissingStatus),
+                new TestCase("godot primitive hit test includes boundary", GodotPrimitiveHitTestIncludesBoundary),
+                new TestCase("godot primitive hit test rejects outside", GodotPrimitiveHitTestRejectsOutside),
                 new TestCase("train infantry completes", TrainInfantryCompletes),
                 new TestCase("train cavalry completes", TrainCavalryCompletes),
                 new TestCase("cavalry moves faster than infantry", CavalryMovesFasterThanInfantry),
@@ -1935,6 +1937,30 @@ namespace RtsGame.Tests
             AssertEqual(true, text.Contains("Building 77"), "hud should still include selected building id when status is missing");
             AssertEqual(false, text.Contains("Gather"), "missing unit status should not invent gather text");
             AssertEqual(false, text.Contains("Train"), "missing building status should not invent training text");
+        }
+
+        private static void GodotPrimitiveHitTestIncludesBoundary()
+        {
+            GodotPrimitiveDto primitive = CreateGodotPrimitive(VisualPrimitiveKind.UnitSquare, 100, 0, 10, 10);
+
+            bool contains = GodotPrimitiveHitTest.ContainsPoint(
+                primitive,
+                Fixed.FromInt(10).Raw + Fixed.FromRatio(1, 2).Raw,
+                Fixed.FromInt(10).Raw);
+
+            AssertEqual(true, contains, "hit test should include primitive boundary");
+        }
+
+        private static void GodotPrimitiveHitTestRejectsOutside()
+        {
+            GodotPrimitiveDto primitive = CreateGodotPrimitive(VisualPrimitiveKind.UnitSquare, 101, 0, 10, 10);
+
+            bool contains = GodotPrimitiveHitTest.ContainsPoint(
+                primitive,
+                Fixed.FromInt(10).Raw + Fixed.FromRatio(1, 2).Raw + 1,
+                Fixed.FromInt(10).Raw);
+
+            AssertEqual(false, contains, "hit test should reject points beyond primitive boundary");
         }
 
         private static void TrainInfantryCompletes()
