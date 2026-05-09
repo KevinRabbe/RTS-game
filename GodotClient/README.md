@@ -28,3 +28,9 @@ Local 1v1 prototype path:
 `Godot input -> ClientCommandIntent -> LocalPlaySession -> GameSnapshot -> VisualFrame`
 
 `LocalPlaySession` lives in `src/presentation/LocalPlay`. It owns a private local `GameState` for prototype play, fills missing 1v1 input with deterministic no-ops, advances only through `TickRunner`, and exposes snapshots/visual frames for drawing.
+
+Godot facade path:
+
+`Godot script -> GodotClientFacade -> LocalPlaySession -> VisualFrame DTOs`
+
+`GodotClientFacade` lives in `src/presentation/GodotBridge`. It exposes simple methods such as `QueueMoveUnits`, `QueuePlaceTownCenter`, and `GetFrame`. The returned DTOs use fixed-point raw coordinates so drawing code can convert to pixels without introducing gameplay math.

@@ -1,0 +1,112 @@
+namespace RtsGame.Presentation.GodotBridge
+{
+    public sealed class GodotFrameDto
+    {
+        public int Tick { get; }
+        public int LocalPlayerIndex { get; }
+        public GodotLocalPlayerDto LocalPlayer { get; }
+        public GodotMatchDto Match { get; }
+        public GodotPrimitiveDto[] Primitives { get; }
+
+        public GodotFrameDto(
+            int tick,
+            int localPlayerIndex,
+            GodotLocalPlayerDto localPlayer,
+            GodotMatchDto match,
+            GodotPrimitiveDto[] primitives)
+        {
+            Tick = tick;
+            LocalPlayerIndex = localPlayerIndex;
+            LocalPlayer = localPlayer;
+            Match = match;
+            Primitives = primitives;
+        }
+    }
+
+    public sealed class GodotPrimitiveDto
+    {
+        public int Kind { get; }
+        public int EntityId { get; }
+        public int OwnerPlayerIndex { get; }
+        public long XRaw { get; }
+        public long YRaw { get; }
+        public long EndXRaw { get; }
+        public long EndYRaw { get; }
+        public long SizeRaw { get; }
+        public int CurrentHitPoints { get; }
+        public int MaxHitPoints { get; }
+        public bool IsCapital { get; }
+
+        public GodotPrimitiveDto(
+            int kind,
+            int entityId,
+            int ownerPlayerIndex,
+            long xRaw,
+            long yRaw,
+            long endXRaw,
+            long endYRaw,
+            long sizeRaw,
+            int currentHitPoints,
+            int maxHitPoints,
+            bool isCapital)
+        {
+            Kind = kind;
+            EntityId = entityId;
+            OwnerPlayerIndex = ownerPlayerIndex;
+            XRaw = xRaw;
+            YRaw = yRaw;
+            EndXRaw = endXRaw;
+            EndYRaw = endYRaw;
+            SizeRaw = sizeRaw;
+            CurrentHitPoints = currentHitPoints;
+            MaxHitPoints = maxHitPoints;
+            IsCapital = isCapital;
+        }
+    }
+
+    public sealed class GodotLocalPlayerDto
+    {
+        public int Food { get; }
+        public int Wood { get; }
+        public int Gold { get; }
+        public int PopulationUsed { get; }
+        public int PopulationCap { get; }
+        public bool HasCapitalBeenPlaced { get; }
+        public bool IsCapitalAlive { get; }
+        public bool CapitalBonusActive { get; }
+
+        public GodotLocalPlayerDto(
+            int food,
+            int wood,
+            int gold,
+            int populationUsed,
+            int populationCap,
+            bool hasCapitalBeenPlaced,
+            bool isCapitalAlive,
+            bool capitalBonusActive)
+        {
+            Food = food;
+            Wood = wood;
+            Gold = gold;
+            PopulationUsed = populationUsed;
+            PopulationCap = populationCap;
+            HasCapitalBeenPlaced = hasCapitalBeenPlaced;
+            IsCapitalAlive = isCapitalAlive;
+            CapitalBonusActive = capitalBonusActive;
+        }
+    }
+
+    public sealed class GodotMatchDto
+    {
+        public bool IsFinished { get; }
+        public int WinnerPlayerIndex { get; }
+        public int FinishedTick { get; }
+
+        public GodotMatchDto(bool isFinished, int winnerPlayerIndex, int finishedTick)
+        {
+            IsFinished = isFinished;
+            WinnerPlayerIndex = winnerPlayerIndex;
+            FinishedTick = finishedTick;
+        }
+    }
+}

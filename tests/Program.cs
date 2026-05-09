@@ -1,5 +1,6 @@
 using RtsGame.Net.Lockstep;
 using RtsGame.Presentation.ClientInput;
+using RtsGame.Presentation.GodotBridge;
 using RtsGame.Presentation.LocalPlay;
 using RtsGame.Presentation.Snapshots;
 using RtsGame.Presentation.Visuals;
@@ -98,6 +99,10 @@ namespace RtsGame.Tests
                 new TestCase("local play session completes 1v1 capitals", LocalPlaySessionCompletes1v1Capitals),
                 new TestCase("local play session exposes visual frame", LocalPlaySessionExposesVisualFrame),
                 new TestCase("local play session rejects invalid intent through sim", LocalPlaySessionRejectsInvalidIntentThroughSim),
+                new TestCase("godot facade returns drawable frame dto", GodotFacadeReturnsDrawableFrameDto),
+                new TestCase("godot facade drives local capital flow", GodotFacadeDrivesLocalCapitalFlow),
+                new TestCase("godot facade rejects invalid commands through sim", GodotFacadeRejectsInvalidCommandsThroughSim),
+                new TestCase("godot facade exposes fixed raw coordinates", GodotFacadeExposesFixedRawCoordinates),
                 new TestCase("train infantry completes", TrainInfantryCompletes),
                 new TestCase("train cavalry completes", TrainCavalryCompletes),
                 new TestCase("cavalry moves faster than infantry", CavalryMovesFasterThanInfantry),
@@ -1460,6 +1465,64 @@ namespace RtsGame.Tests
 
             AssertEqual(1, session.RejectedCommandCount, "invalid local intent should be rejected by simulation validation");
             AssertEqual(true, session.GetSnapshot(0).LocalPlayer.HasCapitalBeenPlaced, "valid first capital should remain placed");
+        }
+
+        private static void GodotFacadeReturnsDrawableFrameDto()
+        {
+            GodotClientFacade facade = GodotClientFacade.CreateLocal1v1(76);
+
+            facade.AdvanceOneTick();
+            GodotFrameDto frame = facade.GetFrame(0);
+
+            AssertEqual(1, frame.Tick, "godot frame should report current tick");
+            AssertEqual(0, frame.LocalPlayerIndex, "godot frame should report local player");
+            AssertEqual(true, HasGodotPrimitive(frame, VisualPrimitiveKind.FogOverlay), "godot frame should include fog primitive");
+            AssertEqual(true, HasGodotPrimitive(frame, VisualPrimitiveKind.UnitSquare), "godot frame should include unit primitive");
+        }
+
+        private static void GodotFacadeDrivesLocalCapitalFlow()
+        {
+            GodotClientFacade facade = GodotClientFacade.CreateLocal1v1(77);
+
+            facade.QueuePlaceTownCenter(0, 10, 10);
+            facade.QueuePlaceTownCenter(1, 50, 10);
+            facade.AdvanceOneTick();
+            facade.QueueAssignBuild(0, 11, new[] { 1, 2, 3, 4 });
+            facade.QueueAssignBuild(1, 12, new[] { 6, 7, 8, 9 });
+            facade.AdvanceTicks(2);
+
+            GodotFrameDto playerZero = facade.GetFrame(0);
+            GodotFrameDto playerOne = facade.GetFrame(1);
+
+            AssertEqual(true, playerZero.LocalPlayer.CapitalBonusActive, "godot facade should complete player 0 capital through local session");
+            AssertEqual(true, playerOne.LocalPlayer.CapitalBonusActive, "godot facade should complete player 1 capital through local session");
+            AssertEqual(0, facade.RejectedCommandCount, "godot facade capital flow should not reject");
+        }
+
+        private static void GodotFacadeRejectsInvalidCommandsThroughSim()
+        {
+            GodotClientFacade facade = GodotClientFacade.CreateLocal1v1(78);
+
+            facade.QueuePlaceTownCenter(0, 10, 10);
+            facade.AdvanceOneTick();
+            facade.QueuePlaceTownCenter(0, 20, 20);
+            facade.AdvanceOneTick();
+
+            AssertEqual(1, facade.RejectedCommandCount, "godot facade should route invalid commands to sim rejection");
+            AssertEqual(true, facade.GetFrame(0).LocalPlayer.HasCapitalBeenPlaced, "first valid capital should remain visible in local player state");
+        }
+
+        private static void GodotFacadeExposesFixedRawCoordinates()
+        {
+            GodotClientFacade facade = GodotClientFacade.CreateLocal1v1(79);
+
+            facade.AdvanceOneTick();
+            GodotFrameDto frame = facade.GetFrame(0);
+            GodotPrimitiveDto unit = FindGodotPrimitive(frame, VisualPrimitiveKind.UnitSquare, 1);
+
+            AssertEqual(Fixed.FromInt(0).Raw, unit.XRaw, "godot facade should expose fixed raw X coordinate");
+            AssertEqual(Fixed.FromInt(0).Raw, unit.YRaw, "godot facade should expose fixed raw Y coordinate");
+            AssertEqual(Fixed.FromRatio(7, 10).Raw, unit.SizeRaw, "godot facade should expose fixed raw primitive size");
         }
 
         private static void TrainInfantryCompletes()
@@ -2893,6 +2956,32 @@ namespace RtsGame.Tests
             }
 
             throw new InvalidOperationException("primitive not found kind=" + kind + " entity=" + entityId);
+        }
+
+        private static bool HasGodotPrimitive(GodotFrameDto frame, VisualPrimitiveKind kind)
+        {
+            for (int i = 0; i < frame.Primitives.Length; i++)
+            {
+                if (frame.Primitives[i].Kind == (int)kind)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static GodotPrimitiveDto FindGodotPrimitive(GodotFrameDto frame, VisualPrimitiveKind kind, int entityId)
+        {
+            for (int i = 0; i < frame.Primitives.Length; i++)
+            {
+                if (frame.Primitives[i].Kind == (int)kind && frame.Primitives[i].EntityId == entityId)
+                {
+                    return frame.Primitives[i];
+                }
+            }
+
+            throw new InvalidOperationException("godot primitive not found kind=" + kind + " entity=" + entityId);
         }
 
         private static LockstepSession RunLockstep(int ticks, int players, ulong seed, bool reverseDelivery)
