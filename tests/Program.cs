@@ -115,8 +115,10 @@ namespace RtsGame.Tests
                 new TestCase("local play session completes 1v1 capitals", LocalPlaySessionCompletes1v1Capitals),
                 new TestCase("local play session exposes visual frame", LocalPlaySessionExposesVisualFrame),
                 new TestCase("local play session rejects invalid intent through sim", LocalPlaySessionRejectsInvalidIntentThroughSim),
+                new TestCase("local play session creates 6 player ffa", LocalPlaySessionCreates6PlayerFfa),
                 new TestCase("godot facade returns drawable frame dto", GodotFacadeReturnsDrawableFrameDto),
                 new TestCase("godot facade drives local capital flow", GodotFacadeDrivesLocalCapitalFlow),
+                new TestCase("godot facade creates local 6 player ffa", GodotFacadeCreatesLocal6PlayerFfa),
                 new TestCase("godot facade rejects invalid commands through sim", GodotFacadeRejectsInvalidCommandsThroughSim),
                 new TestCase("godot facade exposes fixed raw coordinates", GodotFacadeExposesFixedRawCoordinates),
                 new TestCase("godot facade exposes primitive type ids", GodotFacadeExposesPrimitiveTypeIds),
@@ -1828,6 +1830,20 @@ namespace RtsGame.Tests
             AssertEqual(true, session.GetSnapshot(0).LocalPlayer.HasCapitalBeenPlaced, "valid first capital should remain placed");
         }
 
+        private static void LocalPlaySessionCreates6PlayerFfa()
+        {
+            LocalPlaySession session = LocalPlaySession.Create6PlayerFfa(96);
+
+            session.AdvanceOneTick();
+
+            AssertEqual(6, session.PlayerCount, "local FFA session should expose all six players");
+            AssertEqual(1, session.CurrentTick, "local FFA session should advance normally");
+            AssertEqual(6, session.ExecutedCommandCount, "local FFA session should fill all six player inputs with deterministic noops");
+            AssertEqual(0, session.RejectedCommandCount, "automatic six-player noops should not reject");
+            AssertEqual(0, session.GetSnapshot(0).LocalPlayerIndex, "local FFA snapshot should support player 0 view");
+            AssertEqual(5, session.GetSnapshot(5).LocalPlayerIndex, "local FFA snapshot should support player 5 view");
+        }
+
         private static void GodotFacadeReturnsDrawableFrameDto()
         {
             GodotClientFacade facade = GodotClientFacade.CreateLocal1v1(76);
@@ -1858,6 +1874,20 @@ namespace RtsGame.Tests
             AssertEqual(true, playerZero.LocalPlayer.CapitalBonusActive, "godot facade should complete player 0 capital through local session");
             AssertEqual(true, playerOne.LocalPlayer.CapitalBonusActive, "godot facade should complete player 1 capital through local session");
             AssertEqual(0, facade.RejectedCommandCount, "godot facade capital flow should not reject");
+        }
+
+        private static void GodotFacadeCreatesLocal6PlayerFfa()
+        {
+            GodotClientFacade facade = GodotClientFacade.CreateLocal6PlayerFfa(97);
+
+            facade.AdvanceOneTick();
+            GodotFrameDto playerFive = facade.GetFrame(5);
+
+            AssertEqual(6, facade.PlayerCount, "godot facade should expose six-player local FFA setup");
+            AssertEqual(6, facade.ExecutedCommandCount, "godot local FFA should fill six inputs with noops");
+            AssertEqual(5, playerFive.LocalPlayerIndex, "godot facade should return player 5 frame for local FFA");
+            AssertEqual(true, HasGodotPrimitive(playerFive, VisualPrimitiveKind.UnitSquare), "player 5 frame should expose visible local starting units");
+            AssertEqual(0, facade.RejectedCommandCount, "six-player facade setup should not reject");
         }
 
         private static void GodotFacadeRejectsInvalidCommandsThroughSim()

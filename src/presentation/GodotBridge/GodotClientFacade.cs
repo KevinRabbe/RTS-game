@@ -32,9 +32,24 @@ namespace RtsGame.Presentation.GodotBridge
             get { return _session.ExecutedCommandCount; }
         }
 
+        public int PlayerCount
+        {
+            get { return _session.PlayerCount; }
+        }
+
         public static GodotClientFacade CreateLocal1v1(ulong matchSeed)
         {
             return new GodotClientFacade(LocalPlaySession.Create1v1(matchSeed));
+        }
+
+        public static GodotClientFacade CreateLocal6PlayerFfa(ulong matchSeed)
+        {
+            return new GodotClientFacade(LocalPlaySession.Create6PlayerFfa(matchSeed));
+        }
+
+        public static GodotClientFacade CreateLocal(ulong matchSeed, int playerCount)
+        {
+            return new GodotClientFacade(LocalPlaySession.Create(matchSeed, playerCount));
         }
 
         public void AdvanceOneTick()

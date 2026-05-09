@@ -54,6 +54,11 @@ namespace RtsGame.Presentation.LocalPlay
 
         public LocalPlaySession(GameRules rules, ulong matchSeed)
         {
+            if (rules.MaxPlayers <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(rules), "Local play requires at least one player.");
+            }
+
             Rules = rules;
             _runner = new TickRunner();
             _commandBuffer = new CommandBuffer();
@@ -64,7 +69,22 @@ namespace RtsGame.Presentation.LocalPlay
 
         public static LocalPlaySession Create1v1(ulong matchSeed)
         {
-            return new LocalPlaySession(GameRules.CreatePhaseZeroDefaults(2), matchSeed);
+            return Create(matchSeed, 2);
+        }
+
+        public static LocalPlaySession Create6PlayerFfa(ulong matchSeed)
+        {
+            return Create(matchSeed, 6);
+        }
+
+        public static LocalPlaySession Create(ulong matchSeed, int playerCount)
+        {
+            if (playerCount <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(playerCount), "Local play requires at least one player.");
+            }
+
+            return new LocalPlaySession(GameRules.CreatePhaseZeroDefaults(playerCount), matchSeed);
         }
 
         public void QueueIntent(int playerIndex, ClientCommandIntent intent)
