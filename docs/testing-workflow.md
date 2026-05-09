@@ -39,6 +39,12 @@ dotnet run --project tests\RtsGame.Tests.csproj --no-build -- --filter godot --f
 dotnet run --project tests\RtsGame.Tests.csproj --no-build -- --fail-fast
 ```
 
+To print the runner options:
+
+```powershell
+dotnet run --project tests\RtsGame.Tests.csproj --no-build -- --help
+```
+
 ## Suggested Loop
 
 For small presentation or tooling slices:

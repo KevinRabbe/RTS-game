@@ -34,6 +34,7 @@ namespace RtsGame.Tests
                 new TestCase("test runner runs all without filter", TestRunnerRunsAllWithoutFilter),
                 new TestCase("test runner detects list argument", TestRunnerDetectsListArgument),
                 new TestCase("test runner detects fail fast argument", TestRunnerDetectsFailFastArgument),
+                new TestCase("test runner detects help argument", TestRunnerDetectsHelpArgument),
                 new TestCase("nomad start creates initial units", NomadStartCreatesInitialUnits),
                 new TestCase("nomad map creates center resources", NomadMapCreatesCenterResources),
                 new TestCase("placement rejects overlapping building", PlacementRejectsOverlappingBuilding),
@@ -224,6 +225,12 @@ namespace RtsGame.Tests
             int selected = 0;
             string filter = GetFilter(args);
             bool failFast = ShouldFailFast(args);
+            if (ShouldShowHelp(args))
+            {
+                PrintHelp();
+                return 0;
+            }
+
             if (ShouldList(args))
             {
                 foreach (TestCase test in tests)
@@ -312,20 +319,46 @@ namespace RtsGame.Tests
 
         private static bool ShouldList(string[] args)
         {
-            return args.Length >= 1 && args[0] == "--list";
+            return HasFlag(args, "--list");
         }
 
         private static bool ShouldFailFast(string[] args)
         {
+            return HasFlag(args, "--fail-fast");
+        }
+
+        private static bool ShouldShowHelp(string[] args)
+        {
+            return HasFlag(args, "--help") || HasFlag(args, "-h");
+        }
+
+        private static bool HasFlag(string[] args, string flag)
+        {
             for (int i = 0; i < args.Length; i++)
             {
-                if (args[i] == "--fail-fast")
+                if (args[i] == flag)
                 {
                     return true;
                 }
             }
 
             return false;
+        }
+
+        private static void PrintHelp()
+        {
+            Console.WriteLine("RTS test runner");
+            Console.WriteLine("Usage:");
+            Console.WriteLine("  dotnet run --project tests\\RtsGame.Tests.csproj --no-build");
+            Console.WriteLine("  dotnet run --project tests\\RtsGame.Tests.csproj --no-build -- --filter godot");
+            Console.WriteLine("  dotnet run --project tests\\RtsGame.Tests.csproj --no-build -- --list");
+            Console.WriteLine("  dotnet run --project tests\\RtsGame.Tests.csproj --no-build -- --fail-fast");
+            Console.WriteLine("Options:");
+            Console.WriteLine("  --filter <text>    Run tests whose names contain text.");
+            Console.WriteLine("  --filter=<text>    Run tests whose names contain text.");
+            Console.WriteLine("  --list             List selected test names without running them.");
+            Console.WriteLine("  --fail-fast        Stop after the first failed selected test.");
+            Console.WriteLine("  --help, -h         Show this help.");
         }
 
         private static bool ShouldRun(TestCase test, string filter)
@@ -375,6 +408,13 @@ namespace RtsGame.Tests
             AssertEqual(true, ShouldFailFast(new[] { "--fail-fast" }), "test runner should detect fail-fast mode");
             AssertEqual(true, ShouldFailFast(new[] { "--filter", "godot", "--fail-fast" }), "test runner should detect fail-fast after filter");
             AssertEqual(false, ShouldFailFast(new[] { "--filter", "godot" }), "test runner should not use fail-fast unless explicitly requested");
+        }
+
+        private static void TestRunnerDetectsHelpArgument()
+        {
+            AssertEqual(true, ShouldShowHelp(new[] { "--help" }), "test runner should detect long help flag");
+            AssertEqual(true, ShouldShowHelp(new[] { "-h" }), "test runner should detect short help flag");
+            AssertEqual(false, ShouldShowHelp(new[] { "--filter", "godot" }), "test runner should not show help unless requested");
         }
 
         private static void CommandOrdering()
