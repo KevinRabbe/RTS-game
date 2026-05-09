@@ -9,11 +9,13 @@ public partial class RtsClientRoot : Node2D
     private const float TilePixels = 16.0f;
     private const double TickSeconds = 1.0 / 20.0;
     private const ulong DefaultMatchSeed = 12345UL;
+    private const float CameraPanPixelsPerSecond = 420.0f;
     private const int VillagerUnitTypeId = 1;
     private const int InfantryUnitTypeId = 3;
     private const int TradeCartUnitTypeId = 5;
 
     private readonly List<int> _selectedUnitIds = new List<int>();
+    private Camera2D? _camera;
     private GodotClientFacade? _facade;
     private GodotFrameDto? _frame;
     private double _tickAccumulator;
@@ -24,13 +26,23 @@ public partial class RtsClientRoot : Node2D
 
     public override void _Ready()
     {
+        _camera = new Camera2D();
+        AddChild(_camera);
+        _camera.MakeCurrent();
         StartLocalMatch(2);
     }
 
     public override void _Process(double delta)
     {
-        if (_facade == null || _paused)
+        if (_facade == null)
         {
+            return;
+        }
+
+        UpdateCamera(delta);
+        if (_paused)
+        {
+            RefreshFrame();
             return;
         }
 
@@ -165,10 +177,11 @@ public partial class RtsClientRoot : Node2D
 
     private void HandleMouse(InputEventMouseButton mouse)
     {
-        Vector2I tile = ScreenToTile(mouse.Position);
+        Vector2 mouseWorldPosition = GetGlobalMousePosition();
+        Vector2I tile = ScreenToTile(mouseWorldPosition);
         if (mouse.ButtonIndex == MouseButton.Left)
         {
-            SelectAt(mouse.Position);
+            SelectAt(mouseWorldPosition);
             RefreshFrame();
             return;
         }
@@ -179,8 +192,8 @@ public partial class RtsClientRoot : Node2D
                 _frame!,
                 LocalPlayerIndex,
                 _selectedUnitIds.Count > 0,
-                ScreenToRaw(mouse.Position.X),
-                ScreenToRaw(mouse.Position.Y));
+                ScreenToRaw(mouseWorldPosition.X),
+                ScreenToRaw(mouseWorldPosition.Y));
 
             if (intent.Kind == GodotInteractionIntentKind.Attack)
             {
@@ -202,6 +215,42 @@ public partial class RtsClientRoot : Node2D
             _facade.AdvanceOneTick();
             RefreshFrame();
         }
+    }
+
+    private void UpdateCamera(double delta)
+    {
+        if (_camera == null)
+        {
+            return;
+        }
+
+        Vector2 direction = Vector2.Zero;
+        if (Input.IsKeyPressed(Key.Left))
+        {
+            direction.X -= 1.0f;
+        }
+
+        if (Input.IsKeyPressed(Key.Right))
+        {
+            direction.X += 1.0f;
+        }
+
+        if (Input.IsKeyPressed(Key.Up))
+        {
+            direction.Y -= 1.0f;
+        }
+
+        if (Input.IsKeyPressed(Key.Down))
+        {
+            direction.Y += 1.0f;
+        }
+
+        if (direction == Vector2.Zero)
+        {
+            return;
+        }
+
+        _camera.Position += direction.Normalized() * CameraPanPixelsPerSecond * (float)delta;
     }
 
     private void TrainFromSelectedBuilding(int unitTypeId)
