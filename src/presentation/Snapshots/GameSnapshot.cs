@@ -10,6 +10,7 @@ namespace RtsGame.Presentation.Snapshots
         public int LocalPlayerIndex { get; }
         public IReadOnlyList<UnitSnapshot> Units { get; }
         public IReadOnlyList<BuildingSnapshot> Buildings { get; }
+        public IReadOnlyList<ResourceNodeSnapshot> Resources { get; }
         public LocalPlayerSnapshot LocalPlayer { get; }
         public MatchSnapshot Match { get; }
 
@@ -18,6 +19,7 @@ namespace RtsGame.Presentation.Snapshots
             int localPlayerIndex,
             IReadOnlyList<UnitSnapshot> units,
             IReadOnlyList<BuildingSnapshot> buildings,
+            IReadOnlyList<ResourceNodeSnapshot> resources,
             LocalPlayerSnapshot localPlayer,
             MatchSnapshot match)
         {
@@ -25,6 +27,7 @@ namespace RtsGame.Presentation.Snapshots
             LocalPlayerIndex = localPlayerIndex;
             Units = units;
             Buildings = buildings;
+            Resources = resources;
             LocalPlayer = localPlayer;
             Match = match;
         }
@@ -71,6 +74,22 @@ namespace RtsGame.Presentation.Snapshots
             HitPoints = hitPoints;
             IsUnderConstruction = isUnderConstruction;
             IsCapital = isCapital;
+        }
+    }
+
+    public readonly struct ResourceNodeSnapshot
+    {
+        public int Id { get; }
+        public ResourceType ResourceType { get; }
+        public FixedVector2 Position { get; }
+        public int RemainingAmount { get; }
+
+        public ResourceNodeSnapshot(int id, ResourceType resourceType, FixedVector2 position, int remainingAmount)
+        {
+            Id = id;
+            ResourceType = resourceType;
+            Position = position;
+            RemainingAmount = remainingAmount;
         }
     }
 

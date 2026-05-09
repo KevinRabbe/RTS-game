@@ -11,6 +11,7 @@ namespace RtsGame.Presentation.Visuals
         private static readonly Fixed BuildingSize = Fixed.FromInt(2);
         private static readonly Fixed CapitalSize = Fixed.FromInt(3);
         private static readonly Fixed WallSize = Fixed.FromInt(1);
+        private static readonly Fixed ResourceSize = Fixed.FromRatio(13, 10);
         private static readonly Fixed HealthBarSize = Fixed.FromRatio(9, 10);
 
         public static VisualFrame Build(GameSnapshot snapshot)
@@ -25,6 +26,11 @@ namespace RtsGame.Presentation.Visuals
             for (int i = 0; i < snapshot.Units.Count; i++)
             {
                 AddUnit(snapshot.Units[i], primitives);
+            }
+
+            for (int i = 0; i < snapshot.Resources.Count; i++)
+            {
+                AddResource(snapshot.Resources[i], primitives);
             }
 
             AddTradeRoutes(snapshot, primitives);
@@ -76,6 +82,35 @@ namespace RtsGame.Presentation.Visuals
                 maxHitPoints,
                 building.IsCapital));
             AddHealthBar(building.Id, building.OwnerPlayerIndex, building.Position, building.HitPoints, maxHitPoints, primitives);
+        }
+
+        private static void AddResource(ResourceNodeSnapshot resource, List<VisualPrimitive> primitives)
+        {
+            primitives.Add(new VisualPrimitive(
+                GetResourceKind(resource.ResourceType),
+                resource.Id,
+                GameData.NeutralOwnerPlayerIndex,
+                resource.Position,
+                resource.Position,
+                ResourceSize,
+                resource.RemainingAmount,
+                resource.RemainingAmount,
+                false));
+        }
+
+        private static VisualPrimitiveKind GetResourceKind(ResourceType resourceType)
+        {
+            switch (resourceType)
+            {
+                case ResourceType.Food:
+                    return VisualPrimitiveKind.FoodResourceCircle;
+                case ResourceType.Wood:
+                    return VisualPrimitiveKind.WoodResourceCircle;
+                case ResourceType.Gold:
+                    return VisualPrimitiveKind.GoldResourceCircle;
+                default:
+                    return VisualPrimitiveKind.FoodResourceCircle;
+            }
         }
 
         private static void AddHealthBar(int entityId, int ownerPlayerIndex, FixedVector2 position, int hitPoints, int maxHitPoints, List<VisualPrimitive> primitives)

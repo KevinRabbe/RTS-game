@@ -9,7 +9,10 @@ namespace RtsGame.Presentation.Visuals
         WallRectangle = 3,
         TradeRouteLine = 4,
         HealthBar = 5,
-        FogOverlay = 6
+        FogOverlay = 6,
+        FoodResourceCircle = 7,
+        WoodResourceCircle = 8,
+        GoldResourceCircle = 9
     }
 
     public readonly struct VisualPrimitive

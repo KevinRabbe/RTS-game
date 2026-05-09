@@ -43,5 +43,6 @@ Current Godot shell:
 - Right click issues a move intent for selected units.
 - `C` queues a local Town Center placement at the mouse tile.
 - `Space` pauses presentation tick advancement.
+- Visible food, wood, and gold are drawn as resource circles.
 
 The script may convert fixed raw coordinates to pixels for drawing. It must not contain combat, economy, placement, pathing, or validation rules.

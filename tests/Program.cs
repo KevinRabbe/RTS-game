@@ -85,10 +85,13 @@ namespace RtsGame.Tests
                 new TestCase("visibility lockstep", VisibilityLockstep),
                 new TestCase("presentation snapshot includes visible local state", PresentationSnapshotIncludesVisibleLocalState),
                 new TestCase("presentation snapshot hides invisible enemies", PresentationSnapshotHidesInvisibleEnemies),
+                new TestCase("presentation snapshot includes visible resources", PresentationSnapshotIncludesVisibleResources),
+                new TestCase("presentation snapshot hides depleted resources", PresentationSnapshotHidesDepletedResources),
                 new TestCase("presentation snapshot does not mutate checksum", PresentationSnapshotDoesNotMutateChecksum),
                 new TestCase("simulation does not reference presentation", SimulationDoesNotReferencePresentation),
                 new TestCase("visual frame creates ugly prototype primitives", VisualFrameCreatesUglyPrototypePrimitives),
                 new TestCase("visual frame marks capital larger than normal building", VisualFrameMarksCapitalLargerThanNormalBuilding),
+                new TestCase("visual frame includes resource primitives", VisualFrameIncludesResourcePrimitives),
                 new TestCase("visual frame includes trade route line", VisualFrameIncludesTradeRouteLine),
                 new TestCase("visual frame does not mutate checksum", VisualFrameDoesNotMutateChecksum),
                 new TestCase("client intent maps movement command", ClientIntentMapsMovementCommand),
@@ -103,6 +106,7 @@ namespace RtsGame.Tests
                 new TestCase("godot facade drives local capital flow", GodotFacadeDrivesLocalCapitalFlow),
                 new TestCase("godot facade rejects invalid commands through sim", GodotFacadeRejectsInvalidCommandsThroughSim),
                 new TestCase("godot facade exposes fixed raw coordinates", GodotFacadeExposesFixedRawCoordinates),
+                new TestCase("godot facade exposes resource primitive dto", GodotFacadeExposesResourcePrimitiveDto),
                 new TestCase("train infantry completes", TrainInfantryCompletes),
                 new TestCase("train cavalry completes", TrainCavalryCompletes),
                 new TestCase("cavalry moves faster than infantry", CavalryMovesFasterThanInfantry),
@@ -1257,6 +1261,35 @@ namespace RtsGame.Tests
             }
         }
 
+        private static void PresentationSnapshotIncludesVisibleResources()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = GameInitializer.CreateNomadStart(80, 1);
+            new TickRunner().AdvanceOneTick(state, rules, new CommandBuffer());
+
+            GameSnapshot snapshot = GameSnapshotBuilder.Build(state, 0);
+
+            AssertEqual(true, snapshot.Resources.Count >= 3, "snapshot should include visible starting resources");
+            AssertEqual(true, HasResource(snapshot, ResourceType.Food), "snapshot should include visible food resource");
+            AssertEqual(true, HasResource(snapshot, ResourceType.Wood), "snapshot should include visible wood resource");
+            AssertEqual(true, HasResource(snapshot, ResourceType.Gold), "snapshot should include visible gold resource");
+        }
+
+        private static void PresentationSnapshotHidesDepletedResources()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = GameInitializer.CreateNomadStart(81, 1);
+            state.EconomyState.ResourceNodes[0].RemainingAmount = 0;
+            new TickRunner().AdvanceOneTick(state, rules, new CommandBuffer());
+
+            GameSnapshot snapshot = GameSnapshotBuilder.Build(state, 0);
+
+            for (int i = 0; i < snapshot.Resources.Count; i++)
+            {
+                AssertFalse(snapshot.Resources[i].Id == 1, "snapshot should hide depleted resource node");
+            }
+        }
+
         private static void PresentationSnapshotDoesNotMutateChecksum()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -1310,6 +1343,19 @@ namespace RtsGame.Tests
 
             AssertEqual(true, capital.IsCapital, "capital primitive should be marked as capital");
             AssertEqual(true, capital.Size.Raw > normalTownCenter.Size.Raw, "capital should render larger than normal town center");
+        }
+
+        private static void VisualFrameIncludesResourcePrimitives()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = GameInitializer.CreateNomadStart(82, 1);
+            new TickRunner().AdvanceOneTick(state, rules, new CommandBuffer());
+
+            VisualFrame frame = VisualFrameBuilder.Build(GameSnapshotBuilder.Build(state, 0));
+
+            AssertEqual(true, HasPrimitive(frame, VisualPrimitiveKind.FoodResourceCircle), "visual frame should include food resource primitive");
+            AssertEqual(true, HasPrimitive(frame, VisualPrimitiveKind.WoodResourceCircle), "visual frame should include wood resource primitive");
+            AssertEqual(true, HasPrimitive(frame, VisualPrimitiveKind.GoldResourceCircle), "visual frame should include gold resource primitive");
         }
 
         private static void VisualFrameIncludesTradeRouteLine()
@@ -1523,6 +1569,20 @@ namespace RtsGame.Tests
             AssertEqual(Fixed.FromInt(0).Raw, unit.XRaw, "godot facade should expose fixed raw X coordinate");
             AssertEqual(Fixed.FromInt(0).Raw, unit.YRaw, "godot facade should expose fixed raw Y coordinate");
             AssertEqual(Fixed.FromRatio(7, 10).Raw, unit.SizeRaw, "godot facade should expose fixed raw primitive size");
+        }
+
+        private static void GodotFacadeExposesResourcePrimitiveDto()
+        {
+            GodotClientFacade facade = GodotClientFacade.CreateLocal1v1(83);
+
+            facade.AdvanceOneTick();
+            GodotFrameDto frame = facade.GetFrame(0);
+            GodotPrimitiveDto food = FindGodotPrimitive(frame, VisualPrimitiveKind.FoodResourceCircle, 1);
+
+            AssertEqual((int)VisualPrimitiveKind.FoodResourceCircle, food.Kind, "godot facade should expose food resource primitive kind");
+            AssertEqual(GameData.NeutralOwnerPlayerIndex, food.OwnerPlayerIndex, "resource primitive should be neutral-owned presentation data");
+            AssertEqual(Fixed.FromInt(6).Raw, food.XRaw, "godot facade should expose resource fixed raw X coordinate");
+            AssertEqual(Fixed.FromInt(0).Raw, food.YRaw, "godot facade should expose resource fixed raw Y coordinate");
         }
 
         private static void TrainInfantryCompletes()
@@ -2937,6 +2997,19 @@ namespace RtsGame.Tests
             for (int i = 0; i < frame.Primitives.Count; i++)
             {
                 if (frame.Primitives[i].Kind == kind)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasResource(GameSnapshot snapshot, ResourceType resourceType)
+        {
+            for (int i = 0; i < snapshot.Resources.Count; i++)
+            {
+                if (snapshot.Resources[i].ResourceType == resourceType)
                 {
                     return true;
                 }

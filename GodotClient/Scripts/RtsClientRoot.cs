@@ -15,6 +15,7 @@ public partial class RtsClientRoot : Node2D
     private GodotFrameDto? _frame;
     private double _tickAccumulator;
     private bool _paused;
+    private int _hoveredResourceNodeId;
 
     public override void _Ready()
     {
@@ -155,6 +156,11 @@ public partial class RtsClientRoot : Node2D
             case 6:
                 DrawFogOverlay();
                 break;
+            case 7:
+            case 8:
+            case 9:
+                DrawResource(primitive);
+                break;
         }
     }
 
@@ -179,6 +185,26 @@ public partial class RtsClientRoot : Node2D
         }
 
         DrawRect(rect, color);
+    }
+
+    private void DrawResource(GodotPrimitiveDto primitive)
+    {
+        Rect2 rect = PrimitiveRect(primitive);
+        Color color = Colors.ForestGreen;
+        if (primitive.Kind == 8)
+        {
+            color = Colors.SaddleBrown;
+        }
+        else if (primitive.Kind == 9)
+        {
+            color = Colors.Goldenrod;
+        }
+
+        DrawCircle(rect.GetCenter(), rect.Size.X * 0.5f, color);
+        if (primitive.EntityId == _hoveredResourceNodeId)
+        {
+            DrawArc(rect.GetCenter(), rect.Size.X * 0.65f, 0.0f, Mathf.Tau, 32, Colors.White, 2.0f);
+        }
     }
 
     private void DrawTradeRoute(GodotPrimitiveDto primitive)
@@ -216,12 +242,14 @@ public partial class RtsClientRoot : Node2D
 
         GodotLocalPlayerDto player = _frame.LocalPlayer;
         string selected = _selectedUnitIds.Count == 0 ? "-" : string.Join(",", _selectedUnitIds);
+        string hoveredResource = _hoveredResourceNodeId == 0 ? "-" : _hoveredResourceNodeId.ToString();
         string text = "Tick " + _frame.Tick
             + "  Food " + player.Food
             + "  Wood " + player.Wood
             + "  Gold " + player.Gold
             + "  Pop " + player.PopulationUsed + "/" + player.PopulationCap
             + "  Selected " + selected
+            + "  Resource " + hoveredResource
             + (_paused ? "  Paused" : "");
 
         DrawString(ThemeDB.FallbackFont, new Vector2(12.0f, 20.0f), text, HorizontalAlignment.Left, -1.0f, 16, Colors.White);
@@ -254,6 +282,31 @@ public partial class RtsClientRoot : Node2D
     private void RefreshFrame()
     {
         _frame = _facade!.GetFrame(LocalPlayerIndex);
+        _hoveredResourceNodeId = FindResourceAt(GetGlobalMousePosition());
         QueueRedraw();
+    }
+
+    private int FindResourceAt(Vector2 screenPosition)
+    {
+        if (_frame == null)
+        {
+            return 0;
+        }
+
+        for (int i = 0; i < _frame.Primitives.Length; i++)
+        {
+            GodotPrimitiveDto primitive = _frame.Primitives[i];
+            if (primitive.Kind < 7 || primitive.Kind > 9)
+            {
+                continue;
+            }
+
+            if (PrimitiveRect(primitive).HasPoint(screenPosition))
+            {
+                return primitive.EntityId;
+            }
+        }
+
+        return 0;
     }
 }

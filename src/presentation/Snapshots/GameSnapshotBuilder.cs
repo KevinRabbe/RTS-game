@@ -46,6 +46,18 @@ namespace RtsGame.Presentation.Snapshots
                     building.IsCapital));
             }
 
+            var resources = new List<ResourceNodeSnapshot>();
+            for (int i = 0; i < state.EconomyState.ResourceNodes.Count; i++)
+            {
+                ResourceNode node = state.EconomyState.ResourceNodes[i];
+                if (node.IsDepleted || !IsVisibleToLocalPlayer(state, localPlayerIndex, node.Position))
+                {
+                    continue;
+                }
+
+                resources.Add(new ResourceNodeSnapshot(node.Id, node.ResourceType, node.Position, node.RemainingAmount));
+            }
+
             PlayerState player = state.PlayerStates.Players[localPlayerIndex];
             var localPlayer = new LocalPlayerSnapshot(
                 player.Resources.Food,
@@ -62,7 +74,7 @@ namespace RtsGame.Presentation.Snapshots
                 state.MatchResultState.WinnerPlayerIndex,
                 state.MatchResultState.FinishedTick);
 
-            return new GameSnapshot(state.Tick, localPlayerIndex, units, buildings, localPlayer, match);
+            return new GameSnapshot(state.Tick, localPlayerIndex, units, buildings, resources, localPlayer, match);
         }
 
         private static bool IsVisibleToLocalPlayer(GameState state, int localPlayerIndex, FixedVector2 position)
