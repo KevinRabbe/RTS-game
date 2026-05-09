@@ -120,6 +120,10 @@ namespace RtsGame.Tests
                 new TestCase("godot interaction router routes resources", GodotInteractionRouterRoutesResources),
                 new TestCase("godot interaction router routes move fallback", GodotInteractionRouterRoutesMoveFallback),
                 new TestCase("godot interaction router ignores friendly target", GodotInteractionRouterIgnoresFriendlyTarget),
+                new TestCase("godot selection router prioritizes local unit", GodotSelectionRouterPrioritizesLocalUnit),
+                new TestCase("godot selection router selects local building", GodotSelectionRouterSelectsLocalBuilding),
+                new TestCase("godot selection router ignores enemy primitive", GodotSelectionRouterIgnoresEnemyPrimitive),
+                new TestCase("godot selection router returns none", GodotSelectionRouterReturnsNone),
                 new TestCase("train infantry completes", TrainInfantryCompletes),
                 new TestCase("train cavalry completes", TrainCavalryCompletes),
                 new TestCase("cavalry moves faster than infantry", CavalryMovesFasterThanInfantry),
@@ -1805,6 +1809,59 @@ namespace RtsGame.Tests
 
             AssertEqual(GodotInteractionIntentKind.Move, intent.Kind, "friendly targets should not route to attack");
             AssertEqual(0, intent.TargetEntityId, "friendly target should not be exposed as an attack target");
+        }
+
+        private static void GodotSelectionRouterPrioritizesLocalUnit()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(new[]
+            {
+                CreateGodotPrimitive(VisualPrimitiveKind.BuildingRectangle, 60, 0, 8, 8),
+                CreateGodotPrimitive(VisualPrimitiveKind.UnitSquare, 61, 0, 8, 8)
+            });
+
+            GodotSelectionResult selection = GodotSelectionRouter.SelectAt(frame, 0, Fixed.FromInt(8).Raw, Fixed.FromInt(8).Raw);
+
+            AssertEqual(GodotSelectionKind.Unit, selection.Kind, "local unit should take selection priority over local building");
+            AssertEqual(61, selection.EntityId, "selection should expose selected unit id");
+        }
+
+        private static void GodotSelectionRouterSelectsLocalBuilding()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(new[]
+            {
+                CreateGodotPrimitive(VisualPrimitiveKind.BuildingRectangle, 70, 0, 9, 9)
+            });
+
+            GodotSelectionResult selection = GodotSelectionRouter.SelectAt(frame, 0, Fixed.FromInt(9).Raw, Fixed.FromInt(9).Raw);
+
+            AssertEqual(GodotSelectionKind.Building, selection.Kind, "local building should be selectable");
+            AssertEqual(70, selection.EntityId, "selection should expose selected building id");
+        }
+
+        private static void GodotSelectionRouterIgnoresEnemyPrimitive()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(new[]
+            {
+                CreateGodotPrimitive(VisualPrimitiveKind.UnitSquare, 80, 1, 10, 10)
+            });
+
+            GodotSelectionResult selection = GodotSelectionRouter.SelectAt(frame, 0, Fixed.FromInt(10).Raw, Fixed.FromInt(10).Raw);
+
+            AssertEqual(GodotSelectionKind.None, selection.Kind, "enemy primitives should not be selected by local selection router");
+            AssertEqual(0, selection.EntityId, "ignored selection should not expose an entity id");
+        }
+
+        private static void GodotSelectionRouterReturnsNone()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(new[]
+            {
+                CreateGodotPrimitive(VisualPrimitiveKind.UnitSquare, 90, 0, 14, 14)
+            });
+
+            GodotSelectionResult selection = GodotSelectionRouter.SelectAt(frame, 0, Fixed.FromInt(2).Raw, Fixed.FromInt(2).Raw);
+
+            AssertEqual(GodotSelectionKind.None, selection.Kind, "empty click should not select anything");
+            AssertEqual(0, selection.EntityId, "empty selection should not expose an entity id");
         }
 
         private static void TrainInfantryCompletes()

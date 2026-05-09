@@ -168,36 +168,19 @@ public partial class RtsClientRoot : Node2D
             return;
         }
 
-        for (int i = 0; i < _frame.Primitives.Length; i++)
-        {
-            GodotPrimitiveDto primitive = _frame.Primitives[i];
-            if (primitive.Kind != 1 || primitive.OwnerPlayerIndex != LocalPlayerIndex)
-            {
-                continue;
-            }
+        GodotSelectionResult selection = GodotSelectionRouter.SelectAt(
+            _frame,
+            LocalPlayerIndex,
+            ScreenToRaw(screenPosition.X),
+            ScreenToRaw(screenPosition.Y));
 
-            Rect2 rect = PrimitiveRect(primitive);
-            if (rect.HasPoint(screenPosition))
-            {
-                _selectedUnitIds.Add(primitive.EntityId);
-                return;
-            }
+        if (selection.Kind == GodotSelectionKind.Unit)
+        {
+            _selectedUnitIds.Add(selection.EntityId);
         }
-
-        for (int i = 0; i < _frame.Primitives.Length; i++)
+        else if (selection.Kind == GodotSelectionKind.Building)
         {
-            GodotPrimitiveDto primitive = _frame.Primitives[i];
-            if ((primitive.Kind != 2 && primitive.Kind != 3) || primitive.OwnerPlayerIndex != LocalPlayerIndex)
-            {
-                continue;
-            }
-
-            Rect2 rect = PrimitiveRect(primitive);
-            if (rect.HasPoint(screenPosition))
-            {
-                _selectedBuildingId = primitive.EntityId;
-                return;
-            }
+            _selectedBuildingId = selection.EntityId;
         }
     }
 

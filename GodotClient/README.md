@@ -40,6 +40,7 @@ Current Godot shell:
 - `Scenes/Main.tscn` hosts one `Node2D`.
 - `Scripts/RtsClientRoot.cs` creates a local 1v1 facade and draws primitive rectangles/lines.
 - Left click selects a visible local unit.
+- Left-click selection is resolved by a presentation-only selection router with priority: local unit, then local building or wall.
 - Right click issues a move intent for selected units.
 - Right click on an enemy unit or building issues an attack intent for selected units.
 - Right click on visible food, wood, or gold issues a gather intent for selected units.
