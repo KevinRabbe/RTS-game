@@ -83,6 +83,9 @@ namespace RtsGame.Tests
                 new TestCase("attack damages enemy unit", AttackDamagesEnemyUnit),
                 new TestCase("attack respects cooldown", AttackRespectsCooldown),
                 new TestCase("attack rejects friendly target", AttackRejectsFriendlyTarget),
+                new TestCase("move command clears attack target", MoveCommandClearsAttackTarget),
+                new TestCase("move command preserves attack cooldown", MoveCommandPreservesAttackCooldown),
+                new TestCase("disengage requires explicit reattack", DisengageRequiresExplicitReattack),
                 new TestCase("dead unit cleanup after combat", DeadUnitCleanupAfterCombat),
                 new TestCase("combat replay determinism", CombatReplayDeterminism),
                 new TestCase("combat lockstep", CombatLockstep),
@@ -1271,6 +1274,62 @@ namespace RtsGame.Tests
 
             AssertEqual(1, state.DebugCounters.RejectedCommandCount, "friendly attack command should reject");
             AssertEqual(GameData.InfantryHitPoints, state.EntityState.Units[6].HitPoints, "friendly target should not be damaged");
+        }
+
+        private static void MoveCommandClearsAttackTarget()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = CreateAdjacentCombatState();
+            state.EntityState.Units[10].AttackTargetId = 12;
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 11 }, FixedVector2.FromInts(0, 2))));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(0, state.EntityState.Units[10].AttackTargetId, "move should clear attack intent");
+            AssertEqual(true, state.EntityState.Units[10].HasMoveTarget, "move target should remain active");
+        }
+
+        private static void MoveCommandPreservesAttackCooldown()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = CreateAdjacentCombatState();
+            state.EntityState.Units[10].AttackTargetId = 12;
+            state.EntityState.Units[10].AttackCooldownTicksRemaining = 3;
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 11 }, FixedVector2.FromInts(0, 2))));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(2, state.EntityState.Units[10].AttackCooldownTicksRemaining, "disengage should preserve recovery cooldown and allow normal tick countdown");
+        }
+
+        private static void DisengageRequiresExplicitReattack()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = CreateAdjacentCombatState();
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.Attack), new AttackCommand(new[] { 11 }, 12)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+            runner.AdvanceOneTick(state, rules, buffer);
+            int hitPointsAfterAttack = state.EntityState.Units[11].HitPoints;
+
+            buffer.Add(new CommandEnvelope(new CommandHeader(1, 0, 1, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 11 }, FixedVector2.FromInts(0, 0))));
+            buffer.Add(new CommandEnvelope(new CommandHeader(1, 1, 1, CommandType.NoOp), new NoOpCommand()));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            for (int tick = 2; tick <= GameData.InfantryAttackCooldownTicks + 2; tick++)
+            {
+                AddNoOp(buffer, tick, 0, (uint)tick);
+                AddNoOp(buffer, tick, 1, (uint)tick);
+                runner.AdvanceOneTick(state, rules, buffer);
+            }
+
+            AssertEqual(hitPointsAfterAttack, state.EntityState.Units[11].HitPoints, "disengaged unit should not resume attacking without explicit attack command");
+            AssertEqual(0, state.EntityState.Units[10].AttackTargetId, "disengaged unit should stay without attack target");
         }
 
         private static void DeadUnitCleanupAfterCombat()
