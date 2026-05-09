@@ -292,128 +292,14 @@ public partial class RtsClientRoot : Node2D
             return;
         }
 
-        GodotLocalPlayerDto player = _frame.LocalPlayer;
-        string selected = _selectedUnitIds.Count == 0 ? "-" : string.Join(",", _selectedUnitIds);
-        string unitStatus = GetSelectedUnitStatusText();
-        string selectedBuilding = _selectedBuildingId == 0 ? "-" : _selectedBuildingId.ToString();
-        string buildingStatus = GetSelectedBuildingStatusText();
-        string hoveredResource = _hoveredResourceNodeId == 0 ? "-" : _hoveredResourceNodeId.ToString();
-        string text = "Tick " + _frame.Tick
-            + "  Food " + player.Food
-            + "  Wood " + player.Wood
-            + "  Gold " + player.Gold
-            + "  Pop " + player.PopulationUsed + "/" + player.PopulationCap
-            + "  Selected " + selected
-            + unitStatus
-            + "  Building " + selectedBuilding
-            + buildingStatus
-            + "  Resource " + hoveredResource
-            + (_paused ? "  Paused" : "");
+        string text = GodotHudTextBuilder.Build(
+            _frame,
+            _selectedUnitIds.ToArray(),
+            _selectedBuildingId,
+            _hoveredResourceNodeId,
+            _paused);
 
         DrawString(ThemeDB.FallbackFont, new Vector2(12.0f, 20.0f), text, HorizontalAlignment.Left, -1.0f, 16, Colors.White);
-    }
-
-    private string GetSelectedUnitStatusText()
-    {
-        if (_frame == null || _selectedUnitIds.Count == 0)
-        {
-            return "";
-        }
-
-        GodotUnitStatusDto? status = FindUnitStatus(_selectedUnitIds[0]);
-        if (status == null)
-        {
-            return "";
-        }
-
-        if (status.CurrentResourceNodeId != 0)
-        {
-            return "  Gather " + status.CurrentResourceNodeId + " Carry " + status.CarriedAmount;
-        }
-
-        if (status.CurrentBuildTargetId != 0)
-        {
-            return "  BuildTarget " + status.CurrentBuildTargetId;
-        }
-
-        if (status.AttackTargetId != 0)
-        {
-            return "  Attack " + status.AttackTargetId + " CD " + status.AttackCooldownTicksRemaining;
-        }
-
-        if (status.HasMoveTarget)
-        {
-            return "  Moving";
-        }
-
-        if (status.CarriedAmount > 0)
-        {
-            return "  Carry " + status.CarriedAmount;
-        }
-
-        return "";
-    }
-
-    private GodotUnitStatusDto? FindUnitStatus(int unitId)
-    {
-        if (_frame == null)
-        {
-            return null;
-        }
-
-        for (int i = 0; i < _frame.UnitStatuses.Length; i++)
-        {
-            if (_frame.UnitStatuses[i].UnitId == unitId)
-            {
-                return _frame.UnitStatuses[i];
-            }
-        }
-
-        return null;
-    }
-
-    private string GetSelectedBuildingStatusText()
-    {
-        if (_frame == null || _selectedBuildingId == 0)
-        {
-            return "";
-        }
-
-        GodotBuildingStatusDto? status = FindBuildingStatus(_selectedBuildingId);
-        if (status == null)
-        {
-            return "";
-        }
-
-        if (status.IsUnderConstruction)
-        {
-            return "  Build " + status.BuildProgressTicks + "/" + status.RequiredBuildTicks;
-        }
-
-        if (status.TrainingQueueCount > 0)
-        {
-            return "  Train " + status.TrainingUnitTypeId + " " + status.TrainingProgressTicks + "/" + status.TrainingRequiredTicks;
-        }
-
-        return "";
-    }
-
-    private GodotBuildingStatusDto? FindBuildingStatus(int buildingId)
-    {
-        if (_frame == null)
-        {
-            return null;
-        }
-
-        for (int i = 0; i < _frame.BuildingStatuses.Length; i++)
-        {
-            if (_frame.BuildingStatuses[i].BuildingId == buildingId)
-            {
-                return _frame.BuildingStatuses[i];
-            }
-        }
-
-        return null;
     }
 
     private static Color GetUnitColor(GodotPrimitiveDto primitive)

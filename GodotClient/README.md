@@ -53,5 +53,6 @@ Current Godot shell:
 - Visual DTOs include type ids so the shell can draw unit/building/resource types without guessing.
 - Building status DTOs expose construction and training progress for the debug HUD.
 - Unit status DTOs expose gathering, carried resources, movement, build targets, and attack targets for the debug HUD.
+- HUD text is assembled by a presentation-only bridge helper so status formatting is testable outside Godot.
 
 The script may convert fixed raw coordinates to pixels for drawing. It must not contain combat, economy, placement, pathing, or validation rules.

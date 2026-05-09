@@ -124,6 +124,10 @@ namespace RtsGame.Tests
                 new TestCase("godot selection router selects local building", GodotSelectionRouterSelectsLocalBuilding),
                 new TestCase("godot selection router ignores enemy primitive", GodotSelectionRouterIgnoresEnemyPrimitive),
                 new TestCase("godot selection router returns none", GodotSelectionRouterReturnsNone),
+                new TestCase("godot hud text includes economy and selection", GodotHudTextIncludesEconomyAndSelection),
+                new TestCase("godot hud text includes unit gather status", GodotHudTextIncludesUnitGatherStatus),
+                new TestCase("godot hud text includes building training status", GodotHudTextIncludesBuildingTrainingStatus),
+                new TestCase("godot hud text handles missing status", GodotHudTextHandlesMissingStatus),
                 new TestCase("train infantry completes", TrainInfantryCompletes),
                 new TestCase("train cavalry completes", TrainCavalryCompletes),
                 new TestCase("cavalry moves faster than infantry", CavalryMovesFasterThanInfantry),
@@ -1864,6 +1868,75 @@ namespace RtsGame.Tests
             AssertEqual(0, selection.EntityId, "empty selection should not expose an entity id");
         }
 
+        private static void GodotHudTextIncludesEconomyAndSelection()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                42,
+                new GodotLocalPlayerDto(100, 80, 30, 6, 20, true, true, true),
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new[] { 1, 2 }, 11, 5, true);
+
+            AssertEqual(true, text.Contains("Tick 42"), "hud should include tick");
+            AssertEqual(true, text.Contains("Food 100"), "hud should include food");
+            AssertEqual(true, text.Contains("Wood 80"), "hud should include wood");
+            AssertEqual(true, text.Contains("Gold 30"), "hud should include gold");
+            AssertEqual(true, text.Contains("Pop 6/20"), "hud should include population");
+            AssertEqual(true, text.Contains("Selected 1,2"), "hud should include selected units");
+            AssertEqual(true, text.Contains("Building 11"), "hud should include selected building");
+            AssertEqual(true, text.Contains("Resource 5"), "hud should include hovered resource");
+            AssertEqual(true, text.Contains("Paused"), "hud should include pause state");
+        }
+
+        private static void GodotHudTextIncludesUnitGatherStatus()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new[]
+                {
+                    new GodotUnitStatusDto(3, (int)UnitTypeId.Villager, false, 0, 0, 0, 9, (int)ResourceType.Food, 10, 0, 0)
+                },
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new[] { 3 }, 0, 0, false);
+
+            AssertEqual(true, text.Contains("Gather 9 Carry 10"), "hud should include selected unit gather status");
+        }
+
+        private static void GodotHudTextIncludesBuildingTrainingStatus()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotUnitStatusDto[0],
+                new[]
+                {
+                    new GodotBuildingStatusDto(11, (int)BuildingTypeId.TownCenter, false, 0, 0, 1, (int)UnitTypeId.Villager, 4, GameData.VillagerTrainTicks)
+                });
+
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 11, 0, false);
+
+            AssertEqual(true, text.Contains("Train 1 4/" + GameData.VillagerTrainTicks), "hud should include selected building training status");
+        }
+
+        private static void GodotHudTextHandlesMissingStatus()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new[] { 99 }, 77, 0, false);
+
+            AssertEqual(true, text.Contains("Selected 99"), "hud should still include selected unit id when status is missing");
+            AssertEqual(true, text.Contains("Building 77"), "hud should still include selected building id when status is missing");
+            AssertEqual(false, text.Contains("Gather"), "missing unit status should not invent gather text");
+            AssertEqual(false, text.Contains("Train"), "missing building status should not invent training text");
+        }
+
         private static void TrainInfantryCompletes()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -3372,6 +3445,22 @@ namespace RtsGame.Tests
                 primitives,
                 new GodotUnitStatusDto[0],
                 new GodotBuildingStatusDto[0]);
+        }
+
+        private static GodotFrameDto CreateGodotHudFrame(
+            int tick,
+            GodotLocalPlayerDto localPlayer,
+            GodotUnitStatusDto[] unitStatuses,
+            GodotBuildingStatusDto[] buildingStatuses)
+        {
+            return new GodotFrameDto(
+                tick,
+                0,
+                localPlayer,
+                new GodotMatchDto(false, -1, -1),
+                new GodotPrimitiveDto[0],
+                unitStatuses,
+                buildingStatuses);
         }
 
         private static GodotPrimitiveDto CreateGodotPrimitive(VisualPrimitiveKind kind, int entityId, int ownerPlayerIndex, int x, int y)
