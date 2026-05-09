@@ -8,6 +8,7 @@ public partial class RtsClientRoot : Node2D
     private const int LocalPlayerIndex = 0;
     private const float TilePixels = 16.0f;
     private const double TickSeconds = 1.0 / 20.0;
+    private const ulong DefaultMatchSeed = 12345UL;
     private const int VillagerUnitTypeId = 1;
     private const int InfantryUnitTypeId = 3;
     private const int TradeCartUnitTypeId = 5;
@@ -23,9 +24,7 @@ public partial class RtsClientRoot : Node2D
 
     public override void _Ready()
     {
-        _facade = GodotClientFacade.CreateLocal1v1(12345UL);
-        _facade.AdvanceOneTick();
-        RefreshFrame();
+        StartLocalMatch(2);
     }
 
     public override void _Process(double delta)
@@ -81,6 +80,18 @@ public partial class RtsClientRoot : Node2D
 
     private void HandleKey(InputEventKey key)
     {
+        if (key.Keycode == Key.F1)
+        {
+            StartLocalMatch(2);
+            return;
+        }
+
+        if (key.Keycode == Key.F6)
+        {
+            StartLocalMatch(6);
+            return;
+        }
+
         if (key.Keycode == Key.Space)
         {
             _paused = !_paused;
@@ -137,6 +148,19 @@ public partial class RtsClientRoot : Node2D
         {
             TrainFromSelectedBuilding(TradeCartUnitTypeId);
         }
+    }
+
+    private void StartLocalMatch(int playerCount)
+    {
+        _facade = GodotClientFacade.CreateLocal(DefaultMatchSeed, playerCount);
+        _selectedUnitIds.Clear();
+        _selectedBuildingId = 0;
+        _pendingTradeRouteAId = 0;
+        _hoveredResourceNodeId = 0;
+        _tickAccumulator = 0.0;
+        _paused = false;
+        _facade.AdvanceOneTick();
+        RefreshFrame();
     }
 
     private void HandleMouse(InputEventMouseButton mouse)

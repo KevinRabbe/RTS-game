@@ -38,7 +38,9 @@ Godot facade path:
 Current Godot shell:
 
 - `Scenes/Main.tscn` hosts one `Node2D`.
-- `Scripts/RtsClientRoot.cs` creates a local 1v1 facade and draws primitive rectangles/lines.
+- `Scripts/RtsClientRoot.cs` creates a local facade and draws primitive rectangles/lines.
+- `F1` restarts a local 1v1 prototype match.
+- `F6` restarts a local 6-player FFA prototype match.
 - Left click selects a visible local unit.
 - Left-click selection is resolved by a presentation-only selection router with priority: local unit, then local building or wall.
 - Right click issues a move intent for selected units.
