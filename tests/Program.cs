@@ -16,7 +16,7 @@ namespace RtsGame.Tests
 {
     public static class Program
     {
-        public static int Main()
+        public static int Main(string[] args)
         {
             var tests = new List<TestCase>
             {
@@ -29,6 +29,9 @@ namespace RtsGame.Tests
                 new TestCase("canonical serialization", CanonicalSerialization),
                 new TestCase("fixed point determinism", FixedPointDeterminism),
                 new TestCase("cleanup updates lookup", CleanupUpdatesLookup),
+                new TestCase("test runner parses filter argument", TestRunnerParsesFilterArgument),
+                new TestCase("test runner matches filter case insensitive", TestRunnerMatchesFilterCaseInsensitive),
+                new TestCase("test runner runs all without filter", TestRunnerRunsAllWithoutFilter),
                 new TestCase("nomad start creates initial units", NomadStartCreatesInitialUnits),
                 new TestCase("nomad map creates center resources", NomadMapCreatesCenterResources),
                 new TestCase("placement rejects overlapping building", PlacementRejectsOverlappingBuilding),
@@ -216,8 +219,16 @@ namespace RtsGame.Tests
             };
 
             int failed = 0;
+            int selected = 0;
+            string filter = GetFilter(args);
             foreach (TestCase test in tests)
             {
+                if (!ShouldRun(test, filter))
+                {
+                    continue;
+                }
+
+                selected++;
                 try
                 {
                     test.Run();
@@ -231,7 +242,14 @@ namespace RtsGame.Tests
                 }
             }
 
-            Console.WriteLine("tests=" + tests.Count + " failed=" + failed);
+            if (selected == 0)
+            {
+                Console.WriteLine("tests=0 failed=0 filter=\"" + filter + "\"");
+                return 1;
+            }
+
+            string suffix = filter.Length == 0 ? "" : " filter=\"" + filter + "\"";
+            Console.WriteLine("tests=" + selected + " failed=" + failed + suffix);
             return failed == 0 ? 0 : 1;
         }
 
@@ -240,6 +258,58 @@ namespace RtsGame.Tests
             ulong first = RunNoOpSimulation(1000, 2, 123);
             ulong second = RunNoOpSimulation(1000, 2, 123);
             AssertEqual(first, second, "same empty command stream must produce same checksum");
+        }
+
+        private static string GetFilter(string[] args)
+        {
+            if (args.Length == 0)
+            {
+                return "";
+            }
+
+            if (args.Length >= 2 && args[0] == "--filter")
+            {
+                return args[1];
+            }
+
+            if (args.Length >= 1 && args[0].StartsWith("--filter=", StringComparison.Ordinal))
+            {
+                return args[0].Substring("--filter=".Length);
+            }
+
+            return args[0];
+        }
+
+        private static bool ShouldRun(TestCase test, string filter)
+        {
+            if (filter.Length == 0)
+            {
+                return true;
+            }
+
+            return test.Name.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static void TestRunnerParsesFilterArgument()
+        {
+            AssertEqual("godot", GetFilter(new[] { "--filter", "godot" }), "test runner should parse separated filter argument");
+            AssertEqual("lockstep", GetFilter(new[] { "--filter=lockstep" }), "test runner should parse inline filter argument");
+            AssertEqual("chaos", GetFilter(new[] { "chaos" }), "test runner should treat first positional argument as filter");
+        }
+
+        private static void TestRunnerMatchesFilterCaseInsensitive()
+        {
+            var test = new TestCase("Godot coordinate mapper converts raw to pixels", EmptyTickDeterminism);
+
+            AssertEqual(true, ShouldRun(test, "godot coordinate"), "filter should match test names case-insensitively");
+            AssertEqual(false, ShouldRun(test, "chaos"), "filter should reject non-matching test names");
+        }
+
+        private static void TestRunnerRunsAllWithoutFilter()
+        {
+            var test = new TestCase("empty tick determinism", EmptyTickDeterminism);
+
+            AssertEqual(true, ShouldRun(test, ""), "empty filter should run every test");
         }
 
         private static void CommandOrdering()
