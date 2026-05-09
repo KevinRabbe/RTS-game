@@ -43,6 +43,8 @@ Current Godot shell:
 - Right click issues a move intent for selected units.
 - Right click on visible food, wood, or gold issues a gather intent for selected units.
 - `C` queues a local Town Center placement at the mouse tile.
+- Left click a local building, then `V` queues villager training.
+- Left click a local building, then `I` queues infantry training.
 - `Space` pauses presentation tick advancement.
 - Visible food, wood, and gold are drawn as resource circles.
 

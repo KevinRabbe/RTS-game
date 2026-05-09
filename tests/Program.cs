@@ -108,6 +108,7 @@ namespace RtsGame.Tests
                 new TestCase("godot facade exposes fixed raw coordinates", GodotFacadeExposesFixedRawCoordinates),
                 new TestCase("godot facade exposes resource primitive dto", GodotFacadeExposesResourcePrimitiveDto),
                 new TestCase("godot facade routes gather command", GodotFacadeRoutesGatherCommand),
+                new TestCase("godot facade routes training command", GodotFacadeRoutesTrainingCommand),
                 new TestCase("train infantry completes", TrainInfantryCompletes),
                 new TestCase("train cavalry completes", TrainCavalryCompletes),
                 new TestCase("cavalry moves faster than infantry", CavalryMovesFasterThanInfantry),
@@ -1599,6 +1600,25 @@ namespace RtsGame.Tests
 
             AssertEqual(10, facade.GetFrame(0).LocalPlayer.Food, "godot facade should route gather command through simulation economy systems");
             AssertEqual(0, facade.RejectedCommandCount, "valid facade gather flow should not reject");
+        }
+
+        private static void GodotFacadeRoutesTrainingCommand()
+        {
+            GodotClientFacade facade = GodotClientFacade.CreateLocal1v1(85);
+
+            facade.QueuePlaceTownCenter(0, 10, 10);
+            facade.AdvanceOneTick();
+            facade.QueueAssignBuild(0, 11, new[] { 1, 2, 3, 4 });
+            facade.AdvanceTicks(2);
+            facade.QueueGatherResource(0, 1, new[] { 1 });
+            facade.AdvanceTicks(10);
+            facade.QueueTrainUnit(0, 11, (int)UnitTypeId.Villager);
+            facade.AdvanceTicks(GameData.VillagerTrainTicks);
+
+            GodotFrameDto frame = facade.GetFrame(0);
+            AssertEqual(10, frame.LocalPlayer.Food, "godot facade should spend villager food cost through training command");
+            AssertEqual(6, frame.LocalPlayer.PopulationUsed, "training should reserve one villager population through simulation");
+            AssertEqual(0, facade.RejectedCommandCount, "valid facade training flow should not reject");
         }
 
         private static void TrainInfantryCompletes()

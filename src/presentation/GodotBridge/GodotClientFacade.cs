@@ -122,12 +122,18 @@ namespace RtsGame.Presentation.GodotBridge
 
         private static UnitTypeId ToUnitTypeId(int unitTypeId)
         {
-            if (!Enum.IsDefined(typeof(UnitTypeId), unitTypeId))
+            if (unitTypeId < ushort.MinValue || unitTypeId > ushort.MaxValue)
+            {
+                throw new ArgumentOutOfRangeException(nameof(unitTypeId), "Unit type id is outside the valid range.");
+            }
+
+            ushort rawUnitTypeId = (ushort)unitTypeId;
+            if (!Enum.IsDefined(typeof(UnitTypeId), rawUnitTypeId))
             {
                 throw new ArgumentOutOfRangeException(nameof(unitTypeId), "Unit type id is not defined.");
             }
 
-            return (UnitTypeId)unitTypeId;
+            return (UnitTypeId)rawUnitTypeId;
         }
 
         private static GodotPrimitiveDto ToPrimitiveDto(VisualPrimitive primitive)

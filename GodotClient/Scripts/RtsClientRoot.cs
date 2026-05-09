@@ -9,6 +9,8 @@ public partial class RtsClientRoot : Node2D
     private const float TilePixels = 16.0f;
     private const long FixedOneRaw = 1L << 16;
     private const double TickSeconds = 1.0 / 20.0;
+    private const int VillagerUnitTypeId = 1;
+    private const int InfantryUnitTypeId = 3;
 
     private readonly List<int> _selectedUnitIds = new List<int>();
     private GodotClientFacade? _facade;
@@ -16,6 +18,7 @@ public partial class RtsClientRoot : Node2D
     private double _tickAccumulator;
     private bool _paused;
     private int _hoveredResourceNodeId;
+    private int _selectedBuildingId;
 
     public override void _Ready()
     {
@@ -90,6 +93,18 @@ public partial class RtsClientRoot : Node2D
             _facade!.QueuePlaceTownCenter(LocalPlayerIndex, tile.X, tile.Y);
             _facade.AdvanceOneTick();
             RefreshFrame();
+            return;
+        }
+
+        if (key.Keycode == Key.V)
+        {
+            TrainFromSelectedBuilding(VillagerUnitTypeId);
+            return;
+        }
+
+        if (key.Keycode == Key.I)
+        {
+            TrainFromSelectedBuilding(InfantryUnitTypeId);
         }
     }
 
@@ -98,7 +113,7 @@ public partial class RtsClientRoot : Node2D
         Vector2I tile = ScreenToTile(mouse.Position);
         if (mouse.ButtonIndex == MouseButton.Left)
         {
-            SelectUnitAt(mouse.Position);
+            SelectAt(mouse.Position);
             RefreshFrame();
             return;
         }
@@ -120,9 +135,22 @@ public partial class RtsClientRoot : Node2D
         }
     }
 
-    private void SelectUnitAt(Vector2 screenPosition)
+    private void TrainFromSelectedBuilding(int unitTypeId)
+    {
+        if (_selectedBuildingId == 0)
+        {
+            return;
+        }
+
+        _facade!.QueueTrainUnit(LocalPlayerIndex, _selectedBuildingId, unitTypeId);
+        _facade.AdvanceOneTick();
+        RefreshFrame();
+    }
+
+    private void SelectAt(Vector2 screenPosition)
     {
         _selectedUnitIds.Clear();
+        _selectedBuildingId = 0;
         if (_frame == null)
         {
             return;
@@ -140,6 +168,22 @@ public partial class RtsClientRoot : Node2D
             if (rect.HasPoint(screenPosition))
             {
                 _selectedUnitIds.Add(primitive.EntityId);
+                return;
+            }
+        }
+
+        for (int i = 0; i < _frame.Primitives.Length; i++)
+        {
+            GodotPrimitiveDto primitive = _frame.Primitives[i];
+            if ((primitive.Kind != 2 && primitive.Kind != 3) || primitive.OwnerPlayerIndex != LocalPlayerIndex)
+            {
+                continue;
+            }
+
+            Rect2 rect = PrimitiveRect(primitive);
+            if (rect.HasPoint(screenPosition))
+            {
+                _selectedBuildingId = primitive.EntityId;
                 return;
             }
         }
@@ -194,6 +238,10 @@ public partial class RtsClientRoot : Node2D
         }
 
         DrawRect(rect, color);
+        if (_selectedBuildingId == primitive.EntityId)
+        {
+            DrawRect(rect.Grow(2.0f), Colors.White, false, 2.0f);
+        }
     }
 
     private void DrawResource(GodotPrimitiveDto primitive)
@@ -251,6 +299,7 @@ public partial class RtsClientRoot : Node2D
 
         GodotLocalPlayerDto player = _frame.LocalPlayer;
         string selected = _selectedUnitIds.Count == 0 ? "-" : string.Join(",", _selectedUnitIds);
+        string selectedBuilding = _selectedBuildingId == 0 ? "-" : _selectedBuildingId.ToString();
         string hoveredResource = _hoveredResourceNodeId == 0 ? "-" : _hoveredResourceNodeId.ToString();
         string text = "Tick " + _frame.Tick
             + "  Food " + player.Food
@@ -258,6 +307,7 @@ public partial class RtsClientRoot : Node2D
             + "  Gold " + player.Gold
             + "  Pop " + player.PopulationUsed + "/" + player.PopulationCap
             + "  Selected " + selected
+            + "  Building " + selectedBuilding
             + "  Resource " + hoveredResource
             + (_paused ? "  Paused" : "");
 
