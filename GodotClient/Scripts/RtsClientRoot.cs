@@ -105,7 +105,16 @@ public partial class RtsClientRoot : Node2D
 
         if (mouse.ButtonIndex == MouseButton.Right && _selectedUnitIds.Count > 0)
         {
-            _facade!.QueueMoveUnits(LocalPlayerIndex, _selectedUnitIds.ToArray(), tile.X, tile.Y);
+            int resourceNodeId = FindResourceAt(mouse.Position);
+            if (resourceNodeId != 0)
+            {
+                _facade!.QueueGatherResource(LocalPlayerIndex, resourceNodeId, _selectedUnitIds.ToArray());
+            }
+            else
+            {
+                _facade!.QueueMoveUnits(LocalPlayerIndex, _selectedUnitIds.ToArray(), tile.X, tile.Y);
+            }
+
             _facade.AdvanceOneTick();
             RefreshFrame();
         }

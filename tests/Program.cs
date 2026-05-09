@@ -107,6 +107,7 @@ namespace RtsGame.Tests
                 new TestCase("godot facade rejects invalid commands through sim", GodotFacadeRejectsInvalidCommandsThroughSim),
                 new TestCase("godot facade exposes fixed raw coordinates", GodotFacadeExposesFixedRawCoordinates),
                 new TestCase("godot facade exposes resource primitive dto", GodotFacadeExposesResourcePrimitiveDto),
+                new TestCase("godot facade routes gather command", GodotFacadeRoutesGatherCommand),
                 new TestCase("train infantry completes", TrainInfantryCompletes),
                 new TestCase("train cavalry completes", TrainCavalryCompletes),
                 new TestCase("cavalry moves faster than infantry", CavalryMovesFasterThanInfantry),
@@ -1583,6 +1584,21 @@ namespace RtsGame.Tests
             AssertEqual(GameData.NeutralOwnerPlayerIndex, food.OwnerPlayerIndex, "resource primitive should be neutral-owned presentation data");
             AssertEqual(Fixed.FromInt(6).Raw, food.XRaw, "godot facade should expose resource fixed raw X coordinate");
             AssertEqual(Fixed.FromInt(0).Raw, food.YRaw, "godot facade should expose resource fixed raw Y coordinate");
+        }
+
+        private static void GodotFacadeRoutesGatherCommand()
+        {
+            GodotClientFacade facade = GodotClientFacade.CreateLocal1v1(84);
+
+            facade.QueuePlaceTownCenter(0, 10, 10);
+            facade.AdvanceOneTick();
+            facade.QueueAssignBuild(0, 11, new[] { 1, 2, 3, 4 });
+            facade.AdvanceTicks(2);
+            facade.QueueGatherResource(0, 1, new[] { 1 });
+            facade.AdvanceTicks(2);
+
+            AssertEqual(10, facade.GetFrame(0).LocalPlayer.Food, "godot facade should route gather command through simulation economy systems");
+            AssertEqual(0, facade.RejectedCommandCount, "valid facade gather flow should not reject");
         }
 
         private static void TrainInfantryCompletes()
