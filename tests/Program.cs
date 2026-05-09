@@ -1,5 +1,6 @@
 using RtsGame.Net.Lockstep;
 using RtsGame.Presentation.Snapshots;
+using RtsGame.Presentation.Visuals;
 using RtsGame.Sim.Checksums;
 using RtsGame.Sim.Commands;
 using RtsGame.Sim.Core;
@@ -83,6 +84,10 @@ namespace RtsGame.Tests
                 new TestCase("presentation snapshot hides invisible enemies", PresentationSnapshotHidesInvisibleEnemies),
                 new TestCase("presentation snapshot does not mutate checksum", PresentationSnapshotDoesNotMutateChecksum),
                 new TestCase("simulation does not reference presentation", SimulationDoesNotReferencePresentation),
+                new TestCase("visual frame creates ugly prototype primitives", VisualFrameCreatesUglyPrototypePrimitives),
+                new TestCase("visual frame marks capital larger than normal building", VisualFrameMarksCapitalLargerThanNormalBuilding),
+                new TestCase("visual frame includes trade route line", VisualFrameIncludesTradeRouteLine),
+                new TestCase("visual frame does not mutate checksum", VisualFrameDoesNotMutateChecksum),
                 new TestCase("train infantry completes", TrainInfantryCompletes),
                 new TestCase("train cavalry completes", TrainCavalryCompletes),
                 new TestCase("cavalry moves faster than infantry", CavalryMovesFasterThanInfantry),
@@ -1255,6 +1260,70 @@ namespace RtsGame.Tests
             string simProject = System.IO.File.ReadAllText(System.IO.Path.Combine("src", "sim", "RtsGame.Sim.csproj"));
 
             AssertFalse(simProject.Contains("presentation") || simProject.Contains("Presentation"), "simulation project must not reference presentation layer");
+        }
+
+        private static void VisualFrameCreatesUglyPrototypePrimitives()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = GameInitializer.CreateNomadStart(66, 1);
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(0, 0));
+            new TickRunner().AdvanceOneTick(state, rules, new CommandBuffer());
+
+            VisualFrame frame = VisualFrameBuilder.Build(GameSnapshotBuilder.Build(state, 0));
+
+            AssertEqual(true, HasPrimitive(frame, VisualPrimitiveKind.FogOverlay), "visual frame should include fog overlay primitive");
+            AssertEqual(true, HasPrimitive(frame, VisualPrimitiveKind.UnitSquare), "visual frame should include unit square primitives");
+            AssertEqual(true, HasPrimitive(frame, VisualPrimitiveKind.BuildingRectangle), "visual frame should include building rectangle primitives");
+            AssertEqual(true, HasPrimitive(frame, VisualPrimitiveKind.HealthBar), "visual frame should include health bar primitives");
+        }
+
+        private static void VisualFrameMarksCapitalLargerThanNormalBuilding()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = GameInitializer.CreateNomadStart(67, 1);
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(0, 0));
+            int normalId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(4, 0));
+            Building normal = state.EntityState.Buildings[state.EntityState.EntityLookup[normalId].Index];
+            normal.IsUnderConstruction = false;
+            normal.BuildProgressTicks = GameData.TownCenterBuildTicks;
+            normal.HitPoints = GameData.TownCenterHitPoints;
+            new TickRunner().AdvanceOneTick(state, rules, new CommandBuffer());
+
+            VisualFrame frame = VisualFrameBuilder.Build(GameSnapshotBuilder.Build(state, 0));
+            VisualPrimitive capital = FindPrimitive(frame, VisualPrimitiveKind.BuildingRectangle, state.PlayerStates.Players[0].CapitalStatus.CapitalBuildingId);
+            VisualPrimitive normalTownCenter = FindPrimitive(frame, VisualPrimitiveKind.BuildingRectangle, normalId);
+
+            AssertEqual(true, capital.IsCapital, "capital primitive should be marked as capital");
+            AssertEqual(true, capital.Size.Raw > normalTownCenter.Size.Raw, "capital should render larger than normal town center");
+        }
+
+        private static void VisualFrameIncludesTradeRouteLine()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateTradeState(6);
+            Unit cart = state.EntityState.Units[state.EntityState.Units.Count - 1];
+            cart.TradeRouteAId = state.EntityState.Buildings[0].Id;
+            cart.TradeRouteBId = state.EntityState.Buildings[1].Id;
+            cart.TradeDestinationId = state.EntityState.Buildings[1].Id;
+            cart.TradeIncomePerTrip = 1;
+            new TickRunner().AdvanceOneTick(state, rules, new CommandBuffer());
+
+            VisualFrame frame = VisualFrameBuilder.Build(GameSnapshotBuilder.Build(state, 0));
+
+            AssertEqual(true, HasPrimitive(frame, VisualPrimitiveKind.TradeRouteLine), "visual frame should include visible trade route line");
+        }
+
+        private static void VisualFrameDoesNotMutateChecksum()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = GameInitializer.CreateNomadStart(68, 1);
+            new TickRunner().AdvanceOneTick(state, rules, new CommandBuffer());
+            ulong before = StateChecksum.Compute(state, rules);
+
+            VisualFrameBuilder.Build(GameSnapshotBuilder.Build(state, 0));
+            ulong after = StateChecksum.Compute(state, rules);
+
+            AssertEqual(before, after, "building visual frame must not mutate simulation state");
         }
 
         private static void TrainInfantryCompletes()
@@ -2662,6 +2731,32 @@ namespace RtsGame.Tests
         private static bool IsExplored(GameState state, int player, int x, int y)
         {
             return state.VisibilityState.Players[player].ExploredTiles[state.VisibilityState.GetIndex(x, y)];
+        }
+
+        private static bool HasPrimitive(VisualFrame frame, VisualPrimitiveKind kind)
+        {
+            for (int i = 0; i < frame.Primitives.Count; i++)
+            {
+                if (frame.Primitives[i].Kind == kind)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static VisualPrimitive FindPrimitive(VisualFrame frame, VisualPrimitiveKind kind, int entityId)
+        {
+            for (int i = 0; i < frame.Primitives.Count; i++)
+            {
+                if (frame.Primitives[i].Kind == kind && frame.Primitives[i].EntityId == entityId)
+                {
+                    return frame.Primitives[i];
+                }
+            }
+
+            throw new InvalidOperationException("primitive not found kind=" + kind + " entity=" + entityId);
         }
 
         private static LockstepSession RunLockstep(int ticks, int players, ulong seed, bool reverseDelivery)

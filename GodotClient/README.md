@@ -10,3 +10,9 @@ Rules:
 - Godot must not contain gameplay authority.
 - Godot physics and delta time must not affect simulation.
 - Headless simulation, replay, lockstep, and chaos tests remain authoritative.
+
+Current presentation path:
+
+`GameState -> GameSnapshot -> VisualFrame -> Godot drawing`
+
+The first visual pass should draw intentionally plain primitives: colored unit squares, building rectangles, larger Capital rectangles, wall rectangles, trade route lines, health bars, and a simple fog overlay.

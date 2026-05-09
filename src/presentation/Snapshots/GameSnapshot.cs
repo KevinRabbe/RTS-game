@@ -37,14 +37,18 @@ namespace RtsGame.Presentation.Snapshots
         public UnitTypeId UnitTypeId { get; }
         public FixedVector2 Position { get; }
         public int HitPoints { get; }
+        public int TradeRouteAId { get; }
+        public int TradeRouteBId { get; }
 
-        public UnitSnapshot(int id, int ownerPlayerIndex, UnitTypeId unitTypeId, FixedVector2 position, int hitPoints)
+        public UnitSnapshot(int id, int ownerPlayerIndex, UnitTypeId unitTypeId, FixedVector2 position, int hitPoints, int tradeRouteAId, int tradeRouteBId)
         {
             Id = id;
             OwnerPlayerIndex = ownerPlayerIndex;
             UnitTypeId = unitTypeId;
             Position = position;
             HitPoints = hitPoints;
+            TradeRouteAId = tradeRouteAId;
+            TradeRouteBId = tradeRouteBId;
         }
     }
 
