@@ -18,6 +18,7 @@ public partial class RtsClientRoot : Node2D
     private bool _paused;
     private int _hoveredResourceNodeId;
     private int _selectedBuildingId;
+    private int _pendingTradeRouteAId;
 
     public override void _Ready()
     {
@@ -113,6 +114,12 @@ public partial class RtsClientRoot : Node2D
             return;
         }
 
+        if (key.Keycode == Key.R)
+        {
+            TryCreateTradeRoute(GetGlobalMousePosition());
+            return;
+        }
+
         if (key.Keycode == Key.V)
         {
             TrainFromSelectedBuilding(VillagerUnitTypeId);
@@ -178,10 +185,48 @@ public partial class RtsClientRoot : Node2D
         RefreshFrame();
     }
 
+    private void TryCreateTradeRoute(Vector2 screenPosition)
+    {
+        if (_frame == null || _selectedUnitIds.Count == 0)
+        {
+            return;
+        }
+
+        int tradeCartId = GodotTradeRouteRouter.FindSelectedTradeCart(_frame, _selectedUnitIds.ToArray());
+        if (tradeCartId == 0)
+        {
+            return;
+        }
+
+        int tradePostId = GodotTradeRouteRouter.FindLocalTradePostAt(
+            _frame,
+            LocalPlayerIndex,
+            ScreenToRaw(screenPosition.X),
+            ScreenToRaw(screenPosition.Y));
+
+        if (tradePostId == 0)
+        {
+            return;
+        }
+
+        if (_pendingTradeRouteAId == 0 || _pendingTradeRouteAId == tradePostId)
+        {
+            _pendingTradeRouteAId = tradePostId;
+            RefreshFrame();
+            return;
+        }
+
+        _facade!.QueueCreateTradeRoute(LocalPlayerIndex, tradeCartId, _pendingTradeRouteAId, tradePostId);
+        _pendingTradeRouteAId = 0;
+        _facade.AdvanceOneTick();
+        RefreshFrame();
+    }
+
     private void SelectAt(Vector2 screenPosition)
     {
         _selectedUnitIds.Clear();
         _selectedBuildingId = 0;
+        _pendingTradeRouteAId = 0;
         if (_frame == null)
         {
             return;

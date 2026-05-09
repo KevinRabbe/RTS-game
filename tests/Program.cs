@@ -153,6 +153,10 @@ namespace RtsGame.Tests
                 new TestCase("godot coordinate mapper converts raw to pixels", GodotCoordinateMapperConvertsRawToPixels),
                 new TestCase("godot coordinate mapper converts screen to raw", GodotCoordinateMapperConvertsScreenToRaw),
                 new TestCase("godot coordinate mapper floors screen tile", GodotCoordinateMapperFloorsScreenTile),
+                new TestCase("godot trade route router finds local trade post", GodotTradeRouteRouterFindsLocalTradePost),
+                new TestCase("godot trade route router ignores invalid trade post targets", GodotTradeRouteRouterIgnoresInvalidTradePostTargets),
+                new TestCase("godot trade route router finds selected trade cart", GodotTradeRouteRouterFindsSelectedTradeCart),
+                new TestCase("godot trade route router ignores non cart selection", GodotTradeRouteRouterIgnoresNonCartSelection),
                 new TestCase("train infantry completes", TrainInfantryCompletes),
                 new TestCase("train cavalry completes", TrainCavalryCompletes),
                 new TestCase("cavalry moves faster than infantry", CavalryMovesFasterThanInfantry),
@@ -2344,6 +2348,61 @@ namespace RtsGame.Tests
             AssertEqual(-1, GodotCoordinateMapper.ScreenToTile(-0.1f, 16.0f), "negative screen coordinates should floor down, not truncate toward zero");
         }
 
+        private static void GodotTradeRouteRouterFindsLocalTradePost()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(new[]
+            {
+                CreateGodotPrimitiveWithType(VisualPrimitiveKind.BuildingRectangle, 170, 0, (int)BuildingTypeId.TradePost, 5, 5)
+            });
+
+            int tradePostId = GodotTradeRouteRouter.FindLocalTradePostAt(frame, 0, Fixed.FromInt(5).Raw, Fixed.FromInt(5).Raw);
+
+            AssertEqual(170, tradePostId, "router should find visible local trade post under cursor");
+        }
+
+        private static void GodotTradeRouteRouterIgnoresInvalidTradePostTargets()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(new[]
+            {
+                CreateGodotPrimitiveWithType(VisualPrimitiveKind.BuildingRectangle, 171, 1, (int)BuildingTypeId.TradePost, 5, 5),
+                CreateGodotPrimitiveWithType(VisualPrimitiveKind.BuildingRectangle, 172, 0, (int)BuildingTypeId.TownCenter, 5, 5)
+            });
+
+            int tradePostId = GodotTradeRouteRouter.FindLocalTradePostAt(frame, 0, Fixed.FromInt(5).Raw, Fixed.FromInt(5).Raw);
+
+            AssertEqual(0, tradePostId, "router should ignore enemy trade posts and non-trade-post buildings");
+        }
+
+        private static void GodotTradeRouteRouterFindsSelectedTradeCart()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(
+                new GodotPrimitiveDto[0],
+                new GodotBuildingStatusDto[0],
+                new[]
+                {
+                    new GodotUnitStatusDto(180, (int)UnitTypeId.TradeCart, false, 0, 0, 0, 0, 0, 0, 0, 0)
+                });
+
+            int tradeCartId = GodotTradeRouteRouter.FindSelectedTradeCart(frame, new[] { 180 });
+
+            AssertEqual(180, tradeCartId, "router should find selected trade cart by unit status");
+        }
+
+        private static void GodotTradeRouteRouterIgnoresNonCartSelection()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(
+                new GodotPrimitiveDto[0],
+                new GodotBuildingStatusDto[0],
+                new[]
+                {
+                    new GodotUnitStatusDto(181, (int)UnitTypeId.Villager, false, 0, 0, 0, 0, 0, 0, 0, 0)
+                });
+
+            int tradeCartId = GodotTradeRouteRouter.FindSelectedTradeCart(frame, new[] { 181 });
+
+            AssertEqual(0, tradeCartId, "router should ignore selected non-trade-cart units");
+        }
+
         private static void TrainInfantryCompletes()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -3872,13 +3931,21 @@ namespace RtsGame.Tests
 
         private static GodotFrameDto CreateGodotInteractionFrame(GodotPrimitiveDto[] primitives, GodotBuildingStatusDto[] buildingStatuses)
         {
+            return CreateGodotInteractionFrame(primitives, buildingStatuses, new GodotUnitStatusDto[0]);
+        }
+
+        private static GodotFrameDto CreateGodotInteractionFrame(
+            GodotPrimitiveDto[] primitives,
+            GodotBuildingStatusDto[] buildingStatuses,
+            GodotUnitStatusDto[] unitStatuses)
+        {
             return new GodotFrameDto(
                 0,
                 0,
                 new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
                 new GodotMatchDto(false, -1, -1),
                 primitives,
-                new GodotUnitStatusDto[0],
+                unitStatuses,
                 buildingStatuses);
         }
 

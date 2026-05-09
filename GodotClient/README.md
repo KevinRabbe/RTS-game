@@ -49,6 +49,7 @@ Current Godot shell:
 - `C` queues a local Town Center placement at the mouse tile.
 - `W` queues a local wall placement at the mouse tile.
 - `T` queues a local Trade Post placement at the mouse tile.
+- Select a Trade Cart, then press `R` over two visible local Trade Posts to create a trade route.
 - Left click a local building, then `V` queues villager training.
 - Left click a local building, then `I` queues infantry training.
 - `Space` pauses presentation tick advancement.
