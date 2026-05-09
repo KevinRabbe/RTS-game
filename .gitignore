@@ -6,6 +6,9 @@ obj/
 .vs/
 .vscode/
 
+# Godot local cache
+.godot/
+
 # OS noise
 Thumbs.db
 Desktop.ini

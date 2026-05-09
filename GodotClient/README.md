@@ -34,3 +34,14 @@ Godot facade path:
 `Godot script -> GodotClientFacade -> LocalPlaySession -> VisualFrame DTOs`
 
 `GodotClientFacade` lives in `src/presentation/GodotBridge`. It exposes simple methods such as `QueueMoveUnits`, `QueuePlaceTownCenter`, and `GetFrame`. The returned DTOs use fixed-point raw coordinates so drawing code can convert to pixels without introducing gameplay math.
+
+Current Godot shell:
+
+- `Scenes/Main.tscn` hosts one `Node2D`.
+- `Scripts/RtsClientRoot.cs` creates a local 1v1 facade and draws primitive rectangles/lines.
+- Left click selects a visible local unit.
+- Right click issues a move intent for selected units.
+- `C` queues a local Town Center placement at the mouse tile.
+- `Space` pauses presentation tick advancement.
+
+The script may convert fixed raw coordinates to pixels for drawing. It must not contain combat, economy, placement, pathing, or validation rules.
