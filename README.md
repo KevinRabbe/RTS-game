@@ -22,6 +22,7 @@ The simulation core must not depend on rendering, UI, audio, engine physics, net
 - [Prototype Architecture](docs/prototype-architecture.md)
 - [Playable Prototype Spec](docs/playable-prototype-spec.md)
 - [Phase 0 Code Skeleton Blueprint](docs/phase-0-code-skeleton-blueprint.md)
+- [Testing Workflow](docs/testing-workflow.md)
 
 ## Core Pillars
 
