@@ -126,6 +126,8 @@ namespace RtsGame.Tests
                 new TestCase("godot facade routes gather command", GodotFacadeRoutesGatherCommand),
                 new TestCase("godot facade routes training command", GodotFacadeRoutesTrainingCommand),
                 new TestCase("godot facade routes attack command", GodotFacadeRoutesAttackCommand),
+                new TestCase("godot facade routes wall command", GodotFacadeRoutesWallCommand),
+                new TestCase("godot facade routes trade post command", GodotFacadeRoutesTradePostCommand),
                 new TestCase("godot interaction router prioritizes attack", GodotInteractionRouterPrioritizesAttack),
                 new TestCase("godot interaction router routes resources", GodotInteractionRouterRoutesResources),
                 new TestCase("godot interaction router routes move fallback", GodotInteractionRouterRoutesMoveFallback),
@@ -1989,6 +1991,37 @@ namespace RtsGame.Tests
             AssertEqual(0, facade.RejectedCommandCount, "valid facade attack command should not reject");
         }
 
+        private static void GodotFacadeRoutesWallCommand()
+        {
+            GodotClientFacade facade = CreateGodotFacadeWithCompletedCapital(93);
+
+            facade.QueueGatherResource(0, 2, new[] { 1 });
+            facade.AdvanceTicks(2);
+            facade.QueuePlaceWall(0, 7, 8);
+            facade.AdvanceOneTick();
+
+            GodotFrameDto frame = facade.GetFrame(0);
+            AssertEqual(true, HasGodotPrimitive(frame, VisualPrimitiveKind.WallRectangle), "godot facade should route wall placement through simulation");
+            AssertEqual(0, facade.RejectedCommandCount, "valid facade wall placement should not reject");
+        }
+
+        private static void GodotFacadeRoutesTradePostCommand()
+        {
+            GodotClientFacade facade = CreateGodotFacadeWithCompletedCapital(94);
+
+            facade.QueueGatherResource(0, 2, new[] { 1 });
+            facade.AdvanceTicks(30);
+            facade.QueueGatherResource(0, 3, new[] { 2 });
+            facade.AdvanceTicks(10);
+            facade.QueuePlaceTradePost(0, 8, 11);
+            facade.AdvanceOneTick();
+
+            GodotFrameDto frame = facade.GetFrame(0);
+
+            AssertEqual(true, HasGodotPrimitiveWithType(frame, VisualPrimitiveKind.BuildingRectangle, (int)BuildingTypeId.TradePost), "godot facade should route trade post placement through simulation");
+            AssertEqual(0, facade.RejectedCommandCount, "valid facade trade post placement should not reject");
+        }
+
         private static void GodotInteractionRouterPrioritizesAttack()
         {
             GodotFrameDto frame = CreateGodotInteractionFrame(new[]
@@ -3758,6 +3791,19 @@ namespace RtsGame.Tests
             return false;
         }
 
+        private static bool HasGodotPrimitiveWithType(GodotFrameDto frame, VisualPrimitiveKind kind, int typeId)
+        {
+            for (int i = 0; i < frame.Primitives.Length; i++)
+            {
+                if (frame.Primitives[i].Kind == (int)kind && frame.Primitives[i].TypeId == typeId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static GodotPrimitiveDto FindGodotPrimitive(GodotFrameDto frame, VisualPrimitiveKind kind, int entityId)
         {
             for (int i = 0; i < frame.Primitives.Length; i++)
@@ -3769,6 +3815,16 @@ namespace RtsGame.Tests
             }
 
             throw new InvalidOperationException("godot primitive not found kind=" + kind + " entity=" + entityId);
+        }
+
+        private static GodotClientFacade CreateGodotFacadeWithCompletedCapital(ulong seed)
+        {
+            GodotClientFacade facade = GodotClientFacade.CreateLocal1v1(seed);
+            facade.QueuePlaceTownCenter(0, 3, 8);
+            facade.AdvanceOneTick();
+            facade.QueueAssignBuild(0, 11, new[] { 1, 2, 3, 4 });
+            facade.AdvanceTicks(2);
+            return facade;
         }
 
         private static GodotFrameDto CreateGodotInteractionFrame(GodotPrimitiveDto[] primitives)

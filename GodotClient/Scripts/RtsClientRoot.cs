@@ -95,6 +95,24 @@ public partial class RtsClientRoot : Node2D
             return;
         }
 
+        if (key.Keycode == Key.W)
+        {
+            Vector2I tile = ScreenToTile(GetGlobalMousePosition());
+            _facade!.QueuePlaceWall(LocalPlayerIndex, tile.X, tile.Y);
+            _facade.AdvanceOneTick();
+            RefreshFrame();
+            return;
+        }
+
+        if (key.Keycode == Key.T)
+        {
+            Vector2I tile = ScreenToTile(GetGlobalMousePosition());
+            _facade!.QueuePlaceTradePost(LocalPlayerIndex, tile.X, tile.Y);
+            _facade.AdvanceOneTick();
+            RefreshFrame();
+            return;
+        }
+
         if (key.Keycode == Key.V)
         {
             TrainFromSelectedBuilding(VillagerUnitTypeId);
