@@ -37,8 +37,26 @@ namespace RtsGame.Sim.Systems
                 }
 
                 FixedVector2 delta = unit.MoveTarget - unit.Position;
+                int currentTileX = SpatialRules.GetTileX(unit.Position);
+                int currentTileY = SpatialRules.GetTileY(unit.Position);
+                int targetTileX = SpatialRules.GetTileX(unit.MoveTarget);
+                int targetTileY = SpatialRules.GetTileY(unit.MoveTarget);
+                bool nextPathTileIsTarget = true;
+                if (currentTileX != targetTileX || currentTileY != targetTileY)
+                {
+                    if (!DeterministicPathfinder.TryFindNextTile(state, currentTileX, currentTileY, targetTileX, targetTileY, out int nextTileX, out int nextTileY))
+                    {
+                        plan.ShouldClearTarget = true;
+                        plans[i] = plan;
+                        continue;
+                    }
+
+                    nextPathTileIsTarget = nextTileX == targetTileX && nextTileY == targetTileY;
+                    delta = FixedVector2.FromInts(nextTileX, nextTileY) - unit.Position;
+                }
+
                 long distanceRaw = DeterministicMath.SqrtRaw(delta.LengthSquaredRaw());
-                if (distanceRaw == 0 || distanceRaw <= speed.Raw)
+                if (distanceRaw == 0 || (nextPathTileIsTarget && distanceRaw <= speed.Raw))
                 {
                     plan.AttemptsMove = true;
                     plan.NextPosition = unit.MoveTarget;

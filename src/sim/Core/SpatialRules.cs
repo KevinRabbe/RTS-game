@@ -34,6 +34,11 @@ namespace RtsGame.Sim.Core
             return false;
         }
 
+        public static bool IsTileBlockedByWall(GameState state, int tileX, int tileY)
+        {
+            return IsBlockedByWall(state, FixedVector2.FromInts(tileX, tileY));
+        }
+
         private static bool IsInsideRadius(FixedVector2 position, FixedVector2 center, int radiusTiles)
         {
             long radiusRaw = Fixed.FromInt(radiusTiles).Raw;

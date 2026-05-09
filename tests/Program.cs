@@ -54,7 +54,11 @@ namespace RtsGame.Tests
                 new TestCase("move unit snaps to target", MoveUnitSnapsToTarget),
                 new TestCase("move command clears work assignments", MoveCommandClearsWorkAssignments),
                 new TestCase("move rejects wall-blocked target", MoveRejectsWallBlockedTarget),
-                new TestCase("movement stops before wall", MovementStopsBeforeWall),
+                new TestCase("movement pathfinds around wall", MovementPathfindsAroundWall),
+                new TestCase("pathfinder returns same first step", PathfinderReturnsSameFirstStep),
+                new TestCase("pathfinder wall blocks path", PathfinderWallBlocksPath),
+                new TestCase("destroyed wall opens path next tick", DestroyedWallOpensPathNextTick),
+                new TestCase("no path returns failure deterministically", NoPathReturnsFailureDeterministically),
                 new TestCase("unit blocked by stationary unit", UnitBlockedByStationaryUnit),
                 new TestCase("two units attempting same tile fail", TwoUnitsAttemptingSameTileFail),
                 new TestCase("three units attempting same tile fail", ThreeUnitsAttemptingSameTileFail),
@@ -130,7 +134,8 @@ namespace RtsGame.Tests
                 new TestCase("trade lockstep", TradeLockstep),
                 new TestCase("chaos v1 stress smoke", ChaosV1StressSmoke),
                 new TestCase("chaos v2 stress smoke", ChaosV2StressSmoke),
-                new TestCase("chaos v3 stress smoke", ChaosV3StressSmoke)
+                new TestCase("chaos v3 stress smoke", ChaosV3StressSmoke),
+                new TestCase("chaos v4 stress smoke", ChaosV4StressSmoke)
             };
 
             int failed = 0;
@@ -766,23 +771,89 @@ namespace RtsGame.Tests
             AssertEqual(1, state.DebugCounters.RejectedCommandCount, "blocked move target should count as rejected");
         }
 
-        private static void MovementStopsBeforeWall()
+        private static void MovementPathfindsAroundWall()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
-            var state = GameInitializer.CreateNomadStart(16, 1);
+            var state = CreateOccupancyState(16);
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(0, 0));
             EntityFactory.CreateWall(state, 0, FixedVector2.FromInts(2, 0));
             state.EntityState.Buildings[0].IsUnderConstruction = false;
             var buffer = new CommandBuffer();
             var runner = new TickRunner();
             buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1 }, FixedVector2.FromInts(4, 0))));
-            runner.AdvanceOneTick(state, rules, buffer);
-            AddNoOp(buffer, 1, 0, 1);
-            runner.AdvanceOneTick(state, rules, buffer);
-            AddNoOp(buffer, 2, 0, 2);
-            runner.AdvanceOneTick(state, rules, buffer);
+            for (int tick = 0; tick < 8; tick++)
+            {
+                if (tick > 0)
+                {
+                    AddNoOp(buffer, tick, 0, (uint)tick);
+                }
 
-            AssertEqual(Fixed.FromInt(1).Raw - 1, state.EntityState.Units[0].Position.X.Raw, "unit should stop before entering wall radius");
-            AssertEqual(false, state.EntityState.Units[0].HasMoveTarget, "blocked movement should clear move target");
+                runner.AdvanceOneTick(state, rules, buffer);
+            }
+
+            AssertEqual(true, state.EntityState.Units[0].Position.X.Raw > Fixed.FromInt(1).Raw, "unit should progress past the wall using a side route");
+            AssertEqual(false, SpatialRules.IsBlockedByWall(state, state.EntityState.Units[0].Position), "unit should not occupy a wall-blocked position");
+            AssertEqual(true, state.EntityState.Units[0].HasMoveTarget, "unit should continue pathing toward target");
+        }
+
+        private static void PathfinderReturnsSameFirstStep()
+        {
+            GameState first = CreatePathfindingWallState();
+            GameState second = CreatePathfindingWallState();
+
+            bool firstFound = DeterministicPathfinder.TryFindNextTile(first, 0, 0, 4, 0, out int firstX, out int firstY);
+            bool secondFound = DeterministicPathfinder.TryFindNextTile(second, 0, 0, 4, 0, out int secondX, out int secondY);
+
+            AssertEqual(true, firstFound, "pathfinder should find route around single wall");
+            AssertEqual(firstX, secondX, "same path request should return same X step");
+            AssertEqual(firstY, secondY, "same path request should return same Y step");
+            AssertEqual(1, firstX, "first step should follow frozen east-first neighbor order");
+            AssertEqual(0, firstY, "first step should stay on row before rerouting");
+        }
+
+        private static void PathfinderWallBlocksPath()
+        {
+            GameState state = CreateOccupancyState(17);
+            AddCompletedWall(state, 0, FixedVector2.FromInts(2, 0));
+
+            bool found = DeterministicPathfinder.TryFindNextTile(state, 0, 0, 2, 0, out int nextX, out int nextY);
+
+            AssertEqual(false, found, "sealed wall barrier should block path");
+            AssertEqual(0, nextX, "failed path should keep default X");
+            AssertEqual(0, nextY, "failed path should keep default Y");
+        }
+
+        private static void DestroyedWallOpensPathNextTick()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(18);
+            int wallId = AddCompletedWall(state, 0, FixedVector2.FromInts(1, 0));
+            bool blocked = DeterministicPathfinder.TryFindNextTile(state, 0, 0, 1, 0, out _, out _);
+            state.EntityState.Buildings[state.EntityState.EntityLookup[wallId].Index].IsDead = true;
+            new TickRunner().AdvanceOneTick(state, rules, new CommandBuffer());
+
+            bool opened = DeterministicPathfinder.TryFindNextTile(state, 0, 0, 1, 0, out int nextX, out int nextY);
+
+            AssertEqual(false, blocked, "wall tile should initially block direct path");
+            AssertEqual(true, opened, "destroyed wall should open path after cleanup");
+            AssertEqual(1, nextX, "opened path should step through former wall tile");
+            AssertEqual(0, nextY, "opened path should stay on row");
+        }
+
+        private static void NoPathReturnsFailureDeterministically()
+        {
+            GameState first = CreateOccupancyState(19);
+            GameState second = CreateOccupancyState(19);
+            AddVerticalBarrier(first, 1, 0, GameData.MapHeightTiles);
+            AddVerticalBarrier(second, 1, 0, GameData.MapHeightTiles);
+
+            bool firstFound = DeterministicPathfinder.TryFindNextTile(first, 0, 0, 2, 0, out int firstX, out int firstY);
+            bool secondFound = DeterministicPathfinder.TryFindNextTile(second, 0, 0, 2, 0, out int secondX, out int secondY);
+
+            AssertEqual(false, firstFound, "no-path request should fail");
+            AssertEqual(firstFound, secondFound, "no-path result should be deterministic");
+            AssertEqual(firstX, secondX, "no-path X should be deterministic");
+            AssertEqual(firstY, secondY, "no-path Y should be deterministic");
         }
 
         private static void UnitBlockedByStationaryUnit()
@@ -2047,6 +2118,14 @@ namespace RtsGame.Tests
             AssertEqual(1, result.ScenarioVersion, "chaos v3 version should be frozen at v1");
         }
 
+        private static void ChaosV4StressSmoke()
+        {
+            StressScenarioResult result = new StressScenarioRunner().RunChaosV4(1200, 80);
+            AssertEqual(true, result.Passed, "chaos v4 stress should pass invariants");
+            AssertEqual(1200, result.FinalTick, "chaos v4 stress should reach requested tick");
+            AssertEqual(1, result.ScenarioVersion, "chaos v4 version should be frozen at v1");
+        }
+
         private static ulong RunNoOpSimulation(int ticks, int players, ulong seed)
         {
             var rules = GameRules.CreatePhaseZeroDefaults(players);
@@ -2134,6 +2213,13 @@ namespace RtsGame.Tests
             return state;
         }
 
+        private static GameState CreatePathfindingWallState()
+        {
+            GameState state = CreateOccupancyState(17);
+            AddCompletedWall(state, 0, FixedVector2.FromInts(2, 0));
+            return state;
+        }
+
         private static GameState CreateOccupancyState(ulong seed)
         {
             return CreateOccupancyState(seed, 1);
@@ -2152,6 +2238,14 @@ namespace RtsGame.Tests
             wall.BuildProgressTicks = GameData.WallBuildTicks;
             wall.HitPoints = GameData.WallHitPoints;
             return wallId;
+        }
+
+        private static void AddVerticalBarrier(GameState state, int x, int startY, int length)
+        {
+            for (int i = 0; i < length; i++)
+            {
+                AddCompletedWall(state, 0, FixedVector2.FromInts(x, startY + i));
+            }
         }
 
         private static GameState CreateAdjacentCombatState()
