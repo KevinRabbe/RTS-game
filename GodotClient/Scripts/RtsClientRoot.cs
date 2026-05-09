@@ -10,9 +10,7 @@ public partial class RtsClientRoot : Node2D
     private const long FixedOneRaw = 1L << 16;
     private const double TickSeconds = 1.0 / 20.0;
     private const int VillagerUnitTypeId = 1;
-    private const int ScoutUnitTypeId = 2;
     private const int InfantryUnitTypeId = 3;
-    private const int CavalryUnitTypeId = 7;
 
     private readonly List<int> _selectedUnitIds = new List<int>();
     private GodotClientFacade? _facade;
@@ -215,7 +213,7 @@ public partial class RtsClientRoot : Node2D
     private void DrawUnit(GodotPrimitiveDto primitive)
     {
         Rect2 rect = PrimitiveRect(primitive);
-        Color color = GetUnitColor(primitive);
+        Color color = GetStyleColor(GodotVisualStyleResolver.ResolveUnit(primitive, LocalPlayerIndex));
         DrawRect(rect, color);
         if (_selectedUnitIds.Contains(primitive.EntityId))
         {
@@ -226,12 +224,7 @@ public partial class RtsClientRoot : Node2D
     private void DrawBuilding(GodotPrimitiveDto primitive)
     {
         Rect2 rect = PrimitiveRect(primitive);
-        Color color = primitive.IsCapital ? Colors.Gold : Colors.SlateGray;
-        if (primitive.Kind == 3)
-        {
-            color = Colors.DarkGray;
-        }
-
+        Color color = GetStyleColor(GodotVisualStyleResolver.ResolveBuilding(primitive));
         DrawRect(rect, color);
         if (_selectedBuildingId == primitive.EntityId)
         {
@@ -242,16 +235,7 @@ public partial class RtsClientRoot : Node2D
     private void DrawResource(GodotPrimitiveDto primitive)
     {
         Rect2 rect = PrimitiveRect(primitive);
-        Color color = Colors.ForestGreen;
-        if (primitive.Kind == 8)
-        {
-            color = Colors.SaddleBrown;
-        }
-        else if (primitive.Kind == 9)
-        {
-            color = Colors.Goldenrod;
-        }
-
+        Color color = GetStyleColor(GodotVisualStyleResolver.ResolveResource(primitive));
         DrawCircle(rect.GetCenter(), rect.Size.X * 0.5f, color);
         if (primitive.EntityId == _hoveredResourceNodeId)
         {
@@ -302,34 +286,35 @@ public partial class RtsClientRoot : Node2D
         DrawString(ThemeDB.FallbackFont, new Vector2(12.0f, 20.0f), text, HorizontalAlignment.Left, -1.0f, 16, Colors.White);
     }
 
-    private static Color GetUnitColor(GodotPrimitiveDto primitive)
+    private static Color GetStyleColor(GodotVisualStyle style)
     {
-        if (primitive.OwnerPlayerIndex != LocalPlayerIndex)
+        switch (style)
         {
-            return Colors.IndianRed;
+            case GodotVisualStyle.EnemyUnit:
+                return Colors.IndianRed;
+            case GodotVisualStyle.LocalVillager:
+                return Colors.DeepSkyBlue;
+            case GodotVisualStyle.LocalScout:
+                return Colors.Aqua;
+            case GodotVisualStyle.LocalInfantry:
+                return Colors.RoyalBlue;
+            case GodotVisualStyle.LocalCavalry:
+                return Colors.CornflowerBlue;
+            case GodotVisualStyle.CapitalBuilding:
+                return Colors.Gold;
+            case GodotVisualStyle.NormalBuilding:
+                return Colors.SlateGray;
+            case GodotVisualStyle.Wall:
+                return Colors.DarkGray;
+            case GodotVisualStyle.FoodResource:
+                return Colors.ForestGreen;
+            case GodotVisualStyle.WoodResource:
+                return Colors.SaddleBrown;
+            case GodotVisualStyle.GoldResource:
+                return Colors.Goldenrod;
+            default:
+                return Colors.SteelBlue;
         }
-
-        if (primitive.TypeId == VillagerUnitTypeId)
-        {
-            return Colors.DeepSkyBlue;
-        }
-
-        if (primitive.TypeId == ScoutUnitTypeId)
-        {
-            return Colors.Aqua;
-        }
-
-        if (primitive.TypeId == InfantryUnitTypeId)
-        {
-            return Colors.RoyalBlue;
-        }
-
-        if (primitive.TypeId == CavalryUnitTypeId)
-        {
-            return Colors.CornflowerBlue;
-        }
-
-        return Colors.SteelBlue;
     }
 
     private Rect2 PrimitiveRect(GodotPrimitiveDto primitive)

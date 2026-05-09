@@ -54,5 +54,6 @@ Current Godot shell:
 - Building status DTOs expose construction and training progress for the debug HUD.
 - Unit status DTOs expose gathering, carried resources, movement, build targets, and attack targets for the debug HUD.
 - HUD text is assembled by a presentation-only bridge helper so status formatting is testable outside Godot.
+- Visual style keys are resolved by a presentation-only bridge helper; the Godot script maps those keys to actual colors.
 
 The script may convert fixed raw coordinates to pixels for drawing. It must not contain combat, economy, placement, pathing, or validation rules.

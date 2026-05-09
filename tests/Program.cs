@@ -130,6 +130,10 @@ namespace RtsGame.Tests
                 new TestCase("godot hud text handles missing status", GodotHudTextHandlesMissingStatus),
                 new TestCase("godot primitive hit test includes boundary", GodotPrimitiveHitTestIncludesBoundary),
                 new TestCase("godot primitive hit test rejects outside", GodotPrimitiveHitTestRejectsOutside),
+                new TestCase("godot visual style resolves local unit types", GodotVisualStyleResolvesLocalUnitTypes),
+                new TestCase("godot visual style resolves enemy unit", GodotVisualStyleResolvesEnemyUnit),
+                new TestCase("godot visual style resolves building types", GodotVisualStyleResolvesBuildingTypes),
+                new TestCase("godot visual style resolves resources", GodotVisualStyleResolvesResources),
                 new TestCase("train infantry completes", TrainInfantryCompletes),
                 new TestCase("train cavalry completes", TrainCavalryCompletes),
                 new TestCase("cavalry moves faster than infantry", CavalryMovesFasterThanInfantry),
@@ -1963,6 +1967,48 @@ namespace RtsGame.Tests
             AssertEqual(false, contains, "hit test should reject points beyond primitive boundary");
         }
 
+        private static void GodotVisualStyleResolvesLocalUnitTypes()
+        {
+            GodotPrimitiveDto villager = CreateGodotPrimitiveWithType(VisualPrimitiveKind.UnitSquare, 110, 0, (int)UnitTypeId.Villager, 1, 1);
+            GodotPrimitiveDto scout = CreateGodotPrimitiveWithType(VisualPrimitiveKind.UnitSquare, 111, 0, (int)UnitTypeId.Scout, 1, 1);
+            GodotPrimitiveDto infantry = CreateGodotPrimitiveWithType(VisualPrimitiveKind.UnitSquare, 112, 0, (int)UnitTypeId.Infantry, 1, 1);
+            GodotPrimitiveDto cavalry = CreateGodotPrimitiveWithType(VisualPrimitiveKind.UnitSquare, 113, 0, (int)UnitTypeId.Cavalry, 1, 1);
+
+            AssertEqual(GodotVisualStyle.LocalVillager, GodotVisualStyleResolver.ResolveUnit(villager, 0), "villager should resolve to local villager style");
+            AssertEqual(GodotVisualStyle.LocalScout, GodotVisualStyleResolver.ResolveUnit(scout, 0), "scout should resolve to local scout style");
+            AssertEqual(GodotVisualStyle.LocalInfantry, GodotVisualStyleResolver.ResolveUnit(infantry, 0), "infantry should resolve to local infantry style");
+            AssertEqual(GodotVisualStyle.LocalCavalry, GodotVisualStyleResolver.ResolveUnit(cavalry, 0), "cavalry should resolve to local cavalry style");
+        }
+
+        private static void GodotVisualStyleResolvesEnemyUnit()
+        {
+            GodotPrimitiveDto enemy = CreateGodotPrimitiveWithType(VisualPrimitiveKind.UnitSquare, 120, 1, (int)UnitTypeId.Villager, 1, 1);
+
+            AssertEqual(GodotVisualStyle.EnemyUnit, GodotVisualStyleResolver.ResolveUnit(enemy, 0), "enemy unit should resolve to enemy style regardless of type");
+        }
+
+        private static void GodotVisualStyleResolvesBuildingTypes()
+        {
+            GodotPrimitiveDto normal = CreateGodotPrimitive(VisualPrimitiveKind.BuildingRectangle, 130, 0, 1, 1);
+            GodotPrimitiveDto wall = CreateGodotPrimitive(VisualPrimitiveKind.WallRectangle, 131, 0, 1, 1);
+            GodotPrimitiveDto capital = CreateGodotPrimitiveWithCapital(VisualPrimitiveKind.BuildingRectangle, 132, 0, 1, 1);
+
+            AssertEqual(GodotVisualStyle.NormalBuilding, GodotVisualStyleResolver.ResolveBuilding(normal), "normal building should resolve to normal building style");
+            AssertEqual(GodotVisualStyle.Wall, GodotVisualStyleResolver.ResolveBuilding(wall), "wall should resolve to wall style");
+            AssertEqual(GodotVisualStyle.CapitalBuilding, GodotVisualStyleResolver.ResolveBuilding(capital), "capital building should resolve to capital style");
+        }
+
+        private static void GodotVisualStyleResolvesResources()
+        {
+            GodotPrimitiveDto food = CreateGodotPrimitive(VisualPrimitiveKind.FoodResourceCircle, 140, GameData.NeutralOwnerPlayerIndex, 1, 1);
+            GodotPrimitiveDto wood = CreateGodotPrimitive(VisualPrimitiveKind.WoodResourceCircle, 141, GameData.NeutralOwnerPlayerIndex, 1, 1);
+            GodotPrimitiveDto gold = CreateGodotPrimitive(VisualPrimitiveKind.GoldResourceCircle, 142, GameData.NeutralOwnerPlayerIndex, 1, 1);
+
+            AssertEqual(GodotVisualStyle.FoodResource, GodotVisualStyleResolver.ResolveResource(food), "food should resolve to food resource style");
+            AssertEqual(GodotVisualStyle.WoodResource, GodotVisualStyleResolver.ResolveResource(wood), "wood should resolve to wood resource style");
+            AssertEqual(GodotVisualStyle.GoldResource, GodotVisualStyleResolver.ResolveResource(gold), "gold should resolve to gold resource style");
+        }
+
         private static void TrainInfantryCompletes()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -3491,10 +3537,32 @@ namespace RtsGame.Tests
 
         private static GodotPrimitiveDto CreateGodotPrimitive(VisualPrimitiveKind kind, int entityId, int ownerPlayerIndex, int x, int y)
         {
+            return CreateGodotPrimitive(kind, entityId, ownerPlayerIndex, 0, x, y, false);
+        }
+
+        private static GodotPrimitiveDto CreateGodotPrimitiveWithType(VisualPrimitiveKind kind, int entityId, int ownerPlayerIndex, int typeId, int x, int y)
+        {
+            return CreateGodotPrimitive(kind, entityId, ownerPlayerIndex, typeId, x, y, false);
+        }
+
+        private static GodotPrimitiveDto CreateGodotPrimitiveWithCapital(VisualPrimitiveKind kind, int entityId, int ownerPlayerIndex, int x, int y)
+        {
+            return CreateGodotPrimitive(kind, entityId, ownerPlayerIndex, 0, x, y, true);
+        }
+
+        private static GodotPrimitiveDto CreateGodotPrimitive(
+            VisualPrimitiveKind kind,
+            int entityId,
+            int ownerPlayerIndex,
+            int typeId,
+            int x,
+            int y,
+            bool isCapital)
+        {
             return new GodotPrimitiveDto(
                 (int)kind,
                 entityId,
-                0,
+                typeId,
                 ownerPlayerIndex,
                 Fixed.FromInt(x).Raw,
                 Fixed.FromInt(y).Raw,
@@ -3503,7 +3571,7 @@ namespace RtsGame.Tests
                 Fixed.FromInt(1).Raw,
                 10,
                 10,
-                false);
+                isCapital);
         }
 
         private static GodotBuildingStatusDto FindGodotBuildingStatus(GodotFrameDto frame, int buildingId)
