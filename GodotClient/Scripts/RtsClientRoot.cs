@@ -184,27 +184,24 @@ public partial class RtsClientRoot : Node2D
 
     private void DrawPrimitive(GodotPrimitiveDto primitive)
     {
-        switch (primitive.Kind)
+        switch (GodotPrimitiveDrawKindResolver.Resolve(primitive))
         {
-            case 1:
+            case GodotPrimitiveDrawKind.Unit:
                 DrawUnit(primitive);
                 break;
-            case 2:
-            case 3:
+            case GodotPrimitiveDrawKind.Building:
                 DrawBuilding(primitive);
                 break;
-            case 4:
+            case GodotPrimitiveDrawKind.TradeRoute:
                 DrawTradeRoute(primitive);
                 break;
-            case 5:
+            case GodotPrimitiveDrawKind.HealthBar:
                 DrawHealthBar(primitive);
                 break;
-            case 6:
+            case GodotPrimitiveDrawKind.FogOverlay:
                 DrawFogOverlay();
                 break;
-            case 7:
-            case 8:
-            case 9:
+            case GodotPrimitiveDrawKind.Resource:
                 DrawResource(primitive);
                 break;
         }

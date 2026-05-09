@@ -134,6 +134,8 @@ namespace RtsGame.Tests
                 new TestCase("godot visual style resolves enemy unit", GodotVisualStyleResolvesEnemyUnit),
                 new TestCase("godot visual style resolves building types", GodotVisualStyleResolvesBuildingTypes),
                 new TestCase("godot visual style resolves resources", GodotVisualStyleResolvesResources),
+                new TestCase("godot primitive draw kind resolves known primitives", GodotPrimitiveDrawKindResolvesKnownPrimitives),
+                new TestCase("godot primitive draw kind returns none for unknown", GodotPrimitiveDrawKindReturnsNoneForUnknown),
                 new TestCase("train infantry completes", TrainInfantryCompletes),
                 new TestCase("train cavalry completes", TrainCavalryCompletes),
                 new TestCase("cavalry moves faster than infantry", CavalryMovesFasterThanInfantry),
@@ -2007,6 +2009,26 @@ namespace RtsGame.Tests
             AssertEqual(GodotVisualStyle.FoodResource, GodotVisualStyleResolver.ResolveResource(food), "food should resolve to food resource style");
             AssertEqual(GodotVisualStyle.WoodResource, GodotVisualStyleResolver.ResolveResource(wood), "wood should resolve to wood resource style");
             AssertEqual(GodotVisualStyle.GoldResource, GodotVisualStyleResolver.ResolveResource(gold), "gold should resolve to gold resource style");
+        }
+
+        private static void GodotPrimitiveDrawKindResolvesKnownPrimitives()
+        {
+            AssertEqual(GodotPrimitiveDrawKind.Unit, GodotPrimitiveDrawKindResolver.Resolve(CreateGodotPrimitive(VisualPrimitiveKind.UnitSquare, 150, 0, 1, 1)), "unit primitive should resolve to unit draw kind");
+            AssertEqual(GodotPrimitiveDrawKind.Building, GodotPrimitiveDrawKindResolver.Resolve(CreateGodotPrimitive(VisualPrimitiveKind.BuildingRectangle, 151, 0, 1, 1)), "building primitive should resolve to building draw kind");
+            AssertEqual(GodotPrimitiveDrawKind.Building, GodotPrimitiveDrawKindResolver.Resolve(CreateGodotPrimitive(VisualPrimitiveKind.WallRectangle, 152, 0, 1, 1)), "wall primitive should resolve to building draw kind");
+            AssertEqual(GodotPrimitiveDrawKind.TradeRoute, GodotPrimitiveDrawKindResolver.Resolve(CreateGodotPrimitive(VisualPrimitiveKind.TradeRouteLine, 153, 0, 1, 1)), "trade route primitive should resolve to trade route draw kind");
+            AssertEqual(GodotPrimitiveDrawKind.HealthBar, GodotPrimitiveDrawKindResolver.Resolve(CreateGodotPrimitive(VisualPrimitiveKind.HealthBar, 154, 0, 1, 1)), "health bar primitive should resolve to health bar draw kind");
+            AssertEqual(GodotPrimitiveDrawKind.FogOverlay, GodotPrimitiveDrawKindResolver.Resolve(CreateGodotPrimitive(VisualPrimitiveKind.FogOverlay, 155, 0, 1, 1)), "fog primitive should resolve to fog draw kind");
+            AssertEqual(GodotPrimitiveDrawKind.Resource, GodotPrimitiveDrawKindResolver.Resolve(CreateGodotPrimitive(VisualPrimitiveKind.FoodResourceCircle, 156, GameData.NeutralOwnerPlayerIndex, 1, 1)), "food primitive should resolve to resource draw kind");
+            AssertEqual(GodotPrimitiveDrawKind.Resource, GodotPrimitiveDrawKindResolver.Resolve(CreateGodotPrimitive(VisualPrimitiveKind.WoodResourceCircle, 157, GameData.NeutralOwnerPlayerIndex, 1, 1)), "wood primitive should resolve to resource draw kind");
+            AssertEqual(GodotPrimitiveDrawKind.Resource, GodotPrimitiveDrawKindResolver.Resolve(CreateGodotPrimitive(VisualPrimitiveKind.GoldResourceCircle, 158, GameData.NeutralOwnerPlayerIndex, 1, 1)), "gold primitive should resolve to resource draw kind");
+        }
+
+        private static void GodotPrimitiveDrawKindReturnsNoneForUnknown()
+        {
+            GodotPrimitiveDto primitive = CreateGodotPrimitive((VisualPrimitiveKind)999, 160, 0, 1, 1);
+
+            AssertEqual(GodotPrimitiveDrawKind.None, GodotPrimitiveDrawKindResolver.Resolve(primitive), "unknown primitive kind should resolve to none");
         }
 
         private static void TrainInfantryCompletes()
