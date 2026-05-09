@@ -24,7 +24,22 @@ namespace RtsGame.Presentation.Snapshots
                     continue;
                 }
 
-                units.Add(new UnitSnapshot(unit.Id, unit.OwnerPlayerIndex, unit.UnitTypeId, unit.Position, unit.HitPoints, unit.TradeRouteAId, unit.TradeRouteBId));
+                units.Add(new UnitSnapshot(
+                    unit.Id,
+                    unit.OwnerPlayerIndex,
+                    unit.UnitTypeId,
+                    unit.Position,
+                    unit.HitPoints,
+                    unit.HasMoveTarget,
+                    unit.MoveTarget,
+                    unit.CurrentBuildTargetId,
+                    unit.CurrentResourceNodeId,
+                    unit.CarriedResourceType,
+                    unit.CarriedAmount,
+                    unit.AttackTargetId,
+                    unit.AttackCooldownTicksRemaining,
+                    unit.TradeRouteAId,
+                    unit.TradeRouteBId));
             }
 
             var buildings = new List<BuildingSnapshot>();

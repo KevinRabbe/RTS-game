@@ -88,6 +88,7 @@ namespace RtsGame.Tests
                 new TestCase("presentation snapshot includes visible resources", PresentationSnapshotIncludesVisibleResources),
                 new TestCase("presentation snapshot hides depleted resources", PresentationSnapshotHidesDepletedResources),
                 new TestCase("presentation snapshot includes building status", PresentationSnapshotIncludesBuildingStatus),
+                new TestCase("presentation snapshot includes unit status", PresentationSnapshotIncludesUnitStatus),
                 new TestCase("presentation snapshot does not mutate checksum", PresentationSnapshotDoesNotMutateChecksum),
                 new TestCase("simulation does not reference presentation", SimulationDoesNotReferencePresentation),
                 new TestCase("visual frame creates ugly prototype primitives", VisualFrameCreatesUglyPrototypePrimitives),
@@ -110,6 +111,7 @@ namespace RtsGame.Tests
                 new TestCase("godot facade exposes fixed raw coordinates", GodotFacadeExposesFixedRawCoordinates),
                 new TestCase("godot facade exposes primitive type ids", GodotFacadeExposesPrimitiveTypeIds),
                 new TestCase("godot facade exposes building status dto", GodotFacadeExposesBuildingStatusDto),
+                new TestCase("godot facade exposes unit status dto", GodotFacadeExposesUnitStatusDto),
                 new TestCase("godot facade exposes resource primitive dto", GodotFacadeExposesResourcePrimitiveDto),
                 new TestCase("godot facade routes gather command", GodotFacadeRoutesGatherCommand),
                 new TestCase("godot facade routes training command", GodotFacadeRoutesTrainingCommand),
@@ -1317,6 +1319,24 @@ namespace RtsGame.Tests
             AssertEqual(0, building.TrainingQueueCount, "under-construction building should have no training queue");
         }
 
+        private static void PresentationSnapshotIncludesUnitStatus()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = GameInitializer.CreateNomadStart(91, 1);
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(1, new[] { 1 })));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            GameSnapshot snapshot = GameSnapshotBuilder.Build(state, 0);
+            UnitSnapshot unit = FindUnitSnapshot(snapshot, 1);
+
+            AssertEqual(1, unit.CurrentResourceNodeId, "unit snapshot should expose gather target");
+            AssertEqual(ResourceType.Food, unit.CarriedResourceType, "unit snapshot should expose carried resource type");
+            AssertEqual(GameData.VillagerGatherPerTick, unit.CarriedAmount, "unit snapshot should expose carried amount");
+            AssertEqual(false, unit.HasMoveTarget, "unit snapshot should expose move target state");
+        }
+
         private static void PresentationSnapshotDoesNotMutateChecksum()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -1651,6 +1671,21 @@ namespace RtsGame.Tests
             AssertEqual((int)UnitTypeId.Villager, status.TrainingUnitTypeId, "godot building status should expose active training unit type");
             AssertEqual(1, status.TrainingProgressTicks, "godot building status should expose training progress");
             AssertEqual(GameData.VillagerTrainTicks, status.TrainingRequiredTicks, "godot building status should expose training requirement");
+        }
+
+        private static void GodotFacadeExposesUnitStatusDto()
+        {
+            GodotClientFacade facade = GodotClientFacade.CreateLocal1v1(92);
+
+            facade.QueueGatherResource(0, 1, new[] { 1 });
+            facade.AdvanceOneTick();
+
+            GodotUnitStatusDto status = FindGodotUnitStatus(facade.GetFrame(0), 1);
+
+            AssertEqual((int)UnitTypeId.Villager, status.UnitTypeId, "godot unit status should expose unit type");
+            AssertEqual(1, status.CurrentResourceNodeId, "godot unit status should expose gather target");
+            AssertEqual((int)ResourceType.Food, status.CarriedResourceTypeId, "godot unit status should expose carried resource type");
+            AssertEqual(GameData.VillagerGatherPerTick, status.CarriedAmount, "godot unit status should expose carried amount");
         }
 
         private static void GodotFacadeExposesResourcePrimitiveDto()
@@ -3145,6 +3180,19 @@ namespace RtsGame.Tests
             return false;
         }
 
+        private static UnitSnapshot FindUnitSnapshot(GameSnapshot snapshot, int unitId)
+        {
+            for (int i = 0; i < snapshot.Units.Count; i++)
+            {
+                if (snapshot.Units[i].Id == unitId)
+                {
+                    return snapshot.Units[i];
+                }
+            }
+
+            throw new InvalidOperationException("unit snapshot not found entity=" + unitId);
+        }
+
         private static BuildingSnapshot FindBuildingSnapshot(GameSnapshot snapshot, int buildingId)
         {
             for (int i = 0; i < snapshot.Buildings.Count; i++)
@@ -3208,6 +3256,19 @@ namespace RtsGame.Tests
             }
 
             throw new InvalidOperationException("godot building status not found entity=" + buildingId);
+        }
+
+        private static GodotUnitStatusDto FindGodotUnitStatus(GodotFrameDto frame, int unitId)
+        {
+            for (int i = 0; i < frame.UnitStatuses.Length; i++)
+            {
+                if (frame.UnitStatuses[i].UnitId == unitId)
+                {
+                    return frame.UnitStatuses[i];
+                }
+            }
+
+            throw new InvalidOperationException("godot unit status not found entity=" + unitId);
         }
 
         private static LockstepSession RunLockstep(int ticks, int players, ulong seed, bool reverseDelivery)

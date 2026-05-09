@@ -7,6 +7,7 @@ namespace RtsGame.Presentation.GodotBridge
         public GodotLocalPlayerDto LocalPlayer { get; }
         public GodotMatchDto Match { get; }
         public GodotPrimitiveDto[] Primitives { get; }
+        public GodotUnitStatusDto[] UnitStatuses { get; }
         public GodotBuildingStatusDto[] BuildingStatuses { get; }
 
         public GodotFrameDto(
@@ -15,6 +16,7 @@ namespace RtsGame.Presentation.GodotBridge
             GodotLocalPlayerDto localPlayer,
             GodotMatchDto match,
             GodotPrimitiveDto[] primitives,
+            GodotUnitStatusDto[] unitStatuses,
             GodotBuildingStatusDto[] buildingStatuses)
         {
             Tick = tick;
@@ -22,6 +24,7 @@ namespace RtsGame.Presentation.GodotBridge
             LocalPlayer = localPlayer;
             Match = match;
             Primitives = primitives;
+            UnitStatuses = unitStatuses;
             BuildingStatuses = buildingStatuses;
         }
     }
@@ -67,6 +70,47 @@ namespace RtsGame.Presentation.GodotBridge
             CurrentHitPoints = currentHitPoints;
             MaxHitPoints = maxHitPoints;
             IsCapital = isCapital;
+        }
+    }
+
+    public sealed class GodotUnitStatusDto
+    {
+        public int UnitId { get; }
+        public int UnitTypeId { get; }
+        public bool HasMoveTarget { get; }
+        public long MoveTargetXRaw { get; }
+        public long MoveTargetYRaw { get; }
+        public int CurrentBuildTargetId { get; }
+        public int CurrentResourceNodeId { get; }
+        public int CarriedResourceTypeId { get; }
+        public int CarriedAmount { get; }
+        public int AttackTargetId { get; }
+        public int AttackCooldownTicksRemaining { get; }
+
+        public GodotUnitStatusDto(
+            int unitId,
+            int unitTypeId,
+            bool hasMoveTarget,
+            long moveTargetXRaw,
+            long moveTargetYRaw,
+            int currentBuildTargetId,
+            int currentResourceNodeId,
+            int carriedResourceTypeId,
+            int carriedAmount,
+            int attackTargetId,
+            int attackCooldownTicksRemaining)
+        {
+            UnitId = unitId;
+            UnitTypeId = unitTypeId;
+            HasMoveTarget = hasMoveTarget;
+            MoveTargetXRaw = moveTargetXRaw;
+            MoveTargetYRaw = moveTargetYRaw;
+            CurrentBuildTargetId = currentBuildTargetId;
+            CurrentResourceNodeId = currentResourceNodeId;
+            CarriedResourceTypeId = carriedResourceTypeId;
+            CarriedAmount = carriedAmount;
+            AttackTargetId = attackTargetId;
+            AttackCooldownTicksRemaining = attackCooldownTicksRemaining;
         }
     }
 

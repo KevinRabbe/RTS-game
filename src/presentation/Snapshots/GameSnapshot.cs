@@ -40,16 +40,47 @@ namespace RtsGame.Presentation.Snapshots
         public UnitTypeId UnitTypeId { get; }
         public FixedVector2 Position { get; }
         public int HitPoints { get; }
+        public bool HasMoveTarget { get; }
+        public FixedVector2 MoveTarget { get; }
+        public int CurrentBuildTargetId { get; }
+        public int CurrentResourceNodeId { get; }
+        public ResourceType CarriedResourceType { get; }
+        public int CarriedAmount { get; }
+        public int AttackTargetId { get; }
+        public int AttackCooldownTicksRemaining { get; }
         public int TradeRouteAId { get; }
         public int TradeRouteBId { get; }
 
-        public UnitSnapshot(int id, int ownerPlayerIndex, UnitTypeId unitTypeId, FixedVector2 position, int hitPoints, int tradeRouteAId, int tradeRouteBId)
+        public UnitSnapshot(
+            int id,
+            int ownerPlayerIndex,
+            UnitTypeId unitTypeId,
+            FixedVector2 position,
+            int hitPoints,
+            bool hasMoveTarget,
+            FixedVector2 moveTarget,
+            int currentBuildTargetId,
+            int currentResourceNodeId,
+            ResourceType carriedResourceType,
+            int carriedAmount,
+            int attackTargetId,
+            int attackCooldownTicksRemaining,
+            int tradeRouteAId,
+            int tradeRouteBId)
         {
             Id = id;
             OwnerPlayerIndex = ownerPlayerIndex;
             UnitTypeId = unitTypeId;
             Position = position;
             HitPoints = hitPoints;
+            HasMoveTarget = hasMoveTarget;
+            MoveTarget = moveTarget;
+            CurrentBuildTargetId = currentBuildTargetId;
+            CurrentResourceNodeId = currentResourceNodeId;
+            CarriedResourceType = carriedResourceType;
+            CarriedAmount = carriedAmount;
+            AttackTargetId = attackTargetId;
+            AttackCooldownTicksRemaining = attackCooldownTicksRemaining;
             TradeRouteAId = tradeRouteAId;
             TradeRouteBId = tradeRouteBId;
         }
