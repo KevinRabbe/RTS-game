@@ -10,6 +10,7 @@ public partial class RtsClientRoot : Node2D
     private const double TickSeconds = 1.0 / 20.0;
     private const int VillagerUnitTypeId = 1;
     private const int InfantryUnitTypeId = 3;
+    private const int TradeCartUnitTypeId = 5;
 
     private readonly List<int> _selectedUnitIds = new List<int>();
     private GodotClientFacade? _facade;
@@ -129,6 +130,12 @@ public partial class RtsClientRoot : Node2D
         if (key.Keycode == Key.I)
         {
             TrainFromSelectedBuilding(InfantryUnitTypeId);
+            return;
+        }
+
+        if (key.Keycode == Key.K)
+        {
+            TrainFromSelectedBuilding(TradeCartUnitTypeId);
         }
     }
 

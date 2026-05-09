@@ -52,6 +52,7 @@ Current Godot shell:
 - Select a Trade Cart, then press `R` over two visible local Trade Posts to create a trade route.
 - Left click a local building, then `V` queues villager training.
 - Left click a local building, then `I` queues infantry training.
+- Left click a local Trade Post, then `K` queues Trade Cart training.
 - `Space` pauses presentation tick advancement.
 - Visible food, wood, and gold are drawn as resource circles.
 - Visual DTOs include type ids so the shell can draw unit/building/resource types without guessing.

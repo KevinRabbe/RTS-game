@@ -128,6 +128,7 @@ namespace RtsGame.Tests
                 new TestCase("godot facade routes attack command", GodotFacadeRoutesAttackCommand),
                 new TestCase("godot facade routes wall command", GodotFacadeRoutesWallCommand),
                 new TestCase("godot facade routes trade post command", GodotFacadeRoutesTradePostCommand),
+                new TestCase("godot facade routes trade cart training command", GodotFacadeRoutesTradeCartTrainingCommand),
                 new TestCase("godot interaction router prioritizes attack", GodotInteractionRouterPrioritizesAttack),
                 new TestCase("godot interaction router routes build assignment", GodotInteractionRouterRoutesBuildAssignment),
                 new TestCase("godot interaction router ignores completed build target", GodotInteractionRouterIgnoresCompletedBuildTarget),
@@ -2028,6 +2029,33 @@ namespace RtsGame.Tests
             AssertEqual(0, facade.RejectedCommandCount, "valid facade trade post placement should not reject");
         }
 
+        private static void GodotFacadeRoutesTradeCartTrainingCommand()
+        {
+            GodotClientFacade facade = CreateGodotFacadeWithCompletedCapital(95);
+
+            facade.QueueGatherResource(0, 2, new[] { 1 });
+            facade.AdvanceTicks(46);
+            facade.QueueGatherResource(0, 3, new[] { 2 });
+            facade.AdvanceTicks(14);
+            facade.QueuePlaceTradePost(0, 8, 11);
+            facade.AdvanceOneTick();
+
+            int tradePostId = FindGodotPrimitiveWithType(
+                facade.GetFrame(0),
+                VisualPrimitiveKind.BuildingRectangle,
+                (int)BuildingTypeId.TradePost).EntityId;
+
+            facade.QueueAssignBuild(0, tradePostId, new[] { 1, 2, 3, 4 });
+            facade.AdvanceTicks(GameData.TradePostBuildTicks);
+            facade.QueueTrainUnit(0, tradePostId, (int)UnitTypeId.TradeCart);
+            facade.AdvanceTicks(GameData.TradeCartTrainTicks);
+
+            GodotFrameDto frame = facade.GetFrame(0);
+            AssertEqual(true, HasGodotUnitStatusWithType(frame, (int)UnitTypeId.TradeCart), "godot facade should route trade cart training through a completed trade post");
+            AssertEqual(6, frame.LocalPlayer.PopulationUsed, "trade cart training should reserve one population through simulation");
+            AssertEqual(0, facade.RejectedCommandCount, "valid facade trade cart training flow should not reject");
+        }
+
         private static void GodotInteractionRouterPrioritizesAttack()
         {
             GodotFrameDto frame = CreateGodotInteractionFrame(new[]
@@ -3912,6 +3940,32 @@ namespace RtsGame.Tests
             }
 
             throw new InvalidOperationException("godot primitive not found kind=" + kind + " entity=" + entityId);
+        }
+
+        private static GodotPrimitiveDto FindGodotPrimitiveWithType(GodotFrameDto frame, VisualPrimitiveKind kind, int typeId)
+        {
+            for (int i = 0; i < frame.Primitives.Length; i++)
+            {
+                if (frame.Primitives[i].Kind == (int)kind && frame.Primitives[i].TypeId == typeId)
+                {
+                    return frame.Primitives[i];
+                }
+            }
+
+            throw new InvalidOperationException("godot primitive not found kind=" + kind + " type=" + typeId);
+        }
+
+        private static bool HasGodotUnitStatusWithType(GodotFrameDto frame, int unitTypeId)
+        {
+            for (int i = 0; i < frame.UnitStatuses.Length; i++)
+            {
+                if (frame.UnitStatuses[i].UnitTypeId == unitTypeId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static GodotClientFacade CreateGodotFacadeWithCompletedCapital(ulong seed)
