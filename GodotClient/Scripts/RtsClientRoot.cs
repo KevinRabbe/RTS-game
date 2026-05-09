@@ -122,17 +122,22 @@ public partial class RtsClientRoot : Node2D
 
         if (mouse.ButtonIndex == MouseButton.Right && _selectedUnitIds.Count > 0)
         {
-            int attackTargetId = FindEnemyTargetAt(mouse.Position);
-            int resourceNodeId = FindResourceAt(mouse.Position);
-            if (attackTargetId != 0)
+            GodotInteractionIntent intent = GodotInteractionRouter.RouteRightClick(
+                _frame!,
+                LocalPlayerIndex,
+                _selectedUnitIds.Count > 0,
+                ScreenToRaw(mouse.Position.X),
+                ScreenToRaw(mouse.Position.Y));
+
+            if (intent.Kind == GodotInteractionIntentKind.Attack)
             {
-                _facade!.QueueAttack(LocalPlayerIndex, _selectedUnitIds.ToArray(), attackTargetId);
+                _facade!.QueueAttack(LocalPlayerIndex, _selectedUnitIds.ToArray(), intent.TargetEntityId);
             }
-            else if (resourceNodeId != 0)
+            else if (intent.Kind == GodotInteractionIntentKind.GatherResource)
             {
-                _facade!.QueueGatherResource(LocalPlayerIndex, resourceNodeId, _selectedUnitIds.ToArray());
+                _facade!.QueueGatherResource(LocalPlayerIndex, intent.ResourceNodeId, _selectedUnitIds.ToArray());
             }
-            else
+            else if (intent.Kind == GodotInteractionIntentKind.Move)
             {
                 _facade!.QueueMoveUnits(LocalPlayerIndex, _selectedUnitIds.ToArray(), tile.X, tile.Y);
             }
@@ -475,6 +480,11 @@ public partial class RtsClientRoot : Node2D
         return (float)((raw / (double)FixedOneRaw) * TilePixels);
     }
 
+    private static long ScreenToRaw(float screenCoordinate)
+    {
+        return (long)((screenCoordinate / TilePixels) * FixedOneRaw);
+    }
+
     private static Vector2I ScreenToTile(Vector2 screenPosition)
     {
         int x = Mathf.FloorToInt(screenPosition.X / TilePixels);
@@ -496,46 +506,6 @@ public partial class RtsClientRoot : Node2D
             return 0;
         }
 
-        for (int i = 0; i < _frame.Primitives.Length; i++)
-        {
-            GodotPrimitiveDto primitive = _frame.Primitives[i];
-            if (primitive.Kind < 7 || primitive.Kind > 9)
-            {
-                continue;
-            }
-
-            if (PrimitiveRect(primitive).HasPoint(screenPosition))
-            {
-                return primitive.EntityId;
-            }
-        }
-
-        return 0;
-    }
-
-    private int FindEnemyTargetAt(Vector2 screenPosition)
-    {
-        if (_frame == null)
-        {
-            return 0;
-        }
-
-        for (int i = 0; i < _frame.Primitives.Length; i++)
-        {
-            GodotPrimitiveDto primitive = _frame.Primitives[i];
-            if ((primitive.Kind != 1 && primitive.Kind != 2 && primitive.Kind != 3)
-                || primitive.OwnerPlayerIndex == LocalPlayerIndex
-                || primitive.OwnerPlayerIndex < 0)
-            {
-                continue;
-            }
-
-            if (PrimitiveRect(primitive).HasPoint(screenPosition))
-            {
-                return primitive.EntityId;
-            }
-        }
-
-        return 0;
+        return GodotInteractionRouter.FindResourceAt(_frame, ScreenToRaw(screenPosition.X), ScreenToRaw(screenPosition.Y));
     }
 }

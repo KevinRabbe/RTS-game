@@ -116,6 +116,10 @@ namespace RtsGame.Tests
                 new TestCase("godot facade routes gather command", GodotFacadeRoutesGatherCommand),
                 new TestCase("godot facade routes training command", GodotFacadeRoutesTrainingCommand),
                 new TestCase("godot facade routes attack command", GodotFacadeRoutesAttackCommand),
+                new TestCase("godot interaction router prioritizes attack", GodotInteractionRouterPrioritizesAttack),
+                new TestCase("godot interaction router routes resources", GodotInteractionRouterRoutesResources),
+                new TestCase("godot interaction router routes move fallback", GodotInteractionRouterRoutesMoveFallback),
+                new TestCase("godot interaction router ignores friendly target", GodotInteractionRouterIgnoresFriendlyTarget),
                 new TestCase("train infantry completes", TrainInfantryCompletes),
                 new TestCase("train cavalry completes", TrainCavalryCompletes),
                 new TestCase("cavalry moves faster than infantry", CavalryMovesFasterThanInfantry),
@@ -1747,6 +1751,62 @@ namespace RtsGame.Tests
             AssertEqual(0, facade.RejectedCommandCount, "valid facade attack command should not reject");
         }
 
+        private static void GodotInteractionRouterPrioritizesAttack()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(new[]
+            {
+                CreateGodotPrimitive(VisualPrimitiveKind.FoodResourceCircle, 10, GameData.NeutralOwnerPlayerIndex, 5, 5),
+                CreateGodotPrimitive(VisualPrimitiveKind.UnitSquare, 20, 1, 5, 5)
+            });
+
+            GodotInteractionIntent intent = GodotInteractionRouter.RouteRightClick(frame, 0, true, Fixed.FromInt(5).Raw, Fixed.FromInt(5).Raw);
+
+            AssertEqual(GodotInteractionIntentKind.Attack, intent.Kind, "enemy target should take priority over gather when primitives overlap");
+            AssertEqual(20, intent.TargetEntityId, "attack intent should expose target entity id");
+            AssertEqual(0, intent.ResourceNodeId, "attack intent should not expose a resource id");
+        }
+
+        private static void GodotInteractionRouterRoutesResources()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(new[]
+            {
+                CreateGodotPrimitive(VisualPrimitiveKind.GoldResourceCircle, 30, GameData.NeutralOwnerPlayerIndex, 6, 7)
+            });
+
+            GodotInteractionIntent intent = GodotInteractionRouter.RouteRightClick(frame, 0, true, Fixed.FromInt(6).Raw, Fixed.FromInt(7).Raw);
+
+            AssertEqual(GodotInteractionIntentKind.GatherResource, intent.Kind, "resource target should route to gather");
+            AssertEqual(30, intent.ResourceNodeId, "gather intent should expose resource node id");
+            AssertEqual(0, intent.TargetEntityId, "gather intent should not expose an attack target id");
+        }
+
+        private static void GodotInteractionRouterRoutesMoveFallback()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(new[]
+            {
+                CreateGodotPrimitive(VisualPrimitiveKind.UnitSquare, 40, 1, 12, 12)
+            });
+
+            GodotInteractionIntent intent = GodotInteractionRouter.RouteRightClick(frame, 0, true, Fixed.FromInt(2).Raw, Fixed.FromInt(3).Raw);
+
+            AssertEqual(GodotInteractionIntentKind.Move, intent.Kind, "empty right click should route to move fallback");
+            AssertEqual(0, intent.TargetEntityId, "move intent should not expose an attack target id");
+            AssertEqual(0, intent.ResourceNodeId, "move intent should not expose a resource id");
+        }
+
+        private static void GodotInteractionRouterIgnoresFriendlyTarget()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(new[]
+            {
+                CreateGodotPrimitive(VisualPrimitiveKind.UnitSquare, 50, 0, 4, 4)
+            });
+
+            GodotInteractionIntent intent = GodotInteractionRouter.RouteRightClick(frame, 0, true, Fixed.FromInt(4).Raw, Fixed.FromInt(4).Raw);
+
+            AssertEqual(GodotInteractionIntentKind.Move, intent.Kind, "friendly targets should not route to attack");
+            AssertEqual(0, intent.TargetEntityId, "friendly target should not be exposed as an attack target");
+        }
+
         private static void TrainInfantryCompletes()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -3243,6 +3303,35 @@ namespace RtsGame.Tests
             }
 
             throw new InvalidOperationException("godot primitive not found kind=" + kind + " entity=" + entityId);
+        }
+
+        private static GodotFrameDto CreateGodotInteractionFrame(GodotPrimitiveDto[] primitives)
+        {
+            return new GodotFrameDto(
+                0,
+                0,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotMatchDto(false, -1, -1),
+                primitives,
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+        }
+
+        private static GodotPrimitiveDto CreateGodotPrimitive(VisualPrimitiveKind kind, int entityId, int ownerPlayerIndex, int x, int y)
+        {
+            return new GodotPrimitiveDto(
+                (int)kind,
+                entityId,
+                0,
+                ownerPlayerIndex,
+                Fixed.FromInt(x).Raw,
+                Fixed.FromInt(y).Raw,
+                0,
+                0,
+                Fixed.FromInt(1).Raw,
+                10,
+                10,
+                false);
         }
 
         private static GodotBuildingStatusDto FindGodotBuildingStatus(GodotFrameDto frame, int buildingId)

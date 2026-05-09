@@ -43,6 +43,7 @@ Current Godot shell:
 - Right click issues a move intent for selected units.
 - Right click on an enemy unit or building issues an attack intent for selected units.
 - Right click on visible food, wood, or gold issues a gather intent for selected units.
+- Right-click routing is resolved by a presentation-only interaction router with priority: attack target, resource gather, then move fallback.
 - `C` queues a local Town Center placement at the mouse tile.
 - Left click a local building, then `V` queues villager training.
 - Left click a local building, then `I` queues infantry training.
