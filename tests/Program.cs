@@ -87,6 +87,7 @@ namespace RtsGame.Tests
                 new TestCase("presentation snapshot hides invisible enemies", PresentationSnapshotHidesInvisibleEnemies),
                 new TestCase("presentation snapshot includes visible resources", PresentationSnapshotIncludesVisibleResources),
                 new TestCase("presentation snapshot hides depleted resources", PresentationSnapshotHidesDepletedResources),
+                new TestCase("presentation snapshot includes building status", PresentationSnapshotIncludesBuildingStatus),
                 new TestCase("presentation snapshot does not mutate checksum", PresentationSnapshotDoesNotMutateChecksum),
                 new TestCase("simulation does not reference presentation", SimulationDoesNotReferencePresentation),
                 new TestCase("visual frame creates ugly prototype primitives", VisualFrameCreatesUglyPrototypePrimitives),
@@ -108,6 +109,7 @@ namespace RtsGame.Tests
                 new TestCase("godot facade rejects invalid commands through sim", GodotFacadeRejectsInvalidCommandsThroughSim),
                 new TestCase("godot facade exposes fixed raw coordinates", GodotFacadeExposesFixedRawCoordinates),
                 new TestCase("godot facade exposes primitive type ids", GodotFacadeExposesPrimitiveTypeIds),
+                new TestCase("godot facade exposes building status dto", GodotFacadeExposesBuildingStatusDto),
                 new TestCase("godot facade exposes resource primitive dto", GodotFacadeExposesResourcePrimitiveDto),
                 new TestCase("godot facade routes gather command", GodotFacadeRoutesGatherCommand),
                 new TestCase("godot facade routes training command", GodotFacadeRoutesTrainingCommand),
@@ -1295,6 +1297,26 @@ namespace RtsGame.Tests
             }
         }
 
+        private static void PresentationSnapshotIncludesBuildingStatus()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = GameInitializer.CreateNomadStart(89, 1);
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.PlaceTownCenter), new PlaceTownCenterCommand(FixedVector2.FromInts(3, 8))));
+            runner.AdvanceOneTick(state, rules, buffer);
+            buffer.Add(new CommandEnvelope(new CommandHeader(1, 0, 1, CommandType.AssignBuild), new AssignBuildCommand(6, new[] { 1, 2 })));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            GameSnapshot snapshot = GameSnapshotBuilder.Build(state, 0);
+            BuildingSnapshot building = FindBuildingSnapshot(snapshot, 6);
+
+            AssertEqual(true, building.IsUnderConstruction, "building snapshot should expose construction state");
+            AssertEqual(2, building.BuildProgressTicks, "building snapshot should expose build progress");
+            AssertEqual(GameData.TownCenterBuildTicks, building.RequiredBuildTicks, "building snapshot should expose required build ticks");
+            AssertEqual(0, building.TrainingQueueCount, "under-construction building should have no training queue");
+        }
+
         private static void PresentationSnapshotDoesNotMutateChecksum()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -1607,6 +1629,28 @@ namespace RtsGame.Tests
             AssertEqual((int)UnitTypeId.Villager, villager.TypeId, "godot unit primitive should expose unit type id");
             AssertEqual((int)BuildingTypeId.TownCenter, townCenter.TypeId, "godot building primitive should expose building type id");
             AssertEqual((int)ResourceType.Food, food.TypeId, "godot resource primitive should expose resource type id");
+        }
+
+        private static void GodotFacadeExposesBuildingStatusDto()
+        {
+            GodotClientFacade facade = GodotClientFacade.CreateLocal1v1(90);
+
+            facade.QueuePlaceTownCenter(0, 3, 8);
+            facade.AdvanceOneTick();
+            facade.QueueAssignBuild(0, 11, new[] { 1, 2, 3, 4 });
+            facade.AdvanceTicks(2);
+            facade.QueueGatherResource(0, 1, new[] { 1 });
+            facade.AdvanceTicks(10);
+            facade.QueueTrainUnit(0, 11, (int)UnitTypeId.Villager);
+            facade.AdvanceOneTick();
+
+            GodotBuildingStatusDto status = FindGodotBuildingStatus(facade.GetFrame(0), 11);
+
+            AssertEqual(false, status.IsUnderConstruction, "godot building status should show completed building");
+            AssertEqual(1, status.TrainingQueueCount, "godot building status should expose active training queue");
+            AssertEqual((int)UnitTypeId.Villager, status.TrainingUnitTypeId, "godot building status should expose active training unit type");
+            AssertEqual(1, status.TrainingProgressTicks, "godot building status should expose training progress");
+            AssertEqual(GameData.VillagerTrainTicks, status.TrainingRequiredTicks, "godot building status should expose training requirement");
         }
 
         private static void GodotFacadeExposesResourcePrimitiveDto()
@@ -3101,6 +3145,19 @@ namespace RtsGame.Tests
             return false;
         }
 
+        private static BuildingSnapshot FindBuildingSnapshot(GameSnapshot snapshot, int buildingId)
+        {
+            for (int i = 0; i < snapshot.Buildings.Count; i++)
+            {
+                if (snapshot.Buildings[i].Id == buildingId)
+                {
+                    return snapshot.Buildings[i];
+                }
+            }
+
+            throw new InvalidOperationException("building snapshot not found entity=" + buildingId);
+        }
+
         private static VisualPrimitive FindPrimitive(VisualFrame frame, VisualPrimitiveKind kind, int entityId)
         {
             for (int i = 0; i < frame.Primitives.Count; i++)
@@ -3138,6 +3195,19 @@ namespace RtsGame.Tests
             }
 
             throw new InvalidOperationException("godot primitive not found kind=" + kind + " entity=" + entityId);
+        }
+
+        private static GodotBuildingStatusDto FindGodotBuildingStatus(GodotFrameDto frame, int buildingId)
+        {
+            for (int i = 0; i < frame.BuildingStatuses.Length; i++)
+            {
+                if (frame.BuildingStatuses[i].BuildingId == buildingId)
+                {
+                    return frame.BuildingStatuses[i];
+                }
+            }
+
+            throw new InvalidOperationException("godot building status not found entity=" + buildingId);
         }
 
         private static LockstepSession RunLockstep(int ticks, int players, ulong seed, bool reverseDelivery)

@@ -49,5 +49,6 @@ Current Godot shell:
 - `Space` pauses presentation tick advancement.
 - Visible food, wood, and gold are drawn as resource circles.
 - Visual DTOs include type ids so the shell can draw unit/building/resource types without guessing.
+- Building status DTOs expose construction and training progress for the debug HUD.
 
 The script may convert fixed raw coordinates to pixels for drawing. It must not contain combat, economy, placement, pathing, or validation rules.

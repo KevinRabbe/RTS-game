@@ -7,19 +7,22 @@ namespace RtsGame.Presentation.GodotBridge
         public GodotLocalPlayerDto LocalPlayer { get; }
         public GodotMatchDto Match { get; }
         public GodotPrimitiveDto[] Primitives { get; }
+        public GodotBuildingStatusDto[] BuildingStatuses { get; }
 
         public GodotFrameDto(
             int tick,
             int localPlayerIndex,
             GodotLocalPlayerDto localPlayer,
             GodotMatchDto match,
-            GodotPrimitiveDto[] primitives)
+            GodotPrimitiveDto[] primitives,
+            GodotBuildingStatusDto[] buildingStatuses)
         {
             Tick = tick;
             LocalPlayerIndex = localPlayerIndex;
             LocalPlayer = localPlayer;
             Match = match;
             Primitives = primitives;
+            BuildingStatuses = buildingStatuses;
         }
     }
 
@@ -64,6 +67,41 @@ namespace RtsGame.Presentation.GodotBridge
             CurrentHitPoints = currentHitPoints;
             MaxHitPoints = maxHitPoints;
             IsCapital = isCapital;
+        }
+    }
+
+    public sealed class GodotBuildingStatusDto
+    {
+        public int BuildingId { get; }
+        public int BuildingTypeId { get; }
+        public bool IsUnderConstruction { get; }
+        public int BuildProgressTicks { get; }
+        public int RequiredBuildTicks { get; }
+        public int TrainingQueueCount { get; }
+        public int TrainingUnitTypeId { get; }
+        public int TrainingProgressTicks { get; }
+        public int TrainingRequiredTicks { get; }
+
+        public GodotBuildingStatusDto(
+            int buildingId,
+            int buildingTypeId,
+            bool isUnderConstruction,
+            int buildProgressTicks,
+            int requiredBuildTicks,
+            int trainingQueueCount,
+            int trainingUnitTypeId,
+            int trainingProgressTicks,
+            int trainingRequiredTicks)
+        {
+            BuildingId = buildingId;
+            BuildingTypeId = buildingTypeId;
+            IsUnderConstruction = isUnderConstruction;
+            BuildProgressTicks = buildProgressTicks;
+            RequiredBuildTicks = requiredBuildTicks;
+            TrainingQueueCount = trainingQueueCount;
+            TrainingUnitTypeId = trainingUnitTypeId;
+            TrainingProgressTicks = trainingProgressTicks;
+            TrainingRequiredTicks = trainingRequiredTicks;
         }
     }
 

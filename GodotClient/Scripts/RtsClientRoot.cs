@@ -307,6 +307,7 @@ public partial class RtsClientRoot : Node2D
         GodotLocalPlayerDto player = _frame.LocalPlayer;
         string selected = _selectedUnitIds.Count == 0 ? "-" : string.Join(",", _selectedUnitIds);
         string selectedBuilding = _selectedBuildingId == 0 ? "-" : _selectedBuildingId.ToString();
+        string buildingStatus = GetSelectedBuildingStatusText();
         string hoveredResource = _hoveredResourceNodeId == 0 ? "-" : _hoveredResourceNodeId.ToString();
         string text = "Tick " + _frame.Tick
             + "  Food " + player.Food
@@ -315,10 +316,55 @@ public partial class RtsClientRoot : Node2D
             + "  Pop " + player.PopulationUsed + "/" + player.PopulationCap
             + "  Selected " + selected
             + "  Building " + selectedBuilding
+            + buildingStatus
             + "  Resource " + hoveredResource
             + (_paused ? "  Paused" : "");
 
         DrawString(ThemeDB.FallbackFont, new Vector2(12.0f, 20.0f), text, HorizontalAlignment.Left, -1.0f, 16, Colors.White);
+    }
+
+    private string GetSelectedBuildingStatusText()
+    {
+        if (_frame == null || _selectedBuildingId == 0)
+        {
+            return "";
+        }
+
+        GodotBuildingStatusDto? status = FindBuildingStatus(_selectedBuildingId);
+        if (status == null)
+        {
+            return "";
+        }
+
+        if (status.IsUnderConstruction)
+        {
+            return "  Build " + status.BuildProgressTicks + "/" + status.RequiredBuildTicks;
+        }
+
+        if (status.TrainingQueueCount > 0)
+        {
+            return "  Train " + status.TrainingUnitTypeId + " " + status.TrainingProgressTicks + "/" + status.TrainingRequiredTicks;
+        }
+
+        return "";
+    }
+
+    private GodotBuildingStatusDto? FindBuildingStatus(int buildingId)
+    {
+        if (_frame == null)
+        {
+            return null;
+        }
+
+        for (int i = 0; i < _frame.BuildingStatuses.Length; i++)
+        {
+            if (_frame.BuildingStatuses[i].BuildingId == buildingId)
+            {
+                return _frame.BuildingStatuses[i];
+            }
+        }
+
+        return null;
     }
 
     private static Color GetUnitColor(GodotPrimitiveDto primitive)

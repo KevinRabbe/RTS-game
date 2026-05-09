@@ -63,9 +63,28 @@ namespace RtsGame.Presentation.Snapshots
         public FixedVector2 Position { get; }
         public int HitPoints { get; }
         public bool IsUnderConstruction { get; }
+        public int BuildProgressTicks { get; }
+        public int RequiredBuildTicks { get; }
+        public int TrainingQueueCount { get; }
+        public UnitTypeId TrainingUnitTypeId { get; }
+        public int TrainingProgressTicks { get; }
+        public int TrainingRequiredTicks { get; }
         public bool IsCapital { get; }
 
-        public BuildingSnapshot(int id, int ownerPlayerIndex, BuildingTypeId buildingTypeId, FixedVector2 position, int hitPoints, bool isUnderConstruction, bool isCapital)
+        public BuildingSnapshot(
+            int id,
+            int ownerPlayerIndex,
+            BuildingTypeId buildingTypeId,
+            FixedVector2 position,
+            int hitPoints,
+            bool isUnderConstruction,
+            int buildProgressTicks,
+            int requiredBuildTicks,
+            int trainingQueueCount,
+            UnitTypeId trainingUnitTypeId,
+            int trainingProgressTicks,
+            int trainingRequiredTicks,
+            bool isCapital)
         {
             Id = id;
             OwnerPlayerIndex = ownerPlayerIndex;
@@ -73,6 +92,12 @@ namespace RtsGame.Presentation.Snapshots
             Position = position;
             HitPoints = hitPoints;
             IsUnderConstruction = isUnderConstruction;
+            BuildProgressTicks = buildProgressTicks;
+            RequiredBuildTicks = requiredBuildTicks;
+            TrainingQueueCount = trainingQueueCount;
+            TrainingUnitTypeId = trainingUnitTypeId;
+            TrainingProgressTicks = trainingProgressTicks;
+            TrainingRequiredTicks = trainingRequiredTicks;
             IsCapital = isCapital;
         }
     }

@@ -112,12 +112,19 @@ namespace RtsGame.Presentation.GodotBridge
                 primitives[i] = ToPrimitiveDto(frame.Primitives[i]);
             }
 
+            var buildingStatuses = new GodotBuildingStatusDto[snapshot.Buildings.Count];
+            for (int i = 0; i < snapshot.Buildings.Count; i++)
+            {
+                buildingStatuses[i] = ToBuildingStatusDto(snapshot.Buildings[i]);
+            }
+
             return new GodotFrameDto(
                 frame.Tick,
                 snapshot.LocalPlayerIndex,
                 ToLocalPlayerDto(snapshot.LocalPlayer),
                 ToMatchDto(snapshot.Match),
-                primitives);
+                primitives,
+                buildingStatuses);
         }
 
         private static UnitTypeId ToUnitTypeId(int unitTypeId)
@@ -164,6 +171,20 @@ namespace RtsGame.Presentation.GodotBridge
                 snapshot.HasCapitalBeenPlaced,
                 snapshot.IsCapitalAlive,
                 snapshot.CapitalBonusActive);
+        }
+
+        private static GodotBuildingStatusDto ToBuildingStatusDto(BuildingSnapshot snapshot)
+        {
+            return new GodotBuildingStatusDto(
+                snapshot.Id,
+                (int)snapshot.BuildingTypeId,
+                snapshot.IsUnderConstruction,
+                snapshot.BuildProgressTicks,
+                snapshot.RequiredBuildTicks,
+                snapshot.TrainingQueueCount,
+                (int)snapshot.TrainingUnitTypeId,
+                snapshot.TrainingProgressTicks,
+                snapshot.TrainingRequiredTicks);
         }
 
         private static GodotMatchDto ToMatchDto(MatchSnapshot snapshot)

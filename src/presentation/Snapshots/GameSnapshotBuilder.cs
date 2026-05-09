@@ -43,6 +43,12 @@ namespace RtsGame.Presentation.Snapshots
                     building.Position,
                     building.HitPoints,
                     building.IsUnderConstruction,
+                    building.BuildProgressTicks,
+                    GetRequiredBuildTicks(building.BuildingTypeId),
+                    building.TrainingQueue.Count,
+                    GetTrainingUnitTypeId(building),
+                    GetTrainingProgressTicks(building),
+                    GetTrainingRequiredTicks(building),
                     building.IsCapital));
             }
 
@@ -88,6 +94,51 @@ namespace RtsGame.Presentation.Snapshots
             }
 
             return visibility.VisibleTiles[state.VisibilityState.GetIndex(tileX, tileY)];
+        }
+
+        private static int GetRequiredBuildTicks(BuildingTypeId buildingTypeId)
+        {
+            switch (buildingTypeId)
+            {
+                case BuildingTypeId.TownCenter:
+                    return GameData.TownCenterBuildTicks;
+                case BuildingTypeId.Wall:
+                    return GameData.WallBuildTicks;
+                case BuildingTypeId.TradePost:
+                    return GameData.TradePostBuildTicks;
+                default:
+                    return 0;
+            }
+        }
+
+        private static UnitTypeId GetTrainingUnitTypeId(Building building)
+        {
+            if (building.TrainingQueue.Count == 0)
+            {
+                return 0;
+            }
+
+            return building.TrainingQueue[0].UnitTypeId;
+        }
+
+        private static int GetTrainingProgressTicks(Building building)
+        {
+            if (building.TrainingQueue.Count == 0)
+            {
+                return 0;
+            }
+
+            return building.TrainingQueue[0].ProgressTicks;
+        }
+
+        private static int GetTrainingRequiredTicks(Building building)
+        {
+            if (building.TrainingQueue.Count == 0)
+            {
+                return 0;
+            }
+
+            return building.TrainingQueue[0].RequiredTicks;
         }
     }
 }
