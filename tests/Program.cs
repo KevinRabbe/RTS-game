@@ -103,6 +103,13 @@ namespace RtsGame.Tests
                 new TestCase("siege destroys capital", SiegeDestroysCapital),
                 new TestCase("siege replay determinism", SiegeReplayDeterminism),
                 new TestCase("siege lockstep", SiegeLockstep),
+                new TestCase("train mangonel completes", TrainMangonelCompletes),
+                new TestCase("mangonel area hits multiple enemies", MangonelAreaHitsMultipleEnemies),
+                new TestCase("mangonel area ignores friendly units", MangonelAreaIgnoresFriendlyUnits),
+                new TestCase("mangonel simultaneous deaths cleanup", MangonelSimultaneousDeathsCleanup),
+                new TestCase("mangonel area does not damage capital", MangonelAreaDoesNotDamageCapital),
+                new TestCase("mangonel replay determinism", MangonelReplayDeterminism),
+                new TestCase("mangonel lockstep", MangonelLockstep),
                 new TestCase("place wall creates vulnerable construction", PlaceWallCreatesVulnerableConstruction),
                 new TestCase("assigned villagers complete wall", AssignedVillagersCompleteWall),
                 new TestCase("under construction wall can be destroyed", UnderConstructionWallCanBeDestroyed),
@@ -122,7 +129,8 @@ namespace RtsGame.Tests
                 new TestCase("trade replay determinism", TradeReplayDeterminism),
                 new TestCase("trade lockstep", TradeLockstep),
                 new TestCase("chaos v1 stress smoke", ChaosV1StressSmoke),
-                new TestCase("chaos v2 stress smoke", ChaosV2StressSmoke)
+                new TestCase("chaos v2 stress smoke", ChaosV2StressSmoke),
+                new TestCase("chaos v3 stress smoke", ChaosV3StressSmoke)
             };
 
             int failed = 0;
@@ -1554,6 +1562,119 @@ namespace RtsGame.Tests
             AssertEqual(true, session.Peers[0].LocalState.EntityState.Units[10].IsSiegeDeployed, "siege should deploy in lockstep");
         }
 
+        private static void TrainMangonelCompletes()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            var state = GameInitializer.CreateNomadStart(33, 1);
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            CompleteCapitalForPlayerZero(rules, state, buffer, runner);
+            state.PlayerStates.Players[0].Resources.Wood = GameData.MangonelWoodCost;
+            state.PlayerStates.Players[0].Resources.Gold = GameData.MangonelGoldCost;
+            int buildingId = state.EntityState.Buildings[0].Id;
+            int initialUnits = state.EntityState.Units.Count;
+
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 3, CommandType.TrainUnit), new TrainUnitCommand(buildingId, UnitTypeId.Mangonel)));
+            runner.AdvanceOneTick(state, rules, buffer);
+            for (int i = 0; i < GameData.MangonelTrainTicks - 1; i++)
+            {
+                AddNoOp(buffer, state.Tick, 0, (uint)(4 + i));
+                runner.AdvanceOneTick(state, rules, buffer);
+            }
+
+            AssertEqual(initialUnits + 1, state.EntityState.Units.Count, "mangonel should complete training");
+            AssertEqual(UnitTypeId.Mangonel, state.EntityState.Units[state.EntityState.Units.Count - 1].UnitTypeId, "trained unit should be mangonel");
+            AssertEqual(8, state.PlayerStates.Players[0].PopulationUsed, "mangonel should reserve three population");
+        }
+
+        private static void MangonelAreaHitsMultipleEnemies()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = CreateMangonelAreaState();
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.Attack), new AttackCommand(new[] { 11 }, 12)));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(GameData.InfantryHitPoints - GameData.MangonelAreaDamage, state.EntityState.Units[11].HitPoints, "target enemy should take area damage");
+            AssertEqual(GameData.InfantryHitPoints - GameData.MangonelAreaDamage, state.EntityState.Units[12].HitPoints, "nearby enemy should take area damage");
+            AssertEqual(GameData.InfantryHitPoints, state.EntityState.Units[13].HitPoints, "enemy outside radius should not take area damage");
+            AssertEqual(GameData.MangonelAreaCooldownTicks, state.EntityState.Units[10].AttackCooldownTicksRemaining, "mangonel cooldown should be set after firing");
+        }
+
+        private static void MangonelAreaIgnoresFriendlyUnits()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = CreateMangonelAreaState();
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.Attack), new AttackCommand(new[] { 11 }, 12)));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(GameData.InfantryHitPoints, state.EntityState.Units[14].HitPoints, "friendly unit inside radius should not take area damage");
+        }
+
+        private static void MangonelSimultaneousDeathsCleanup()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = CreateMangonelAreaState();
+            state.EntityState.Units[11].HitPoints = GameData.MangonelAreaDamage;
+            state.EntityState.Units[12].HitPoints = GameData.MangonelAreaDamage;
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.Attack), new AttackCommand(new[] { 11 }, 12)));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(false, state.EntityState.EntityLookup.ContainsKey(12), "area-killed target should be cleaned up");
+            AssertEqual(false, state.EntityState.EntityLookup.ContainsKey(13), "area-killed nearby unit should be cleaned up");
+            AssertEqual(6, state.PlayerStates.Players[1].PopulationUsed, "population should remove both area-killed infantry");
+        }
+
+        private static void MangonelAreaDoesNotDamageCapital()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = CreateMangonelAreaState();
+            int capitalId = EntityFactory.CreateTownCenter(state, 1, FixedVector2.FromInts(5, 0));
+            Building capital = state.EntityState.Buildings[state.EntityState.EntityLookup[capitalId].Index];
+            capital.IsUnderConstruction = false;
+            capital.HitPoints = GameData.GetBuildingCompletedHitPoints(BuildingTypeId.TownCenter, true);
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.Attack), new AttackCommand(new[] { 11 }, 12)));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(GameData.TownCenterHitPoints + GameData.CapitalHitPointBonus, capital.HitPoints, "mangonel area should not damage buildings in first slice");
+        }
+
+        private static void MangonelReplayDeterminism()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            var commands = new[]
+            {
+                new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.Attack), new AttackCommand(new[] { 11 }, 12))
+            };
+
+            ulong first = RunCommandsFromState(CreateMangonelAreaState(), rules, commands, 1);
+            ulong second = RunCommandsFromState(CreateMangonelAreaState(), rules, commands, 1);
+            AssertEqual(first, second, "mangonel area damage should replay deterministically");
+        }
+
+        private static void MangonelLockstep()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            var session = new LockstepSession(rules, 34, true);
+            SetupMangonelAreaState(session.Peers[0].LocalState);
+            SetupMangonelAreaState(session.Peers[1].LocalState);
+
+            session.Broadcast(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.Attack), new AttackCommand(new[] { 11 }, 12)));
+            session.Broadcast(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+            AssertEqual(true, session.TryAdvanceOneTick(), "mangonel attack tick should advance");
+
+            AssertEqual(0, session.DesyncReports.Count, "mangonel lockstep should not desync");
+            AssertEqual(session.Peers[0].LocalState.LastChecksum, session.Peers[1].LocalState.LastChecksum, "mangonel peer checksums should match");
+            AssertEqual(GameData.InfantryHitPoints - GameData.MangonelAreaDamage, session.Peers[0].LocalState.EntityState.Units[12].HitPoints, "nearby enemy should take area damage in lockstep");
+        }
+
         private static void WallRejectsMissingWood()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -1918,6 +2039,14 @@ namespace RtsGame.Tests
             AssertEqual(1, result.ScenarioVersion, "chaos v2 version should be frozen at v1");
         }
 
+        private static void ChaosV3StressSmoke()
+        {
+            StressScenarioResult result = new StressScenarioRunner().RunChaosV3(1200, 79);
+            AssertEqual(true, result.Passed, "chaos v3 stress should pass invariants");
+            AssertEqual(1200, result.FinalTick, "chaos v3 stress should reach requested tick");
+            AssertEqual(1, result.ScenarioVersion, "chaos v3 version should be frozen at v1");
+        }
+
         private static ulong RunNoOpSimulation(int ticks, int players, ulong seed)
         {
             var rules = GameRules.CreatePhaseZeroDefaults(players);
@@ -2045,6 +2174,22 @@ namespace RtsGame.Tests
             GameState state = GameInitializer.CreateNomadStart(30, 2);
             SetupSiegeCapitalState(state);
             return state;
+        }
+
+        private static GameState CreateMangonelAreaState()
+        {
+            GameState state = GameInitializer.CreateNomadStart(34, 2);
+            SetupMangonelAreaState(state);
+            return state;
+        }
+
+        private static void SetupMangonelAreaState(GameState state)
+        {
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Mangonel, FixedVector2.FromInts(0, 0));
+            EntityFactory.CreateUnit(state, 1, UnitTypeId.Infantry, FixedVector2.FromInts(4, 0));
+            EntityFactory.CreateUnit(state, 1, UnitTypeId.Infantry, FixedVector2.FromInts(5, 0));
+            EntityFactory.CreateUnit(state, 1, UnitTypeId.Infantry, FixedVector2.FromInts(7, 0));
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Infantry, FixedVector2.FromInts(5, 0));
         }
 
         private static void SetupSiegeCapitalState(GameState state)

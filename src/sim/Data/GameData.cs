@@ -7,6 +7,7 @@ namespace RtsGame.Sim.Data
         public const int InfantryHitPoints = 60;
         public const int SiegeCannonHitPoints = 90;
         public const int TradeCartHitPoints = 50;
+        public const int MangonelHitPoints = 75;
         public const int TownCenterHitPoints = 2400;
         public const int WallHitPoints = 300;
         public const int TradePostHitPoints = 900;
@@ -26,6 +27,9 @@ namespace RtsGame.Sim.Data
         public const int SiegeCannonTrainTicks = 8;
         public const int SiegeCannonWoodCost = 120;
         public const int SiegeCannonGoldCost = 80;
+        public const int MangonelTrainTicks = 7;
+        public const int MangonelWoodCost = 110;
+        public const int MangonelGoldCost = 60;
         public const int TradeCartTrainTicks = 4;
         public const int TradeCartWoodCost = 80;
         public const int TradeCartGoldCost = 20;
@@ -37,6 +41,8 @@ namespace RtsGame.Sim.Data
         public const int InfantryMoveSpeedTilesPerTickDenominator = 5;
         public const int SiegeCannonMoveSpeedTilesPerTickNumerator = 1;
         public const int SiegeCannonMoveSpeedTilesPerTickDenominator = 5;
+        public const int MangonelMoveSpeedTilesPerTickNumerator = 1;
+        public const int MangonelMoveSpeedTilesPerTickDenominator = 5;
         public const int TradeCartMoveSpeedTilesPerTickNumerator = 3;
         public const int TradeCartMoveSpeedTilesPerTickDenominator = 5;
         public const int MapWidthTiles = 128;
@@ -46,6 +52,7 @@ namespace RtsGame.Sim.Data
         public const int InfantrySightRadiusTiles = 5;
         public const int SiegeCannonSightRadiusTiles = 6;
         public const int TradeCartSightRadiusTiles = 5;
+        public const int MangonelSightRadiusTiles = 6;
         public const int TownCenterSightRadiusTiles = 6;
         public const int TradePostSightRadiusTiles = 6;
         public const int NeutralOwnerPlayerIndex = -1;
@@ -60,6 +67,10 @@ namespace RtsGame.Sim.Data
         public const int SiegeCannonReloadTicks = 6;
         public const int SiegeCannonBuildingDamage = 220;
         public const int SiegeCannonRangeTiles = 8;
+        public const int MangonelAreaDamage = 30;
+        public const int MangonelAreaRadiusTiles = 2;
+        public const int MangonelAreaCooldownTicks = 8;
+        public const int MangonelAreaRangeTiles = 6;
         public const int TradeIncomePerTile = 2;
         public const int StartingFoodAmount = 500;
         public const int StartingWoodAmount = 700;
@@ -129,6 +140,8 @@ namespace RtsGame.Sim.Data
                     return 3;
                 case UnitTypeId.TradeCart:
                     return 1;
+                case UnitTypeId.Mangonel:
+                    return 3;
                 default:
                     return 0;
             }
@@ -148,6 +161,8 @@ namespace RtsGame.Sim.Data
                     return SiegeCannonHitPoints;
                 case UnitTypeId.TradeCart:
                     return TradeCartHitPoints;
+                case UnitTypeId.Mangonel:
+                    return MangonelHitPoints;
                 default:
                     return 1;
             }
@@ -165,6 +180,8 @@ namespace RtsGame.Sim.Data
                     return SiegeCannonTrainTicks;
                 case UnitTypeId.TradeCart:
                     return TradeCartTrainTicks;
+                case UnitTypeId.Mangonel:
+                    return MangonelTrainTicks;
                 default:
                     return 1;
             }
@@ -185,6 +202,10 @@ namespace RtsGame.Sim.Data
                     cost.Wood = SiegeCannonWoodCost;
                     cost.Gold = SiegeCannonGoldCost;
                     break;
+                case UnitTypeId.Mangonel:
+                    cost.Wood = MangonelWoodCost;
+                    cost.Gold = MangonelGoldCost;
+                    break;
                 case UnitTypeId.TradeCart:
                     cost.Wood = TradeCartWoodCost;
                     cost.Gold = TradeCartGoldCost;
@@ -197,7 +218,7 @@ namespace RtsGame.Sim.Data
         public static bool CanTrain(BuildingTypeId buildingTypeId, UnitTypeId unitTypeId)
         {
             return (buildingTypeId == BuildingTypeId.TownCenter
-                    && (unitTypeId == UnitTypeId.Villager || unitTypeId == UnitTypeId.Infantry || unitTypeId == UnitTypeId.SiegeCannon))
+                    && (unitTypeId == UnitTypeId.Villager || unitTypeId == UnitTypeId.Infantry || unitTypeId == UnitTypeId.SiegeCannon || unitTypeId == UnitTypeId.Mangonel))
                 || (buildingTypeId == BuildingTypeId.TradePost && unitTypeId == UnitTypeId.TradeCart);
         }
 
@@ -211,6 +232,8 @@ namespace RtsGame.Sim.Data
                     return Determinism.Fixed.FromRatio(InfantryMoveSpeedTilesPerTickNumerator, InfantryMoveSpeedTilesPerTickDenominator);
                 case UnitTypeId.SiegeCannon:
                     return Determinism.Fixed.FromRatio(SiegeCannonMoveSpeedTilesPerTickNumerator, SiegeCannonMoveSpeedTilesPerTickDenominator);
+                case UnitTypeId.Mangonel:
+                    return Determinism.Fixed.FromRatio(MangonelMoveSpeedTilesPerTickNumerator, MangonelMoveSpeedTilesPerTickDenominator);
                 case UnitTypeId.TradeCart:
                     return Determinism.Fixed.FromRatio(TradeCartMoveSpeedTilesPerTickNumerator, TradeCartMoveSpeedTilesPerTickDenominator);
                 case UnitTypeId.Villager:
@@ -230,6 +253,8 @@ namespace RtsGame.Sim.Data
                     return InfantrySightRadiusTiles;
                 case UnitTypeId.SiegeCannon:
                     return SiegeCannonSightRadiusTiles;
+                case UnitTypeId.Mangonel:
+                    return MangonelSightRadiusTiles;
                 case UnitTypeId.TradeCart:
                     return TradeCartSightRadiusTiles;
                 case UnitTypeId.Villager:
@@ -278,6 +303,7 @@ namespace RtsGame.Sim.Data
                 case UnitTypeId.Villager:
                     return VillagerAttackDamage;
                 case UnitTypeId.SiegeCannon:
+                case UnitTypeId.Mangonel:
                     return 0;
                 default:
                     return 0;
@@ -307,6 +333,41 @@ namespace RtsGame.Sim.Data
         public static bool IsSiege(UnitTypeId unitTypeId)
         {
             return unitTypeId == UnitTypeId.SiegeCannon;
+        }
+
+        public static bool IsAreaDamage(UnitTypeId unitTypeId)
+        {
+            return unitTypeId == UnitTypeId.Mangonel;
+        }
+
+        public static int GetAreaDamage(UnitTypeId unitTypeId)
+        {
+            return unitTypeId == UnitTypeId.Mangonel ? MangonelAreaDamage : 0;
+        }
+
+        public static Determinism.Fixed GetAreaDamageRadius(UnitTypeId unitTypeId)
+        {
+            return unitTypeId == UnitTypeId.Mangonel ? Determinism.Fixed.FromInt(MangonelAreaRadiusTiles) : Determinism.Fixed.FromInt(0);
+        }
+
+        public static int GetAreaDamageCooldownTicks(UnitTypeId unitTypeId)
+        {
+            return unitTypeId == UnitTypeId.Mangonel ? MangonelAreaCooldownTicks : 0;
+        }
+
+        public static Determinism.Fixed GetAreaDamageAttackRange(UnitTypeId unitTypeId)
+        {
+            return unitTypeId == UnitTypeId.Mangonel ? Determinism.Fixed.FromInt(MangonelAreaRangeTiles) : Determinism.Fixed.FromInt(0);
+        }
+
+        public static bool CanAreaDamageHitUnits(UnitTypeId unitTypeId)
+        {
+            return unitTypeId == UnitTypeId.Mangonel;
+        }
+
+        public static bool CanAreaDamageHitBuildings(UnitTypeId unitTypeId)
+        {
+            return false;
         }
 
         public static int GetSiegeSetupTicks(UnitTypeId unitTypeId)

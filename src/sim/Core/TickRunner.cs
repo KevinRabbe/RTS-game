@@ -24,6 +24,7 @@ namespace RtsGame.Sim.Core
                 new TradeRouteSystem(),
                 new SiegeSetupSystem(),
                 new SiegeAttackSystem(),
+                new AreaDamageSystem(),
                 new CombatResolutionSystem(),
                 new DeathMarkSystem(),
                 new CapitalSystem(),

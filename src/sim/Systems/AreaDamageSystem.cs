@@ -1,17 +1,19 @@
+using System.Collections.Generic;
 using RtsGame.Sim.Core;
 using RtsGame.Sim.Data;
 using RtsGame.Sim.Determinism;
 
 namespace RtsGame.Sim.Systems
 {
-    public sealed class CombatResolutionSystem : ISimSystem
+    public sealed class AreaDamageSystem : ISimSystem
     {
         public void Run(GameState state, GameRules rules, TickCommandContext commandContext)
         {
+            var targets = new List<AreaDamageTarget>();
             for (int i = 0; i < state.EntityState.Units.Count; i++)
             {
                 Unit attacker = state.EntityState.Units[i];
-                if (attacker.IsDead || GameData.IsSiege(attacker.UnitTypeId) || GameData.IsAreaDamage(attacker.UnitTypeId))
+                if (attacker.IsDead || !GameData.IsAreaDamage(attacker.UnitTypeId))
                 {
                     continue;
                 }
@@ -28,33 +30,70 @@ namespace RtsGame.Sim.Systems
                     continue;
                 }
 
-                if (target.OwnerPlayerIndex == attacker.OwnerPlayerIndex || target.IsDead)
-                {
-                    attacker.AttackTargetId = 0;
-                    continue;
-                }
-
-                if (!IsInRange(attacker, target))
+                if (target.OwnerPlayerIndex == attacker.OwnerPlayerIndex || target.IsDead || !IsInRange(attacker, target))
                 {
                     continue;
                 }
 
-                int damage = GameData.GetUnitAttackDamage(attacker.UnitTypeId);
-                if (damage <= 0)
+                targets.Clear();
+                CollectTargets(state, attacker, target.Position, targets);
+                targets.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+                int damage = GameData.GetAreaDamage(attacker.UnitTypeId);
+                for (int targetIndex = 0; targetIndex < targets.Count; targetIndex++)
                 {
-                    attacker.AttackTargetId = 0;
-                    continue;
+                    targets[targetIndex].ApplyDamage(damage);
                 }
 
-                target.ApplyDamage(damage);
-                attacker.AttackCooldownTicksRemaining = GameData.GetUnitAttackCooldownTicks(attacker.UnitTypeId);
+                if (targets.Count > 0)
+                {
+                    attacker.AttackCooldownTicksRemaining = GameData.GetAreaDamageCooldownTicks(attacker.UnitTypeId);
+                }
             }
+        }
+
+        private static void CollectTargets(GameState state, Unit attacker, FixedVector2 center, List<AreaDamageTarget> targets)
+        {
+            Fixed radius = GameData.GetAreaDamageRadius(attacker.UnitTypeId);
+            long radiusSquared = checked(radius.Raw * radius.Raw);
+
+            if (GameData.CanAreaDamageHitUnits(attacker.UnitTypeId))
+            {
+                for (int i = 0; i < state.EntityState.Units.Count; i++)
+                {
+                    Unit target = state.EntityState.Units[i];
+                    if (target.IsDead || target.OwnerPlayerIndex == attacker.OwnerPlayerIndex || !IsWithinRadius(center, target.Position, radiusSquared))
+                    {
+                        continue;
+                    }
+
+                    targets.Add(AreaDamageTarget.ForUnit(target));
+                }
+            }
+
+            if (GameData.CanAreaDamageHitBuildings(attacker.UnitTypeId))
+            {
+                for (int i = 0; i < state.EntityState.Buildings.Count; i++)
+                {
+                    Building target = state.EntityState.Buildings[i];
+                    if (target.IsDead || target.OwnerPlayerIndex == attacker.OwnerPlayerIndex || !IsWithinRadius(center, target.Position, radiusSquared))
+                    {
+                        continue;
+                    }
+
+                    targets.Add(AreaDamageTarget.ForBuilding(target));
+                }
+            }
+        }
+
+        private static bool IsWithinRadius(FixedVector2 center, FixedVector2 position, long radiusSquared)
+        {
+            return (position - center).LengthSquaredRaw() <= radiusSquared;
         }
 
         private static bool IsInRange(Unit attacker, EntityTarget target)
         {
             Fixed distance = FixedVector2.Distance(attacker.Position, target.Position);
-            return distance <= GameData.GetUnitAttackRange(attacker.UnitTypeId);
+            return distance <= GameData.GetAreaDamageAttackRange(attacker.UnitTypeId);
         }
 
         private static bool TryGetTarget(GameState state, int entityId, out EntityTarget target)
@@ -109,6 +148,7 @@ namespace RtsGame.Sim.Systems
 
             public int OwnerPlayerIndex { get; }
             public FixedVector2 Position { get; }
+
             public bool IsDead
             {
                 get
@@ -134,6 +174,31 @@ namespace RtsGame.Sim.Systems
             public static EntityTarget ForBuilding(Building building)
             {
                 return new EntityTarget(null, building, building.OwnerPlayerIndex, building.Position);
+            }
+        }
+
+        private readonly struct AreaDamageTarget
+        {
+            private readonly Unit? _unit;
+            private readonly Building? _building;
+
+            public int EntityId { get; }
+
+            private AreaDamageTarget(Unit? unit, Building? building, int entityId)
+            {
+                _unit = unit;
+                _building = building;
+                EntityId = entityId;
+            }
+
+            public static AreaDamageTarget ForUnit(Unit unit)
+            {
+                return new AreaDamageTarget(unit, null, unit.Id);
+            }
+
+            public static AreaDamageTarget ForBuilding(Building building)
+            {
+                return new AreaDamageTarget(null, building, building.Id);
             }
 
             public void ApplyDamage(int damage)

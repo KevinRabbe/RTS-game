@@ -108,6 +108,10 @@ namespace RtsGame.Headless
             {
                 result = runner.RunChaosV2(ticks, seed);
             }
+            else if (scenario == ChaosV3Scenario.Name)
+            {
+                result = runner.RunChaosV3(ticks, seed);
+            }
             else
             {
                 Console.WriteLine("unknown_scenario=" + scenario);

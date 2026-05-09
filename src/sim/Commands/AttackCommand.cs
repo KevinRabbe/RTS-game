@@ -94,6 +94,13 @@ namespace RtsGame.Sim.Commands
                 return targetKind == EntityKind.Building && GameData.GetSiegeBuildingDamage(unitTypeId) > 0;
             }
 
+            if (GameData.IsAreaDamage(unitTypeId))
+            {
+                return GameData.GetAreaDamage(unitTypeId) > 0
+                    && ((targetKind == EntityKind.Unit && GameData.CanAreaDamageHitUnits(unitTypeId))
+                        || (targetKind == EntityKind.Building && GameData.CanAreaDamageHitBuildings(unitTypeId)));
+            }
+
             return GameData.GetUnitAttackDamage(unitTypeId) > 0;
         }
 
