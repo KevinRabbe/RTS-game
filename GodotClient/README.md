@@ -67,4 +67,30 @@ Current Godot shell:
 - Primitive draw kinds are resolved by a presentation-only bridge helper so the Godot script does not switch on raw DTO kind numbers.
 - Fixed raw, pixel, and tile coordinate conversions are centralized in a presentation-only bridge helper.
 
+## Phase 6 Placeholder Art Pack
+
+Placeholder sprite assets must live in:
+
+`GodotClient/Art/Phase6Pack/`
+
+Expected filenames:
+
+- `villager_sheet.png`
+- `infantry_sheet.png`
+- `scout_sheet.png`
+- `trade_cart_sheet.png`
+- `capital.png`
+- `wall_sheet.png`
+
+If some files are missing, the Godot shell keeps running and falls back to primitive rendering for missing sprite mappings.
+
+## Manual Godot Smoke Test (Visual Pipeline)
+
+1. Launch the Godot client scene (`Scenes/Main.tscn`).
+2. Press `F1` to start local 1v1.
+3. Press `F6` to start local 6-player FFA.
+4. Press `F9` to toggle primitive/sprite rendering.
+5. Check HUD line for loaded/expected asset count.
+6. If assets are missing, verify affected entities still render via primitive fallback.
+
 The script may convert fixed raw coordinates to pixels for drawing. It must not contain combat, economy, placement, pathing, or validation rules.
