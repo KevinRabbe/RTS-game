@@ -148,7 +148,7 @@ namespace RtsGame.Presentation.GodotBridge
                 frame.Tick,
                 snapshot.LocalPlayerIndex,
                 ToLocalPlayerDto(snapshot.LocalPlayer),
-                ToMatchDto(snapshot.Match, _session.RejectedCommandCount),
+                ToMatchDto(snapshot.Match, _session.ExecutedCommandCount, _session.RejectedCommandCount),
                 primitives,
                 unitStatuses,
                 buildingStatuses);
@@ -284,9 +284,9 @@ namespace RtsGame.Presentation.GodotBridge
                 snapshot.TrainingRequiredTicks);
         }
 
-        private static GodotMatchDto ToMatchDto(MatchSnapshot snapshot, int rejectedCommandCount)
+        private static GodotMatchDto ToMatchDto(MatchSnapshot snapshot, int executedCommandCount, int rejectedCommandCount)
         {
-            return new GodotMatchDto(snapshot.IsFinished, snapshot.WinnerPlayerIndex, snapshot.FinishedTick, rejectedCommandCount);
+            return new GodotMatchDto(snapshot.IsFinished, snapshot.WinnerPlayerIndex, snapshot.FinishedTick, executedCommandCount, rejectedCommandCount);
         }
     }
 }

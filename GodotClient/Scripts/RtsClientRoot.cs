@@ -16,12 +16,15 @@ public partial class RtsClientRoot : Node2D
 	private const int InfantryAttackTechId = 1;
 
 	private readonly List<int> _selectedUnitIds = new List<int>();
+	private readonly GodotDebugEventLog _debugEventLog = new GodotDebugEventLog(10);
 	private Camera2D? _camera;
 	private GodotClientFacade? _facade;
 	private GodotFrameDto? _frame;
 	private readonly Phase6SpriteRenderer _spriteRenderer = new Phase6SpriteRenderer();
 	private double _tickAccumulator;
 	private bool _paused;
+	private bool _showDebugOverlay = true;
+	private bool _showHotkeyHelp;
 	private int _hoveredResourceNodeId;
 	private int _selectedBuildingId;
 	private int _pendingTradeRouteAId;
@@ -33,6 +36,7 @@ public partial class RtsClientRoot : Node2D
 		_camera.MakeCurrent();
 		_spriteRenderer.LoadAssets();
 		StartLocalMatch(2);
+		_debugEventLog.Add("ready local match 1v1");
 	}
 
 	public override void _Process(double delta)
@@ -98,18 +102,21 @@ public partial class RtsClientRoot : Node2D
 		if (key.Keycode == Key.F1)
 		{
 			StartLocalMatch(2);
+			_debugEventLog.Add("restart local 1v1 (F1)");
 			return;
 		}
 
 		if (key.Keycode == Key.F6)
 		{
 			StartLocalMatch(6);
+			_debugEventLog.Add("restart local 6-player ffa (F6)");
 			return;
 		}
 
 		if (key.Keycode == Key.Space)
 		{
 			_paused = !_paused;
+			_debugEventLog.Add(_paused ? "pause on" : "pause off");
 			RefreshFrame();
 			return;
 		}
@@ -117,6 +124,23 @@ public partial class RtsClientRoot : Node2D
 		if (key.Keycode == Key.F9)
 		{
 			_spriteRenderer.ToggleRenderMode();
+			_debugEventLog.Add("render mode -> " + _spriteRenderer.RenderModeLabel);
+			RefreshFrame();
+			return;
+		}
+
+		if (key.Keycode == Key.F10)
+		{
+			_showDebugOverlay = !_showDebugOverlay;
+			_debugEventLog.Add(_showDebugOverlay ? "debug overlay on" : "debug overlay off");
+			RefreshFrame();
+			return;
+		}
+
+		if (key.Keycode == Key.H || key.Keycode == Key.F11)
+		{
+			_showHotkeyHelp = !_showHotkeyHelp;
+			_debugEventLog.Add(_showHotkeyHelp ? "hotkey help on" : "hotkey help off");
 			RefreshFrame();
 			return;
 		}
@@ -124,27 +148,27 @@ public partial class RtsClientRoot : Node2D
 		if (key.Keycode == Key.C)
 		{
 			Vector2I tile = ScreenToTile(GetGlobalMousePosition());
-			_facade!.QueuePlaceTownCenter(LocalPlayerIndex, tile.X, tile.Y);
-			_facade.AdvanceOneTick();
-			RefreshFrame();
+			QueueCommandAndConfirm(
+				"place town center p=" + LocalPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ")",
+				facade => facade.QueuePlaceTownCenter(LocalPlayerIndex, tile.X, tile.Y));
 			return;
 		}
 
 		if (key.Keycode == Key.W)
 		{
 			Vector2I tile = ScreenToTile(GetGlobalMousePosition());
-			_facade!.QueuePlaceWall(LocalPlayerIndex, tile.X, tile.Y);
-			_facade.AdvanceOneTick();
-			RefreshFrame();
+			QueueCommandAndConfirm(
+				"place wall p=" + LocalPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ")",
+				facade => facade.QueuePlaceWall(LocalPlayerIndex, tile.X, tile.Y));
 			return;
 		}
 
 		if (key.Keycode == Key.T)
 		{
 			Vector2I tile = ScreenToTile(GetGlobalMousePosition());
-			_facade!.QueuePlaceTradePost(LocalPlayerIndex, tile.X, tile.Y);
-			_facade.AdvanceOneTick();
-			RefreshFrame();
+			QueueCommandAndConfirm(
+				"place trade post p=" + LocalPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ")",
+				facade => facade.QueuePlaceTradePost(LocalPlayerIndex, tile.X, tile.Y));
 			return;
 		}
 
@@ -193,9 +217,8 @@ public partial class RtsClientRoot : Node2D
 
 	private void HandleMouse(InputEventMouseButton mouse)
 	{
-		GodotClientFacade? facade = _facade;
 		GodotFrameDto? frame = _frame;
-		if (facade == null || frame == null)
+		if (_facade == null || frame == null)
 		{
 			return;
 		}
@@ -220,23 +243,28 @@ public partial class RtsClientRoot : Node2D
 
 			if (intent.Kind == GodotInteractionIntentKind.Attack)
 			{
-				facade.QueueAttack(LocalPlayerIndex, _selectedUnitIds.ToArray(), intent.TargetEntityId);
+				QueueCommandAndConfirm(
+					"attack p=" + LocalPlayerIndex + " targetEntity=" + intent.TargetEntityId,
+					f => f.QueueAttack(LocalPlayerIndex, _selectedUnitIds.ToArray(), intent.TargetEntityId));
 			}
 			else if (intent.Kind == GodotInteractionIntentKind.AssignBuild)
 			{
-				facade.QueueAssignBuild(LocalPlayerIndex, intent.TargetEntityId, _selectedUnitIds.ToArray());
+				QueueCommandAndConfirm(
+					"assign build p=" + LocalPlayerIndex + " targetBuilding=" + intent.TargetEntityId,
+					f => f.QueueAssignBuild(LocalPlayerIndex, intent.TargetEntityId, _selectedUnitIds.ToArray()));
 			}
 			else if (intent.Kind == GodotInteractionIntentKind.GatherResource)
 			{
-				facade.QueueGatherResource(LocalPlayerIndex, intent.ResourceNodeId, _selectedUnitIds.ToArray());
+				QueueCommandAndConfirm(
+					"gather p=" + LocalPlayerIndex + " resource=" + intent.ResourceNodeId,
+					f => f.QueueGatherResource(LocalPlayerIndex, intent.ResourceNodeId, _selectedUnitIds.ToArray()));
 			}
 			else if (intent.Kind == GodotInteractionIntentKind.Move)
 			{
-				facade.QueueMoveUnits(LocalPlayerIndex, _selectedUnitIds.ToArray(), tile.X, tile.Y);
+				QueueCommandAndConfirm(
+					"move p=" + LocalPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ")",
+					f => f.QueueMoveUnits(LocalPlayerIndex, _selectedUnitIds.ToArray(), tile.X, tile.Y));
 			}
-
-			facade.AdvanceOneTick();
-			RefreshFrame();
 		}
 	}
 
@@ -291,13 +319,14 @@ public partial class RtsClientRoot : Node2D
 		GodotTrainActionState state = GodotTrainActionEvaluator.Evaluate(_frame, _selectedBuildingId, unitTypeId);
 		if (state != GodotTrainActionState.Ready)
 		{
+			_debugEventLog.Add("train blocked state=" + state + " building=" + _selectedBuildingId + " unitType=" + unitTypeId);
 			RefreshFrame();
 			return;
 		}
 
-		_facade!.QueueTrainUnit(LocalPlayerIndex, _selectedBuildingId, unitTypeId);
-		_facade.AdvanceOneTick();
-		RefreshFrame();
+		QueueCommandAndConfirm(
+			"train p=" + LocalPlayerIndex + " building=" + _selectedBuildingId + " unitType=" + unitTypeId,
+			facade => facade.QueueTrainUnit(LocalPlayerIndex, _selectedBuildingId, unitTypeId));
 	}
 
 	private void ResearchFromSelectedBuilding(int techId)
@@ -315,13 +344,14 @@ public partial class RtsClientRoot : Node2D
 		GodotResearchActionState state = GodotResearchActionEvaluator.EvaluateInfantryAttack1(_frame, _selectedBuildingId);
 		if (state != GodotResearchActionState.Ready)
 		{
+			_debugEventLog.Add("research blocked state=" + state + " building=" + _selectedBuildingId + " tech=" + techId);
 			RefreshFrame();
 			return;
 		}
 
-		_facade!.QueueResearchTech(LocalPlayerIndex, _selectedBuildingId, techId);
-		_facade.AdvanceOneTick();
-		RefreshFrame();
+		QueueCommandAndConfirm(
+			"research p=" + LocalPlayerIndex + " building=" + _selectedBuildingId + " tech=" + techId,
+			facade => facade.QueueResearchTech(LocalPlayerIndex, _selectedBuildingId, techId));
 	}
 
 	private void TryCreateTradeRoute(Vector2 screenPosition)
@@ -334,6 +364,7 @@ public partial class RtsClientRoot : Node2D
 		int tradeCartId = GodotTradeRouteRouter.FindSelectedTradeCart(_frame, _selectedUnitIds.ToArray());
 		if (tradeCartId == 0)
 		{
+			_debugEventLog.Add("trade route blocked: no selected trade cart");
 			return;
 		}
 
@@ -345,20 +376,23 @@ public partial class RtsClientRoot : Node2D
 
 		if (tradePostId == 0)
 		{
+			_debugEventLog.Add("trade route blocked: no local trade post under cursor");
 			return;
 		}
 
 		if (_pendingTradeRouteAId == 0 || _pendingTradeRouteAId == tradePostId)
 		{
 			_pendingTradeRouteAId = tradePostId;
+			_debugEventLog.Add("trade route step A set to tradePost=" + tradePostId);
 			RefreshFrame();
 			return;
 		}
 
-		_facade!.QueueCreateTradeRoute(LocalPlayerIndex, tradeCartId, _pendingTradeRouteAId, tradePostId);
+		int routeA = _pendingTradeRouteAId;
+		QueueCommandAndConfirm(
+			"trade route p=" + LocalPlayerIndex + " cart=" + tradeCartId + " A=" + routeA + " B=" + tradePostId,
+			facade => facade.QueueCreateTradeRoute(LocalPlayerIndex, tradeCartId, routeA, tradePostId));
 		_pendingTradeRouteAId = 0;
-		_facade.AdvanceOneTick();
-		RefreshFrame();
 	}
 
 	private void SelectAt(Vector2 screenPosition)
@@ -366,6 +400,7 @@ public partial class RtsClientRoot : Node2D
 		_selectedUnitIds.Clear();
 		_selectedBuildingId = 0;
 		_pendingTradeRouteAId = 0;
+		int clickedResourceId = FindResourceAt(screenPosition);
 		if (_frame == null)
 		{
 			return;
@@ -380,10 +415,20 @@ public partial class RtsClientRoot : Node2D
 		if (selection.Kind == GodotSelectionKind.Unit)
 		{
 			_selectedUnitIds.Add(selection.EntityId);
+			_debugEventLog.Add("select unit=" + selection.EntityId);
 		}
 		else if (selection.Kind == GodotSelectionKind.Building)
 		{
 			_selectedBuildingId = selection.EntityId;
+			_debugEventLog.Add("select building=" + selection.EntityId);
+		}
+		else if (clickedResourceId != 0)
+		{
+			_debugEventLog.Add("select resource=" + clickedResourceId + " hovered=" + _hoveredResourceNodeId);
+		}
+		else
+		{
+			_debugEventLog.Add("selection cleared");
 		}
 	}
 
@@ -481,19 +526,19 @@ public partial class RtsClientRoot : Node2D
 		DrawRect(new Rect2(Vector2.Zero, new Vector2(2048.0f, 1536.0f)), new Color(0.02f, 0.02f, 0.02f, 0.12f));
 	}
 
-    private void DrawHud()
-    {
-        if (_frame == null)
-        {
-            return;
-        }
+	private void DrawHud()
+	{
+		if (_frame == null)
+		{
+			return;
+		}
 
-        string[] lines = GodotHudTextBuilder.BuildLines(
-            _frame,
-            _selectedUnitIds.ToArray(),
-            _selectedBuildingId,
-            _hoveredResourceNodeId,
-            _paused);
+		string[] lines = GodotHudTextBuilder.BuildLines(
+			_frame,
+			_selectedUnitIds.ToArray(),
+			_selectedBuildingId,
+			_hoveredResourceNodeId,
+			_paused);
 
 		for (int i = 0; i < lines.Length; i++)
 		{
@@ -519,6 +564,77 @@ public partial class RtsClientRoot : Node2D
 				14,
 				Colors.LightGray);
 		}
+
+		if (_showDebugOverlay)
+		{
+			DrawDebugOverlay();
+		}
+
+		if (_showHotkeyHelp)
+		{
+			DrawHotkeyHelpPanel();
+		}
+	}
+
+	private void DrawDebugOverlay()
+	{
+		Vector2 panelPos = new Vector2(12.0f, 96.0f);
+		float panelWidth = 1120.0f;
+		float panelHeight = 246.0f;
+		DrawRect(new Rect2(panelPos, new Vector2(panelWidth, panelHeight)), new Color(0.0f, 0.0f, 0.0f, 0.52f));
+
+		string[] statusLines = GodotSelectedStatusBuilder.BuildLines(_frame, _selectedUnitIds, _selectedBuildingId, _hoveredResourceNodeId);
+		DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(10.0f, 20.0f), "Debug Overlay (F10)", HorizontalAlignment.Left, -1.0f, 15, Colors.WhiteSmoke);
+		for (int i = 0; i < statusLines.Length; i++)
+		{
+			DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(10.0f, 40.0f + i * 16.0f), statusLines[i], HorizontalAlignment.Left, -1.0f, 14, Colors.LightGray);
+		}
+
+		string[] events = _debugEventLog.GetLines();
+		DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(10.0f, 84.0f), "Events", HorizontalAlignment.Left, -1.0f, 14, Colors.WhiteSmoke);
+		int maxEvents = Mathf.Min(events.Length, 10);
+		for (int i = 0; i < maxEvents; i++)
+		{
+			int eventIndex = events.Length - maxEvents + i;
+			DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(10.0f, 102.0f + i * 14.0f), events[eventIndex], HorizontalAlignment.Left, -1.0f, 13, Colors.LightGray);
+		}
+	}
+
+	private void DrawHotkeyHelpPanel()
+	{
+		GodotHotkeyHelpEntry[] entries = GodotHotkeyHelpBuilder.Build(researchIsWired: true);
+		Vector2 panelPos = new Vector2(12.0f, 352.0f);
+		float panelWidth = 620.0f;
+		float panelHeight = 24.0f + entries.Length * 16.0f + 12.0f;
+		DrawRect(new Rect2(panelPos, new Vector2(panelWidth, panelHeight)), new Color(0.0f, 0.0f, 0.0f, 0.56f));
+		DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(10.0f, 20.0f), "Hotkeys (H/F11)", HorizontalAlignment.Left, -1.0f, 15, Colors.WhiteSmoke);
+		for (int i = 0; i < entries.Length; i++)
+		{
+			string line = entries[i].Input + ": " + entries[i].Action;
+			DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(10.0f, 38.0f + i * 16.0f), line, HorizontalAlignment.Left, -1.0f, 13, Colors.LightGray);
+		}
+	}
+
+	private void QueueCommandAndConfirm(string intentDescription, Action<GodotClientFacade> queueAction)
+	{
+		GodotClientFacade? facade = _facade;
+		if (facade == null)
+		{
+			return;
+		}
+
+		int beforeExecuted = _frame?.Match.ExecutedCommandCount ?? facade.ExecutedCommandCount;
+		int beforeRejected = _frame?.Match.RejectedCommandCount ?? facade.RejectedCommandCount;
+		_debugEventLog.Add("intent " + intentDescription);
+
+		queueAction(facade);
+		facade.AdvanceOneTick();
+		RefreshFrame();
+
+		int afterExecuted = _frame?.Match.ExecutedCommandCount ?? facade.ExecutedCommandCount;
+		int afterRejected = _frame?.Match.RejectedCommandCount ?? facade.RejectedCommandCount;
+		GodotCommandResultKind result = GodotCommandResultClassifier.Classify(beforeExecuted, beforeRejected, afterExecuted, afterRejected);
+		_debugEventLog.Add("result " + result + " ex " + beforeExecuted + "->" + afterExecuted + " rej " + beforeRejected + "->" + afterRejected);
 	}
 
 	private static Color GetStyleColor(GodotVisualStyle style)

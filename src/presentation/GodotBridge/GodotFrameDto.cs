@@ -234,13 +234,20 @@ namespace RtsGame.Presentation.GodotBridge
         public bool IsFinished { get; }
         public int WinnerPlayerIndex { get; }
         public int FinishedTick { get; }
+        public int ExecutedCommandCount { get; }
         public int RejectedCommandCount { get; }
 
         public GodotMatchDto(bool isFinished, int winnerPlayerIndex, int finishedTick, int rejectedCommandCount)
+            : this(isFinished, winnerPlayerIndex, finishedTick, 0, rejectedCommandCount)
+        {
+        }
+
+        public GodotMatchDto(bool isFinished, int winnerPlayerIndex, int finishedTick, int executedCommandCount, int rejectedCommandCount)
         {
             IsFinished = isFinished;
             WinnerPlayerIndex = winnerPlayerIndex;
             FinishedTick = finishedTick;
+            ExecutedCommandCount = executedCommandCount;
             RejectedCommandCount = rejectedCommandCount;
         }
     }

@@ -187,6 +187,10 @@ namespace RtsGame.Tests
                 new TestCase("godot train action evaluator returns blocked construction", GodotTrainActionEvaluatorReturnsBlockedConstruction),
                 new TestCase("godot primitive draw kind resolves known primitives", GodotPrimitiveDrawKindResolvesKnownPrimitives),
                 new TestCase("godot primitive draw kind returns none for unknown", GodotPrimitiveDrawKindReturnsNoneForUnknown),
+                new TestCase("godot debug event log keeps bounded messages", GodotDebugEventLogKeepsBoundedMessages),
+                new TestCase("godot command result classifier classifies counter deltas", GodotCommandResultClassifierClassifiesCounterDeltas),
+                new TestCase("godot hotkey help contains known bindings", GodotHotkeyHelpContainsKnownBindings),
+                new TestCase("simulation source does not reference debug overlay helpers", SimulationSourceDoesNotReferenceDebugOverlayHelpers),
                 new TestCase("godot sprite sheet layout resolves expected frame rect", GodotSpriteSheetLayoutResolvesExpectedFrameRect),
                 new TestCase("godot sprite sheet layout uses deterministic default frame", GodotSpriteSheetLayoutUsesDeterministicDefaultFrame),
                 new TestCase("godot sprite sheet layout returns false for unknown unit type", GodotSpriteSheetLayoutReturnsFalseForUnknownUnitType),
@@ -2950,6 +2954,57 @@ namespace RtsGame.Tests
             AssertEqual(GodotPrimitiveDrawKind.None, GodotPrimitiveDrawKindResolver.Resolve(primitive), "unknown primitive kind should resolve to none");
         }
 
+        private static void GodotDebugEventLogKeepsBoundedMessages()
+        {
+            var log = new GodotDebugEventLog(3);
+            log.Add("a");
+            log.Add("b");
+            log.Add("c");
+            log.Add("d");
+
+            string[] lines = log.GetLines();
+            AssertEqual(3, lines.Length, "bounded event log should keep max capacity");
+            AssertEqual("b", lines[0], "oldest entry should roll off first");
+            AssertEqual("d", lines[2], "latest entry should remain in log");
+        }
+
+        private static void GodotCommandResultClassifierClassifiesCounterDeltas()
+        {
+            AssertEqual(
+                GodotCommandResultKind.Accepted,
+                GodotCommandResultClassifier.Classify(10, 2, 11, 2),
+                "increased executed count should classify as accepted");
+            AssertEqual(
+                GodotCommandResultKind.Rejected,
+                GodotCommandResultClassifier.Classify(10, 2, 10, 3),
+                "increased rejected count should classify as rejected");
+            AssertEqual(
+                GodotCommandResultKind.NoVisibleCountChange,
+                GodotCommandResultClassifier.Classify(10, 2, 10, 2),
+                "no count change should classify as no visible change");
+        }
+
+        private static void GodotHotkeyHelpContainsKnownBindings()
+        {
+            GodotHotkeyHelpEntry[] entries = GodotHotkeyHelpBuilder.Build(researchIsWired: true);
+            AssertEqual(true, ContainsHotkey(entries, "F10", "Toggle debug overlay"), "hotkey help should include F10 debug overlay binding");
+            AssertEqual(true, ContainsHotkey(entries, "H / F11", "Toggle hotkey help panel"), "hotkey help should include H/F11 help binding");
+            AssertEqual(true, ContainsHotkey(entries, "F9", "Toggle primitive/sprite render mode"), "hotkey help should include F9 render binding");
+            AssertEqual(true, ContainsHotkey(entries, "Right Click", "Move/attack/gather/build depending on target"), "hotkey help should include context right-click behavior");
+        }
+
+        private static void SimulationSourceDoesNotReferenceDebugOverlayHelpers()
+        {
+            string[] files = System.IO.Directory.GetFiles(System.IO.Path.Combine("src", "sim"), "*.cs", System.IO.SearchOption.AllDirectories);
+            for (int i = 0; i < files.Length; i++)
+            {
+                string text = System.IO.File.ReadAllText(files[i]);
+                AssertFalse(text.Contains("GodotDebugEventLog"), "simulation source must not reference debug overlay log helper file=" + files[i]);
+                AssertFalse(text.Contains("GodotHotkeyHelpBuilder"), "simulation source must not reference hotkey help helper file=" + files[i]);
+                AssertFalse(text.Contains("GodotCommandResultClassifier"), "simulation source must not reference command result classifier helper file=" + files[i]);
+            }
+        }
+
         private static void GodotSpriteSheetLayoutResolvesExpectedFrameRect()
         {
             bool found = GodotSpriteSheetLayout.TryGetMetadata(GodotSpriteAssetId.Villager, out GodotSpriteSheetMetadata metadata);
@@ -2975,6 +3030,19 @@ namespace RtsGame.Tests
         {
             bool found = GodotSpriteSheetLayout.TryResolveUnitAsset(999, out _);
             AssertEqual(false, found, "unknown unit type should not resolve to a sprite asset so primitive fallback can render");
+        }
+
+        private static bool ContainsHotkey(GodotHotkeyHelpEntry[] entries, string input, string action)
+        {
+            for (int i = 0; i < entries.Length; i++)
+            {
+                if (entries[i].Input == input && entries[i].Action == action)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static void GodotCoordinateMapperConvertsRawToPixels()
