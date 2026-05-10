@@ -187,6 +187,9 @@ namespace RtsGame.Tests
                 new TestCase("godot train action evaluator returns blocked construction", GodotTrainActionEvaluatorReturnsBlockedConstruction),
                 new TestCase("godot primitive draw kind resolves known primitives", GodotPrimitiveDrawKindResolvesKnownPrimitives),
                 new TestCase("godot primitive draw kind returns none for unknown", GodotPrimitiveDrawKindReturnsNoneForUnknown),
+                new TestCase("godot sprite sheet layout resolves expected frame rect", GodotSpriteSheetLayoutResolvesExpectedFrameRect),
+                new TestCase("godot sprite sheet layout uses deterministic default frame", GodotSpriteSheetLayoutUsesDeterministicDefaultFrame),
+                new TestCase("godot sprite sheet layout returns false for unknown unit type", GodotSpriteSheetLayoutReturnsFalseForUnknownUnitType),
                 new TestCase("godot coordinate mapper converts raw to pixels", GodotCoordinateMapperConvertsRawToPixels),
                 new TestCase("godot coordinate mapper converts screen to raw", GodotCoordinateMapperConvertsScreenToRaw),
                 new TestCase("godot coordinate mapper floors screen tile", GodotCoordinateMapperFloorsScreenTile),
@@ -2945,6 +2948,33 @@ namespace RtsGame.Tests
             GodotPrimitiveDto primitive = CreateGodotPrimitive((VisualPrimitiveKind)999, 160, 0, 1, 1);
 
             AssertEqual(GodotPrimitiveDrawKind.None, GodotPrimitiveDrawKindResolver.Resolve(primitive), "unknown primitive kind should resolve to none");
+        }
+
+        private static void GodotSpriteSheetLayoutResolvesExpectedFrameRect()
+        {
+            bool found = GodotSpriteSheetLayout.TryGetMetadata(GodotSpriteAssetId.Villager, out GodotSpriteSheetMetadata metadata);
+            AssertEqual(true, found, "villager metadata should exist");
+
+            GodotSpriteFrameRect rect = GodotSpriteSheetLayout.ResolveFrameRect(metadata, 900, 900, 5);
+            AssertEqual(600, rect.X, "frame rect x should match frame column");
+            AssertEqual(300, rect.Y, "frame rect y should match frame row");
+            AssertEqual(300, rect.Width, "frame width should be texture width divided by columns");
+            AssertEqual(300, rect.Height, "frame height should be texture height divided by rows");
+        }
+
+        private static void GodotSpriteSheetLayoutUsesDeterministicDefaultFrame()
+        {
+            bool found = GodotSpriteSheetLayout.TryGetMetadata(GodotSpriteAssetId.Infantry, out GodotSpriteSheetMetadata metadata);
+            AssertEqual(true, found, "infantry metadata should exist");
+
+            int frame = GodotSpriteSheetLayout.ResolveDirectionalFrameIndex(metadata, false, 1, 1);
+            AssertEqual(metadata.DefaultFrameIndex, frame, "default frame index should be deterministic when there is no move target");
+        }
+
+        private static void GodotSpriteSheetLayoutReturnsFalseForUnknownUnitType()
+        {
+            bool found = GodotSpriteSheetLayout.TryResolveUnitAsset(999, out _);
+            AssertEqual(false, found, "unknown unit type should not resolve to a sprite asset so primitive fallback can render");
         }
 
         private static void GodotCoordinateMapperConvertsRawToPixels()

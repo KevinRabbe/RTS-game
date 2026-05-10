@@ -6,16 +6,7 @@ using RtsGame.Sim.Data;
 public sealed class Phase6SpriteRenderer
 {
 	private const string ArtRoot = "res://Art/Phase6Pack/";
-	private static readonly AssetDefinition[] AssetDefinitions =
-	{
-		new AssetDefinition("Villager", "villager_sheet.png"),
-		new AssetDefinition("Infantry", "infantry_sheet.png"),
-		new AssetDefinition("Scout", "scout_sheet.png"),
-		new AssetDefinition("TradeCart", "trade_cart_sheet.png"),
-		new AssetDefinition("Capital", "capital.png"),
-		new AssetDefinition("Wall", "wall_sheet.png")
-	};
-	private readonly Dictionary<string, Texture2D?> _assetRegistry = new Dictionary<string, Texture2D?>();
+	private readonly Dictionary<GodotSpriteAssetId, Texture2D?> _assetRegistry = new Dictionary<GodotSpriteAssetId, Texture2D?>();
 
 	private bool _useSprites = true;
 	private int _loadedAssetCount;
@@ -40,7 +31,7 @@ public sealed class Phase6SpriteRenderer
 
 	public int ExpectedAssetCount
 	{
-		get { return AssetDefinitions.Length; }
+		get { return GodotSpriteSheetLayout.ExpectedAssetCount; }
 	}
 
 	public string MissingAssetsLabel
@@ -48,12 +39,13 @@ public sealed class Phase6SpriteRenderer
 		get
 		{
 			List<string> missing = new List<string>();
-			for (int i = 0; i < AssetDefinitions.Length; i++)
+			GodotSpriteSheetMetadata[] metadata = GodotSpriteSheetLayout.GetAllMetadata();
+			for (int i = 0; i < metadata.Length; i++)
 			{
-				string key = AssetDefinitions[i].Key;
-				if (!_assetRegistry.TryGetValue(key, out Texture2D? texture) || texture == null)
+				GodotSpriteSheetMetadata asset = metadata[i];
+				if (!_assetRegistry.TryGetValue(asset.Id, out Texture2D? texture) || texture == null)
 				{
-					missing.Add(key);
+					missing.Add(asset.DisplayName);
 				}
 			}
 
@@ -69,10 +61,11 @@ public sealed class Phase6SpriteRenderer
 	public void LoadAssets()
 	{
 		_assetRegistry.Clear();
-		for (int i = 0; i < AssetDefinitions.Length; i++)
+		GodotSpriteSheetMetadata[] metadata = GodotSpriteSheetLayout.GetAllMetadata();
+		for (int i = 0; i < metadata.Length; i++)
 		{
-			AssetDefinition definition = AssetDefinitions[i];
-			_assetRegistry[definition.Key] = ResourceLoader.Load<Texture2D>(ArtRoot + definition.FileName);
+			GodotSpriteSheetMetadata asset = metadata[i];
+			_assetRegistry[asset.Id] = ResourceLoader.Load<Texture2D>(ArtRoot + asset.FileName);
 		}
 
 		_loadedAssetCount = CountLoadedAssets();
@@ -91,24 +84,32 @@ public sealed class Phase6SpriteRenderer
 			return false;
 		}
 
-		Texture2D? sheet = primitive.TypeId switch
+		if (!GodotSpriteSheetLayout.TryResolveUnitAsset(primitive.TypeId, out GodotSpriteAssetId assetId))
 		{
-			(int)UnitTypeId.Villager => GetAsset("Villager"),
-			(int)UnitTypeId.Infantry => GetAsset("Infantry"),
-			(int)UnitTypeId.Scout => GetAsset("Scout"),
-			(int)UnitTypeId.Cavalry => GetAsset("Scout"),
-			(int)UnitTypeId.TradeCart => GetAsset("TradeCart"),
-			_ => null
-		};
-		if (sheet == null)
+			return false;
+		}
+
+		Texture2D? sheet = GetAsset(assetId);
+		if (sheet == null || !GodotSpriteSheetLayout.TryGetMetadata(assetId, out GodotSpriteSheetMetadata metadata))
 		{
 			return false;
 		}
 
 		GodotUnitStatusDto? status = FindUnitStatus(frame, primitive.EntityId);
-		int directionIndex = ResolveDirectionFrameIndex(status, primitive);
+		int dx = 0;
+		int dy = 0;
+		bool hasMoveTarget = status != null && status.HasMoveTarget;
+		if (hasMoveTarget && status != null)
+		{
+			long dxRaw = status.MoveTargetXRaw - primitive.XRaw;
+			long dyRaw = status.MoveTargetYRaw - primitive.YRaw;
+			dx = dxRaw > 0 ? 1 : dxRaw < 0 ? -1 : 0;
+			dy = dyRaw > 0 ? 1 : dyRaw < 0 ? -1 : 0;
+		}
+
+		int frameIndex = GodotSpriteSheetLayout.ResolveDirectionalFrameIndex(metadata, hasMoveTarget, dx, dy);
 		Rect2 target = GetUnitSpriteRect(primitive, toScreen, rawToPixels);
-		DrawSheetFrame(canvas, sheet, 3, 3, directionIndex, target);
+		DrawSheetFrame(canvas, sheet, metadata, frameIndex, target);
 
 		if (IsSelected(selectedUnitIds, primitive.EntityId))
 		{
@@ -131,13 +132,20 @@ public sealed class Phase6SpriteRenderer
 			return false;
 		}
 
-		Texture2D? wallSheet = GetAsset("Wall");
-		if (primitive.TypeId == (int)BuildingTypeId.Wall && wallSheet != null)
+		if (primitive.TypeId == (int)BuildingTypeId.Wall &&
+			GodotSpriteSheetLayout.TryResolveBuildingAsset(primitive.TypeId, out GodotSpriteAssetId wallAssetId) &&
+			GodotSpriteSheetLayout.TryGetMetadata(wallAssetId, out GodotSpriteSheetMetadata wallMetadata))
 		{
+			Texture2D? wallSheet = GetAsset(wallAssetId);
+			if (wallSheet == null)
+			{
+				return false;
+			}
+
 			GodotBuildingStatusDto? status = FindBuildingStatus(frame, primitive.EntityId);
 			Rect2 target = GetBuildingSpriteRect(primitive, 3.4f, toScreen, rawToPixels);
-			int frameIndex = status != null && status.IsUnderConstruction ? 3 : 0;
-			DrawSheetFrame(canvas, wallSheet, 3, 2, frameIndex, target);
+			int frameIndex = status != null && status.IsUnderConstruction ? wallMetadata.UnderConstructionFrameIndex : wallMetadata.DefaultFrameIndex;
+			DrawSheetFrame(canvas, wallSheet, wallMetadata, frameIndex, target);
 			if (selectedBuildingId == primitive.EntityId)
 			{
 				canvas.DrawRect(target.Grow(2.0f), Colors.White, false, 2.0f);
@@ -146,7 +154,7 @@ public sealed class Phase6SpriteRenderer
 			return true;
 		}
 
-		Texture2D? capitalSprite = GetAsset("Capital");
+		Texture2D? capitalSprite = GetAsset(GodotSpriteAssetId.Capital);
 		if (primitive.TypeId == (int)BuildingTypeId.TownCenter && capitalSprite != null)
 		{
 			Rect2 target = GetBuildingSpriteRect(primitive, primitive.IsCapital ? 3.6f : 3.1f, toScreen, rawToPixels);
@@ -162,14 +170,10 @@ public sealed class Phase6SpriteRenderer
 		return false;
 	}
 
-	private static void DrawSheetFrame(Node2D canvas, Texture2D texture, int columns, int rows, int frameIndex, Rect2 target)
+	private static void DrawSheetFrame(Node2D canvas, Texture2D texture, GodotSpriteSheetMetadata metadata, int frameIndex, Rect2 target)
 	{
-		int clampedFrame = Mathf.Clamp(frameIndex, 0, columns * rows - 1);
-		float frameWidth = (float)texture.GetWidth() / columns;
-		float frameHeight = (float)texture.GetHeight() / rows;
-		int x = clampedFrame % columns;
-		int y = clampedFrame / columns;
-		var source = new Rect2(x * frameWidth, y * frameHeight, frameWidth, frameHeight);
+		GodotSpriteFrameRect frame = GodotSpriteSheetLayout.ResolveFrameRect(metadata, texture.GetWidth(), texture.GetHeight(), frameIndex);
+		var source = new Rect2(frame.X, frame.Y, frame.Width, frame.Height);
 		canvas.DrawTextureRectRegion(texture, target, source);
 	}
 
@@ -225,33 +229,6 @@ public sealed class Phase6SpriteRenderer
 		return null;
 	}
 
-	private static int ResolveDirectionFrameIndex(GodotUnitStatusDto? status, GodotPrimitiveDto primitive)
-	{
-		if (status == null || !status.HasMoveTarget)
-		{
-			return 1;
-		}
-
-		long dxRaw = status.MoveTargetXRaw - primitive.XRaw;
-		long dyRaw = status.MoveTargetYRaw - primitive.YRaw;
-		int dx = dxRaw > 0 ? 1 : dxRaw < 0 ? -1 : 0;
-		int dy = dyRaw > 0 ? 1 : dyRaw < 0 ? -1 : 0;
-
-		return (dx, dy) switch
-		{
-			(-1, -1) => 0,
-			(0, -1) => 1,
-			(1, -1) => 2,
-			(-1, 0) => 3,
-			(0, 0) => 1,
-			(1, 0) => 5,
-			(-1, 1) => 6,
-			(0, 1) => 7,
-			(1, 1) => 8,
-			_ => 1
-		};
-	}
-
 	private static bool IsSelected(IReadOnlyCollection<int> selectedUnitIds, int entityId)
 	{
 		foreach (int id in selectedUnitIds)
@@ -265,7 +242,7 @@ public sealed class Phase6SpriteRenderer
 		return false;
 	}
 
-	private Texture2D? GetAsset(string key)
+	private Texture2D? GetAsset(GodotSpriteAssetId key)
 	{
 		_assetRegistry.TryGetValue(key, out Texture2D? texture);
 		return texture;
@@ -274,7 +251,7 @@ public sealed class Phase6SpriteRenderer
 	private int CountLoadedAssets()
 	{
 		int count = 0;
-		foreach (KeyValuePair<string, Texture2D?> entry in _assetRegistry)
+		foreach (KeyValuePair<GodotSpriteAssetId, Texture2D?> entry in _assetRegistry)
 		{
 			if (entry.Value != null)
 			{
@@ -285,15 +262,4 @@ public sealed class Phase6SpriteRenderer
 		return count;
 	}
 
-	private readonly struct AssetDefinition
-	{
-		public AssetDefinition(string key, string fileName)
-		{
-			Key = key;
-			FileName = fileName;
-		}
-
-		public string Key { get; }
-		public string FileName { get; }
-	}
 }
