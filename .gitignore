@@ -12,3 +12,6 @@ obj/
 # OS noise
 Thumbs.db
 Desktop.ini
+
+# Test artifacts
+test_results*.txt
