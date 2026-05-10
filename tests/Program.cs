@@ -3116,20 +3116,20 @@ namespace RtsGame.Tests
             GodotHotkeyHelpEntry[] entries = GodotHotkeyHelpBuilder.Build(researchIsWired: true);
             AssertEqual(true, ContainsHotkey(entries, "F1", "Start DryArabiaTest01 local 1v1"), "hotkey help should include F1 binding");
             AssertEqual(true, ContainsHotkey(entries, "F6", "Start local 6-player FFA"), "hotkey help should include F6 binding");
-            AssertEqual(true, ContainsHotkey(entries, "F9", "Toggle primitive/sprite render mode"), "hotkey help should include F9 binding");
+            AssertEqual(true, ContainsHotkey(entries, "F9", "Toggle sprites/primitives"), "hotkey help should include F9 binding");
             AssertEqual(true, ContainsHotkey(entries, "F10", "Toggle debug overlay"), "hotkey help should include F10 debug overlay binding");
             AssertEqual(true, ContainsHotkey(entries, "H/F11", "Toggle hotkey help"), "hotkey help should include H/F11 help binding");
             AssertEqual(true, ContainsHotkey(entries, "Space", "Pause / unpause"), "hotkey help should include pause binding");
-            AssertEqual(true, ContainsHotkey(entries, "Left Click", "Select unit / confirm placement in placement mode"), "hotkey help should include left-click selection behavior");
-            AssertEqual(true, ContainsHotkey(entries, "Right Click", "Context action: move, attack, gather, assign build; or cancel placement"), "hotkey help should include right-click context behavior");
-            AssertEqual(true, ContainsHotkey(entries, "C", "Enter TC placement mode (click to place, RMB/Esc cancel)"), "hotkey help should include C placement binding");
+            AssertEqual(true, ContainsHotkey(entries, "Left Click", "Select / confirm placement"), "hotkey help should include left-click selection behavior");
+            AssertEqual(true, ContainsHotkey(entries, "Right Click", "Move, gather, attack, assign build, or cancel placement"), "hotkey help should include right-click context behavior");
+            AssertEqual(true, ContainsHotkey(entries, "C", "Enter Town Center placement mode"), "hotkey help should include C placement binding");
             AssertEqual(true, ContainsHotkey(entries, "W", "Place Wall at mouse"), "hotkey help should include W placement binding");
             AssertEqual(true, ContainsHotkey(entries, "T", "Place Trade Post at mouse"), "hotkey help should include T placement binding");
             AssertEqual(true, ContainsHotkey(entries, "R", "Create Trade Route with selected Trade Cart"), "hotkey help should include R trade route binding");
-            AssertEqual(true, ContainsHotkey(entries, "V", "Train Villager from selected building"), "hotkey help should include V train villager binding");
-            AssertEqual(true, ContainsHotkey(entries, "I", "Train Infantry from selected building"), "hotkey help should include I train infantry binding");
-            AssertEqual(true, ContainsHotkey(entries, "K", "Train Trade Cart from selected Trade Post"), "hotkey help should include K train trade cart binding");
-            AssertEqual(true, ContainsHotkey(entries, "Y", "Research current available tech"), "hotkey help should include Y research binding");
+            AssertEqual(true, ContainsHotkey(entries, "V", "Train Villager"), "hotkey help should include V train villager binding");
+            AssertEqual(true, ContainsHotkey(entries, "I", "Train Infantry"), "hotkey help should include I train infantry binding");
+            AssertEqual(true, ContainsHotkey(entries, "K", "Train Trade Cart"), "hotkey help should include K train trade cart binding");
+            AssertEqual(true, ContainsHotkey(entries, "Y", "Research Infantry Attack I"), "hotkey help should include Y research binding");
         }
 
         private static void GodotBuildingDebugStatusIncludesTrainingQueueCount()
@@ -5297,13 +5297,13 @@ namespace RtsGame.Tests
             bool hasEdgePan = false;
             for (int i = 0; i < entries.Length; i++)
             {
-                if (entries[i].Input == "Mouse edge")
+                if (entries[i].Input == "Mouse Edge")
                 {
                     hasEdgePan = true;
                 }
             }
 
-            AssertEqual(true, hasEdgePan, "Hotkey help should contain Mouse edge panning documentation");
+            AssertEqual(true, hasEdgePan, "Hotkey help should contain Mouse Edge panning documentation");
         }
 
         private static LockstepSession RunLockstep(int ticks, int players, ulong seed, bool reverseDelivery)
