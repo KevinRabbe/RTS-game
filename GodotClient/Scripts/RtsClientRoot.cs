@@ -90,6 +90,8 @@ public partial class RtsClientRoot : Node2D
 			QueueRedraw();
 		}
 
+		ClampCameraToBounds();
+
 		if (_paused)
 		{
 			RefreshFrame();
@@ -411,6 +413,31 @@ public partial class RtsClientRoot : Node2D
 					f => f.QueueMoveUnits(LocalPlayerIndex, _selectedUnitIds.ToArray(), tile.X, tile.Y));
 			}
 		}
+	}
+
+	private void ClampCameraToBounds()
+	{
+		if (_camera == null || _facade == null)
+		{
+			return;
+		}
+
+		// Use map dimensions as base playable area
+		float mapWidthPx = _facade.MapWidthTiles * TilePixels;
+		float mapHeightPx = _facade.MapHeightTiles * TilePixels;
+
+		// Add a reasonable padding to let the edge still be visible while panning
+		float padding = 400.0f;
+		
+		float minX = -padding;
+		float minY = -padding;
+		float maxX = mapWidthPx + padding;
+		float maxY = mapHeightPx + padding;
+
+		float clampedX = Mathf.Clamp(_camera.Position.X, minX, maxX);
+		float clampedY = Mathf.Clamp(_camera.Position.Y, minY, maxY);
+
+		_camera.Position = new Vector2(clampedX, clampedY);
 	}
 
 	private void UpdateCamera(double delta)
@@ -815,7 +842,11 @@ public partial class RtsClientRoot : Node2D
 		float panelHeight = 168.0f;
 		Vector2 panelPos = uiOrigin + new Vector2(Mathf.Max(0.0f, uiSize.X - panelWidth - 12.0f), 88.0f);
 		DrawRect(new Rect2(panelPos, new Vector2(panelWidth, panelHeight)), new Color(0.0f, 0.0f, 0.0f, 0.52f));
-		DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(10.0f, 20.0f), "Debug Overlay (F10)", HorizontalAlignment.Left, -1.0f, 15, Colors.WhiteSmoke);
+		
+		string debugTitle = _camera != null 
+			? $"Debug Overlay (F10) - Cam: {_camera.Position.X:F0},{_camera.Position.Y:F0}" 
+			: "Debug Overlay (F10)";
+		DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(10.0f, 20.0f), debugTitle, HorizontalAlignment.Left, -1.0f, 15, Colors.WhiteSmoke);
 
 		string[] events = _debugEventLog.GetLines();
 		DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(10.0f, 40.0f), "Events", HorizontalAlignment.Left, -1.0f, 14, Colors.WhiteSmoke);

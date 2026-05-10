@@ -42,6 +42,16 @@ namespace RtsGame.Presentation.GodotBridge
             get { return _session.MapName; }
         }
 
+        public int MapWidthTiles
+        {
+            get { return GameData.MapWidthTiles; }
+        }
+
+        public int MapHeightTiles
+        {
+            get { return GameData.MapHeightTiles; }
+        }
+
         public static GodotClientFacade CreateLocal1v1(ulong matchSeed)
         {
             return new GodotClientFacade(LocalPlaySession.Create1v1(matchSeed));
