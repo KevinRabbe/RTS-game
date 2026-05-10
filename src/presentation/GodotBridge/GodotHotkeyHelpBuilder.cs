@@ -24,8 +24,10 @@ namespace RtsGame.Presentation.GodotBridge
                 new GodotHotkeyHelpEntry("F10", "Toggle debug overlay"),
                 new GodotHotkeyHelpEntry("H/F11", "Toggle hotkey help"),
                 new GodotHotkeyHelpEntry("Space", "Pause / unpause"),
-                new GodotHotkeyHelpEntry("Arrows", "Move camera"),
-                new GodotHotkeyHelpEntry("C", "Place Town Center at mouse"),
+                new GodotHotkeyHelpEntry("Arrows", "Pan camera"),
+                new GodotHotkeyHelpEntry("Mouse edge", "Pan camera"),
+                new GodotHotkeyHelpEntry("Middle mouse drag", "Pan camera"),
+                new GodotHotkeyHelpEntry("C", "Enter TC placement mode (click to place, RMB/Esc cancel)"),
                 new GodotHotkeyHelpEntry("W", "Place Wall at mouse"),
                 new GodotHotkeyHelpEntry("T", "Place Trade Post at mouse"),
                 new GodotHotkeyHelpEntry("R", "Create Trade Route with selected Trade Cart"),
@@ -33,8 +35,8 @@ namespace RtsGame.Presentation.GodotBridge
                 new GodotHotkeyHelpEntry("I", "Train Infantry from selected building"),
                 new GodotHotkeyHelpEntry("K", "Train Trade Cart from selected Trade Post"),
                 new GodotHotkeyHelpEntry("Y", researchIsWired ? "Research current available tech" : "Research reserved/not active"),
-                new GodotHotkeyHelpEntry("Left Click", "Select unit, building, or resource"),
-                new GodotHotkeyHelpEntry("Right Click", "Context action: move, attack, gather, or assign build")
+                new GodotHotkeyHelpEntry("Left Click", "Select unit / confirm placement in placement mode"),
+                new GodotHotkeyHelpEntry("Right Click", "Context action: move, attack, gather, assign build; or cancel placement")
             };
         }
     }

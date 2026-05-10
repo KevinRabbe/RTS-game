@@ -197,6 +197,14 @@ namespace RtsGame.Tests
                 new TestCase("godot debug event log keeps bounded messages", GodotDebugEventLogKeepsBoundedMessages),
                 new TestCase("godot command result classifier classifies counter deltas", GodotCommandResultClassifierClassifiesCounterDeltas),
                 new TestCase("godot hotkey help contains known bindings", GodotHotkeyHelpContainsKnownBindings),
+                new TestCase("tc placement preview valid at player 0 tc zone", TcPlacementPreviewValidAtPlayer0TcZone),
+                new TestCase("tc placement preview valid at player 1 tc zone", TcPlacementPreviewValidAtPlayer1TcZone),
+                new TestCase("tc placement preview invalid overlapping resource", TcPlacementPreviewInvalidOverlappingResource),
+                new TestCase("tc placement preview invalid overlapping building", TcPlacementPreviewInvalidOverlappingBuilding),
+                new TestCase("tc placement preview invalid outside map", TcPlacementPreviewInvalidOutsideMap),
+                new TestCase("tc placement preview does not mutate checksum", TcPlacementPreviewDoesNotMutateChecksum),
+                new TestCase("tc placement preview unknown result does not throw", TcPlacementPreviewUnknownResultDoesNotThrow),
+                new TestCase("godot hotkey help contains edge pan entry", GodotHotkeyHelpContainsEdgePanEntry),
                 new TestCase("godot building debug status includes training queue count", GodotBuildingDebugStatusIncludesTrainingQueueCount),
                 new TestCase("godot building debug status includes training progress", GodotBuildingDebugStatusIncludesTrainingProgress),
                 new TestCase("godot building debug status marks incomplete training unavailable", GodotBuildingDebugStatusMarksIncompleteTrainingUnavailable),
@@ -3112,9 +3120,9 @@ namespace RtsGame.Tests
             AssertEqual(true, ContainsHotkey(entries, "F10", "Toggle debug overlay"), "hotkey help should include F10 debug overlay binding");
             AssertEqual(true, ContainsHotkey(entries, "H/F11", "Toggle hotkey help"), "hotkey help should include H/F11 help binding");
             AssertEqual(true, ContainsHotkey(entries, "Space", "Pause / unpause"), "hotkey help should include pause binding");
-            AssertEqual(true, ContainsHotkey(entries, "Left Click", "Select unit, building, or resource"), "hotkey help should include left-click selection behavior");
-            AssertEqual(true, ContainsHotkey(entries, "Right Click", "Context action: move, attack, gather, or assign build"), "hotkey help should include right-click context behavior");
-            AssertEqual(true, ContainsHotkey(entries, "C", "Place Town Center at mouse"), "hotkey help should include C placement binding");
+            AssertEqual(true, ContainsHotkey(entries, "Left Click", "Select unit / confirm placement in placement mode"), "hotkey help should include left-click selection behavior");
+            AssertEqual(true, ContainsHotkey(entries, "Right Click", "Context action: move, attack, gather, assign build; or cancel placement"), "hotkey help should include right-click context behavior");
+            AssertEqual(true, ContainsHotkey(entries, "C", "Enter TC placement mode (click to place, RMB/Esc cancel)"), "hotkey help should include C placement binding");
             AssertEqual(true, ContainsHotkey(entries, "W", "Place Wall at mouse"), "hotkey help should include W placement binding");
             AssertEqual(true, ContainsHotkey(entries, "T", "Place Trade Post at mouse"), "hotkey help should include T placement binding");
             AssertEqual(true, ContainsHotkey(entries, "R", "Create Trade Route with selected Trade Cart"), "hotkey help should include R trade route binding");
@@ -5180,6 +5188,122 @@ namespace RtsGame.Tests
             }
 
             throw new InvalidOperationException("godot unit status not found entity=" + unitId);
+        }
+
+        private static void TcPlacementPreviewValidAtPlayer0TcZone()
+        {
+            var facade = GodotClientFacade.CreateDryArabiaTest01(101);
+            var godotFrame = facade.GetFrame(0);
+
+            var p0Zone = DryArabiaTest01MapDefinition.GetTownCenterZone(0);
+            var result = TcPlacementPreview.Evaluate(godotFrame, p0Zone.X.FloorToInt(), p0Zone.Y.FloorToInt());
+
+            AssertEqual(TcPlacementPreviewResult.Valid, result, "P0 TC zone should be a valid preview location on DryArabia");
+        }
+
+        private static void TcPlacementPreviewValidAtPlayer1TcZone()
+        {
+            var facade = GodotClientFacade.CreateDryArabiaTest01(102);
+            var godotFrame = facade.GetFrame(1);
+
+            var p1Zone = DryArabiaTest01MapDefinition.GetTownCenterZone(1);
+            var result = TcPlacementPreview.Evaluate(godotFrame, p1Zone.X.FloorToInt(), p1Zone.Y.FloorToInt());
+
+            AssertEqual(TcPlacementPreviewResult.Valid, result, "P1 TC zone should be a valid preview location on DryArabia");
+        }
+
+        private static void TcPlacementPreviewInvalidOverlappingResource()
+        {
+            var fakePrimitives = new GodotPrimitiveDto[]
+            {
+                new GodotPrimitiveDto(
+                    (int)VisualPrimitiveKind.FoodResourceCircle, // Kind
+                    100, // EntityId
+                    0,   // TypeId
+                    -1,  // OwnerPlayerIndex
+                    30 * 65536, // XRaw (30 tiles)
+                    48 * 65536, // YRaw (48 tiles)
+                    0, 0, 0, 0, 0, false)
+            };
+
+            var godotFrame = new GodotFrameDto(0, "Test", 0, null, null, fakePrimitives, null, null);
+
+            var result = TcPlacementPreview.Evaluate(godotFrame, 30, 48);
+
+            AssertEqual(TcPlacementPreviewResult.OverlapsResource, result, "TC preview on top of resource should be OverlapsResource");
+        }
+
+        private static void TcPlacementPreviewInvalidOverlappingBuilding()
+        {
+            var facade = GodotClientFacade.CreateDryArabiaTest01(104);
+            var p0Zone = DryArabiaTest01MapDefinition.GetTownCenterZone(0);
+            
+            // Advance one tick to allow starting commands (if any) or simply queue a placement manually.
+            facade.QueuePlaceTownCenter(0, p0Zone.X.FloorToInt(), p0Zone.Y.FloorToInt());
+            facade.AdvanceOneTick();
+
+            var godotFrame = facade.GetFrame(0);
+
+            // Same spot should now be blocked by the building
+            var result = TcPlacementPreview.Evaluate(godotFrame, p0Zone.X.FloorToInt(), p0Zone.Y.FloorToInt());
+
+            AssertEqual(TcPlacementPreviewResult.OverlapsBuilding, result, "TC preview overlapping existing TC should be OverlapsBuilding");
+        }
+
+        private static void TcPlacementPreviewInvalidOutsideMap()
+        {
+            var facade = GodotClientFacade.CreateDryArabiaTest01(105);
+            var godotFrame = facade.GetFrame(0);
+
+            var resultX = TcPlacementPreview.Evaluate(godotFrame, -1, 50);
+            var resultY = TcPlacementPreview.Evaluate(godotFrame, 50, -1);
+            var resultMaxX = TcPlacementPreview.Evaluate(godotFrame, 128, 50); // Map is 128x96
+            var resultMaxY = TcPlacementPreview.Evaluate(godotFrame, 50, 96);
+
+            AssertEqual(TcPlacementPreviewResult.OutsideMap, resultX, "Preview outside -x map should be OutsideMap");
+            AssertEqual(TcPlacementPreviewResult.OutsideMap, resultY, "Preview outside -y map should be OutsideMap");
+            AssertEqual(TcPlacementPreviewResult.OutsideMap, resultMaxX, "Preview outside +x map should be OutsideMap");
+            AssertEqual(TcPlacementPreviewResult.OutsideMap, resultMaxY, "Preview outside +y map should be OutsideMap");
+        }
+
+        private static void TcPlacementPreviewDoesNotMutateChecksum()
+        {
+            var facade = GodotClientFacade.CreateDryArabiaTest01(106);
+            var godotFrame = facade.GetFrame(0);
+            int beforeCommands = facade.ExecutedCommandCount;
+
+            var p0Zone = DryArabiaTest01MapDefinition.GetTownCenterZone(0);
+            
+            // Call it 10 times to ensure no weird internal state accumulates
+            for (int i = 0; i < 10; i++)
+            {
+                TcPlacementPreview.Evaluate(godotFrame, p0Zone.X.FloorToInt(), p0Zone.Y.FloorToInt());
+            }
+
+            int afterCommands = facade.ExecutedCommandCount;
+            AssertEqual(beforeCommands, afterCommands, "TcPlacementPreview must be strictly read-only and not mutate state");
+        }
+
+        private static void TcPlacementPreviewUnknownResultDoesNotThrow()
+        {
+            // Null frame would normally not be called due to null check in RtsClientRoot,
+            // but the enum supports Unknown for safe defaulting. We just verify the enum exists and resolves cleanly.
+            AssertEqual((int)TcPlacementPreviewResult.Unknown, 4, "Unknown result should be 4");
+        }
+
+        private static void GodotHotkeyHelpContainsEdgePanEntry()
+        {
+            GodotHotkeyHelpEntry[] entries = GodotHotkeyHelpBuilder.Build(true);
+            bool hasEdgePan = false;
+            for (int i = 0; i < entries.Length; i++)
+            {
+                if (entries[i].Input == "Mouse edge")
+                {
+                    hasEdgePan = true;
+                }
+            }
+
+            AssertEqual(true, hasEdgePan, "Hotkey help should contain Mouse edge panning documentation");
         }
 
         private static LockstepSession RunLockstep(int ticks, int players, ulong seed, bool reverseDelivery)

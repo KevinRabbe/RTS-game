@@ -10,6 +10,8 @@ public partial class RtsClientRoot : Node2D
 	private const double TickSeconds = 1.0 / 20.0;
 	private const ulong DefaultMatchSeed = 12345UL;
 	private const float CameraPanPixelsPerSecond = 420.0f;
+	private const float EdgePanMarginPx = 32.0f;
+	private const float EdgePanSpeedPixelsPerSecond = 380.0f;
 	private const int VillagerUnitTypeId = 1;
 	private const int InfantryUnitTypeId = 3;
 	private const int TradeCartUnitTypeId = 5;
@@ -34,6 +36,16 @@ public partial class RtsClientRoot : Node2D
 	private int _selectedBuildingId;
 	private int _pendingTradeRouteAId;
 
+	// TC placement mode
+	private bool _tcPlacementMode;
+	private Vector2I _tcHoveredTile;
+	private TcPlacementPreviewResult _tcPreviewResult = TcPlacementPreviewResult.Unknown;
+
+	// Middle-mouse drag pan
+	private bool _middleMouseDragActive;
+	private Vector2 _middleMouseDragStartScreen = Vector2.Zero;
+	private Vector2 _middleMouseDragStartCamera = Vector2.Zero;
+
 	public override void _Ready()
 	{
 		_camera = new Camera2D();
@@ -55,6 +67,27 @@ public partial class RtsClientRoot : Node2D
 		if (_commandMarkerTicksRemaining > 0)
 		{
 			_commandMarkerTicksRemaining--;
+		}
+
+		// Update TC placement ghost tile each frame (no command spam).
+		if (_tcPlacementMode && _frame != null)
+		{
+			Vector2I newTile = ScreenToTile(GetGlobalMousePosition());
+			if (newTile != _tcHoveredTile)
+			{
+				_tcHoveredTile = newTile;
+				_tcPreviewResult = TcPlacementPreview.Evaluate(_frame, _tcHoveredTile.X, _tcHoveredTile.Y);
+				QueueRedraw();
+			}
+		}
+
+		// Middle-mouse drag camera pan.
+		if (_middleMouseDragActive && _camera != null)
+		{
+			Vector2 currentScreen = GetViewport().GetMousePosition();
+			Vector2 panDelta = currentScreen - _middleMouseDragStartScreen;
+			_camera.Position = _middleMouseDragStartCamera - panDelta;
+			QueueRedraw();
 		}
 
 		if (_paused)
@@ -86,9 +119,28 @@ public partial class RtsClientRoot : Node2D
 			return;
 		}
 
-		if (@event is InputEventMouseButton mouse && mouse.Pressed)
+		if (@event is InputEventMouseButton mouse)
 		{
-			HandleMouse(mouse);
+			// Track middle-mouse press/release for drag panning.
+			if (mouse.ButtonIndex == MouseButton.Middle)
+			{
+				if (mouse.Pressed)
+				{
+					_middleMouseDragActive = true;
+					_middleMouseDragStartScreen = GetViewport().GetMousePosition();
+					_middleMouseDragStartCamera = _camera?.Position ?? Vector2.Zero;
+				}
+				else
+				{
+					_middleMouseDragActive = false;
+				}
+				return;
+			}
+
+			if (mouse.Pressed)
+			{
+				HandleMouse(mouse);
+			}
 		}
 	}
 
@@ -102,6 +154,11 @@ public partial class RtsClientRoot : Node2D
 		for (int i = 0; i < _frame.Primitives.Length; i++)
 		{
 			DrawPrimitive(_frame.Primitives[i]);
+		}
+
+		if (_tcPlacementMode)
+		{
+			DrawTcPlacementGhost();
 		}
 
 		DrawHud();
@@ -157,11 +214,21 @@ public partial class RtsClientRoot : Node2D
 
 		if (key.Keycode == Key.C)
 		{
-			Vector2I tile = ScreenToTile(GetGlobalMousePosition());
-			SetCommandMarker("TC", ToScreen(TileToRaw(tile.X), TileToRaw(tile.Y)), Colors.LightBlue);
-			QueueCommandAndConfirm(
-				"place town center p=" + LocalPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ")",
-				facade => facade.QueuePlaceTownCenter(LocalPlayerIndex, tile.X, tile.Y));
+			_tcPlacementMode = true;
+			_tcHoveredTile = ScreenToTile(GetGlobalMousePosition());
+			_tcPreviewResult = _frame != null
+				? TcPlacementPreview.Evaluate(_frame, _tcHoveredTile.X, _tcHoveredTile.Y)
+				: TcPlacementPreviewResult.Unknown;
+			_debugEventLog.Add("TC placement mode entered");
+			QueueRedraw();
+			return;
+		}
+
+		if (key.Keycode == Key.Escape && _tcPlacementMode)
+		{
+			_tcPlacementMode = false;
+			_debugEventLog.Add("TC placement cancelled (Esc)");
+			QueueRedraw();
 			return;
 		}
 
@@ -241,6 +308,9 @@ public partial class RtsClientRoot : Node2D
 		_selectedBuildingId = 0;
 		_pendingTradeRouteAId = 0;
 		_hoveredResourceNodeId = 0;
+		_tcPlacementMode = false;
+		_tcPreviewResult = TcPlacementPreviewResult.Unknown;
+		_middleMouseDragActive = false;
 		_tickAccumulator = 0.0;
 		_paused = false;
 		facade.AdvanceOneTick();
@@ -259,6 +329,24 @@ public partial class RtsClientRoot : Node2D
 		Vector2I tile = ScreenToTile(mouseWorldPosition);
 		long mouseXRaw = ScreenToRaw(mouseWorldPosition.X);
 		long mouseYRaw = ScreenToRaw(mouseWorldPosition.Y);
+
+		// --- Placement mode intercept ---
+		if (_tcPlacementMode)
+		{
+			if (mouse.ButtonIndex == MouseButton.Left)
+			{
+				ConfirmTcPlacement(tile);
+			}
+			else if (mouse.ButtonIndex == MouseButton.Right)
+			{
+				_tcPlacementMode = false;
+				_debugEventLog.Add("TC placement cancelled (RMB)");
+				QueueRedraw();
+			}
+			return;
+		}
+		// ---------------------------------
+
 		if (mouse.ButtonIndex == MouseButton.Left)
 		{
 			SelectAt(mouseWorldPosition);
@@ -332,7 +420,15 @@ public partial class RtsClientRoot : Node2D
 			return;
 		}
 
+		// Skip edge pan while middle-mouse drag is active (drag handles camera directly).
+		if (_middleMouseDragActive)
+		{
+			return;
+		}
+
 		Vector2 direction = Vector2.Zero;
+
+		// Arrow-key pan (preserved).
 		if (Input.IsKeyPressed(Key.Left))
 		{
 			direction.X -= 1.0f;
@@ -353,12 +449,33 @@ public partial class RtsClientRoot : Node2D
 			direction.Y += 1.0f;
 		}
 
+		// Mouse edge pan.
+		Vector2 mousePos = GetViewport().GetMousePosition();
+		Rect2 viewport = GetViewportRect();
+		if (mousePos.X <= EdgePanMarginPx)
+		{
+			direction.X -= 1.0f;
+		}
+		else if (mousePos.X >= viewport.Size.X - EdgePanMarginPx)
+		{
+			direction.X += 1.0f;
+		}
+
+		if (mousePos.Y <= EdgePanMarginPx)
+		{
+			direction.Y -= 1.0f;
+		}
+		else if (mousePos.Y >= viewport.Size.Y - EdgePanMarginPx)
+		{
+			direction.Y += 1.0f;
+		}
+
 		if (direction == Vector2.Zero)
 		{
 			return;
 		}
 
-		_camera.Position += direction.Normalized() * CameraPanPixelsPerSecond * (float)delta;
+		_camera.Position += direction.Normalized() * EdgePanSpeedPixelsPerSecond * (float)delta;
 	}
 
 	private void TrainFromSelectedBuilding(int unitTypeId)
@@ -1039,5 +1156,62 @@ public partial class RtsClientRoot : Node2D
 		}
 
 		return null;
+	}
+
+	private void ConfirmTcPlacement(Vector2I tile)
+	{
+		if (_facade == null || _frame == null)
+		{
+			return;
+		}
+
+		_tcPlacementMode = false;
+
+		if (_tcPreviewResult != TcPlacementPreviewResult.Valid)
+		{
+			_debugEventLog.Add("TC placement rejected by preview: " + _tcPreviewResult);
+			QueueRedraw();
+			return;
+		}
+
+		SetCommandMarker("TC", ToScreen(TileToRaw(tile.X), TileToRaw(tile.Y)), Colors.LightBlue);
+		QueueCommandAndConfirm(
+			"place town center p=" + LocalPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ")",
+			facade => facade.QueuePlaceTownCenter(LocalPlayerIndex, tile.X, tile.Y));
+		
+		// If preview said valid but command was rejected, log it.
+		int executed = _frame?.Match.ExecutedCommandCount ?? _facade.ExecutedCommandCount;
+		int rejected = _frame?.Match.RejectedCommandCount ?? _facade.RejectedCommandCount;
+		if (rejected > 0) // Basic heuristic, the real GodotCommandResultClassifier could be used
+		{
+			_debugEventLog.Add("Preview valid but command rejected — command remains authoritative");
+		}
+	}
+
+	private void DrawTcPlacementGhost()
+	{
+		if (_frame == null)
+		{
+			return;
+		}
+
+		Vector2 center = ToScreen(TileToRaw(_tcHoveredTile.X), TileToRaw(_tcHoveredTile.Y));
+		float tileSize = TilePixels;
+		
+		// TC is 2 radius -> diameter 4 tiles approx. We use RawToPixels for consistency.
+		// TC SizeRaw is not directly known without primitive, but usually 4 * FixedOneRaw = 64 pixels.
+		float size = 4.0f * tileSize;
+		Rect2 rect = new Rect2(center.X - size * 0.5f, center.Y - size * 0.5f, size, size);
+
+		Color ghostColor = _tcPreviewResult == TcPlacementPreviewResult.Valid ? new Color(0.2f, 1.0f, 0.2f, 0.5f) : new Color(1.0f, 0.2f, 0.2f, 0.5f);
+		DrawRect(rect, new Color(ghostColor, 0.2f)); // fill
+		DrawRect(rect, ghostColor, false, 2.0f);     // border
+
+		// Draw radius
+		float radiusPixels = 2.0f * tileSize; // TC Placement Radius = 2
+		DrawArc(center, radiusPixels, 0.0f, Mathf.Tau, 32, ghostColor, 1.0f);
+
+		// Label
+		DrawString(ThemeDB.FallbackFont, rect.Position + new Vector2(0.0f, -4.0f), "[TC] " + _tcPreviewResult, HorizontalAlignment.Left, -1.0f, 12, ghostColor);
 	}
 }
