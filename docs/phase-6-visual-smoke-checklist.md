@@ -30,9 +30,12 @@ Build/Commit:
 ## Interaction and Camera
 
 - [ ] Selection still works.
+- [ ] Selected units/buildings are clearly visible (selection ring/outline is obvious).
 - [ ] Right-click movement still works.
+- [ ] Unit movement is visually trackable.
 - [ ] Gather/build/attack interactions still work.
 - [ ] Camera movement still works.
+- [ ] Debug overlay does not block central gameplay readability.
 
 ## Sign-off
 

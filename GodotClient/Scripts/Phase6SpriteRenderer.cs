@@ -181,7 +181,7 @@ public sealed class Phase6SpriteRenderer
 	{
 		Vector2 center = toScreen(primitive.XRaw, primitive.YRaw);
 		float worldSize = rawToPixels(primitive.SizeRaw);
-		float size = Mathf.Max(28.0f, worldSize * 2.65f);
+		float size = Mathf.Max(36.0f, worldSize * 3.35f);
 		return new Rect2(center.X - size * 0.5f, center.Y - size * 0.78f, size, size);
 	}
 

@@ -621,45 +621,43 @@ public partial class RtsClientRoot : Node2D
 
 		DrawCommandMarker();
 
+		Vector2 uiSize = GetUiSize();
 		if (_showDebugOverlay)
 		{
-			DrawDebugOverlay(uiOrigin);
+			DrawDebugOverlay(uiOrigin, uiSize);
 		}
 
 		if (_showHotkeyHelp)
 		{
-			DrawHotkeyHelpPanel(uiOrigin);
+			DrawHotkeyHelpPanel(uiOrigin, uiSize);
 		}
 	}
 
-	private void DrawDebugOverlay(Vector2 uiOrigin)
+	private void DrawDebugOverlay(Vector2 uiOrigin, Vector2 uiSize)
 	{
-		Vector2 panelPos = uiOrigin + new Vector2(0.0f, 88.0f);
-		float panelWidth = 1120.0f;
-		float panelHeight = 246.0f;
-		DrawRect(new Rect2(panelPos, new Vector2(panelWidth, panelHeight)), new Color(0.0f, 0.0f, 0.0f, 0.52f));
-
 		string[] statusLines = GodotSelectedStatusBuilder.BuildLines(_frame, _selectedUnitIds, _selectedBuildingId, _hoveredResourceNodeId);
+		DrawSelectedStatusPanel(uiOrigin, uiSize, statusLines);
+
+		float panelWidth = 420.0f;
+		float panelHeight = 168.0f;
+		Vector2 panelPos = uiOrigin + new Vector2(Mathf.Max(0.0f, uiSize.X - panelWidth - 12.0f), 88.0f);
+		DrawRect(new Rect2(panelPos, new Vector2(panelWidth, panelHeight)), new Color(0.0f, 0.0f, 0.0f, 0.52f));
 		DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(10.0f, 20.0f), "Debug Overlay (F10)", HorizontalAlignment.Left, -1.0f, 15, Colors.WhiteSmoke);
-		for (int i = 0; i < statusLines.Length; i++)
-		{
-			DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(10.0f, 40.0f + i * 16.0f), statusLines[i], HorizontalAlignment.Left, -1.0f, 14, Colors.LightGray);
-		}
 
 		string[] events = _debugEventLog.GetLines();
-		DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(10.0f, 84.0f), "Events", HorizontalAlignment.Left, -1.0f, 14, Colors.WhiteSmoke);
-		int maxEvents = Mathf.Min(events.Length, 10);
+		DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(10.0f, 40.0f), "Events", HorizontalAlignment.Left, -1.0f, 14, Colors.WhiteSmoke);
+		int maxEvents = Mathf.Min(events.Length, 8);
 		for (int i = 0; i < maxEvents; i++)
 		{
 			int eventIndex = events.Length - maxEvents + i;
-			DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(10.0f, 102.0f + i * 14.0f), events[eventIndex], HorizontalAlignment.Left, -1.0f, 13, Colors.LightGray);
+			DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(10.0f, 58.0f + i * 13.0f), events[eventIndex], HorizontalAlignment.Left, -1.0f, 12, Colors.LightGray);
 		}
 	}
 
-	private void DrawHotkeyHelpPanel(Vector2 uiOrigin)
+	private void DrawHotkeyHelpPanel(Vector2 uiOrigin, Vector2 uiSize)
 	{
 		GodotHotkeyHelpEntry[] entries = GodotHotkeyHelpBuilder.Build(researchIsWired: true);
-		Vector2 panelPos = uiOrigin + new Vector2(0.0f, 344.0f);
+		Vector2 panelPos = uiOrigin + new Vector2(Mathf.Max(0.0f, uiSize.X - 620.0f - 12.0f), 264.0f);
 		float panelWidth = 620.0f;
 		float panelHeight = 24.0f + entries.Length * 16.0f + 12.0f;
 		DrawRect(new Rect2(panelPos, new Vector2(panelWidth, panelHeight)), new Color(0.0f, 0.0f, 0.0f, 0.56f));
@@ -671,11 +669,24 @@ public partial class RtsClientRoot : Node2D
 		}
 	}
 
+	private void DrawSelectedStatusPanel(Vector2 uiOrigin, Vector2 uiSize, string[] statusLines)
+	{
+		float panelWidth = Mathf.Min(760.0f, uiSize.X - 24.0f);
+		Vector2 panelPos = uiOrigin + new Vector2(0.0f, Mathf.Max(96.0f, uiSize.Y - 66.0f));
+		DrawRect(new Rect2(panelPos, new Vector2(panelWidth, 52.0f)), new Color(0.0f, 0.0f, 0.0f, 0.48f));
+		for (int i = 0; i < statusLines.Length; i++)
+		{
+			DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(10.0f, 19.0f + i * 16.0f), statusLines[i], HorizontalAlignment.Left, -1.0f, 13, Colors.LightGray);
+		}
+	}
+
 	private void DrawSelectionRing(GodotPrimitiveDto primitive, Color color)
 	{
 		Vector2 center = ToScreen(primitive.XRaw, primitive.YRaw);
-		float radius = Mathf.Max(9.0f, RawToPixels(primitive.SizeRaw) * 0.66f);
-		DrawArc(center + new Vector2(0.0f, 4.0f), radius, 0.0f, Mathf.Tau, 32, color, 2.0f);
+		float radius = Mathf.Max(10.0f, RawToPixels(primitive.SizeRaw) * 0.74f);
+		Vector2 ringCenter = center + new Vector2(0.0f, 4.0f);
+		DrawArc(ringCenter, radius + 1.5f, 0.0f, Mathf.Tau, 36, Colors.Black, 3.0f);
+		DrawArc(ringCenter, radius, 0.0f, Mathf.Tau, 36, color, 2.4f);
 	}
 
 	private void DrawCommandMarker()
@@ -685,9 +696,9 @@ public partial class RtsClientRoot : Node2D
 			return;
 		}
 
-		float pulse = 1.0f + (_commandMarkerTicksRemaining % 6) * 0.12f;
-		DrawArc(_commandMarkerWorldPosition, 10.0f * pulse, 0.0f, Mathf.Tau, 40, _commandMarkerColor, 2.0f);
-		DrawString(ThemeDB.FallbackFont, _commandMarkerWorldPosition + new Vector2(14.0f, -10.0f), _commandMarkerLabel, HorizontalAlignment.Left, -1.0f, 13, _commandMarkerColor);
+		float pulse = 1.0f + (_commandMarkerTicksRemaining % 6) * 0.08f;
+		DrawArc(_commandMarkerWorldPosition, 8.0f * pulse, 0.0f, Mathf.Tau, 36, _commandMarkerColor, 2.0f);
+		DrawString(ThemeDB.FallbackFont, _commandMarkerWorldPosition + new Vector2(10.0f, -8.0f), _commandMarkerLabel, HorizontalAlignment.Left, -1.0f, 12, _commandMarkerColor);
 	}
 
 	private static Vector2 GetUiOriginFromCamera(Camera2D? camera, Rect2 viewportRect)
@@ -708,6 +719,20 @@ public partial class RtsClientRoot : Node2D
 	private Vector2 GetUiOrigin()
 	{
 		return GetUiOriginFromCamera(_camera, GetViewportRect());
+	}
+
+	private Vector2 GetUiSize()
+	{
+		Rect2 viewportRect = GetViewportRect();
+		if (_camera == null)
+		{
+			return viewportRect.Size;
+		}
+
+		Vector2 zoom = _camera.Zoom;
+		float zoomX = Mathf.IsZeroApprox(zoom.X) ? 1.0f : zoom.X;
+		float zoomY = Mathf.IsZeroApprox(zoom.Y) ? 1.0f : zoom.Y;
+		return new Vector2(viewportRect.Size.X * zoomX, viewportRect.Size.Y * zoomY);
 	}
 
 	private void QueueCommandAndConfirm(string intentDescription, Action<GodotClientFacade> queueAction)
