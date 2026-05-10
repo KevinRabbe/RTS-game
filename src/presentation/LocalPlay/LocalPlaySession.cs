@@ -17,6 +17,8 @@ namespace RtsGame.Presentation.LocalPlay
 
         public GameRules Rules { get; }
 
+        public string MapName { get; }
+
         public int CurrentTick
         {
             get { return _state.Tick; }
@@ -53,6 +55,11 @@ namespace RtsGame.Presentation.LocalPlay
         }
 
         public LocalPlaySession(GameRules rules, ulong matchSeed)
+            : this(rules, GameInitializer.CreateNomadStart(matchSeed, rules.MaxPlayers), "NomadStart")
+        {
+        }
+
+        private LocalPlaySession(GameRules rules, GameState state, string mapName)
         {
             if (rules.MaxPlayers <= 0)
             {
@@ -62,7 +69,8 @@ namespace RtsGame.Presentation.LocalPlay
             Rules = rules;
             _runner = new TickRunner();
             _commandBuffer = new CommandBuffer();
-            _state = GameInitializer.CreateNomadStart(matchSeed, rules.MaxPlayers);
+            _state = state;
+            MapName = mapName;
             _nextSequenceByPlayer = new uint[rules.MaxPlayers];
             _hasInputForCurrentTick = new bool[rules.MaxPlayers];
         }
@@ -70,6 +78,14 @@ namespace RtsGame.Presentation.LocalPlay
         public static LocalPlaySession Create1v1(ulong matchSeed)
         {
             return Create(matchSeed, 2);
+        }
+
+        public static LocalPlaySession CreateDryArabiaTest01(ulong matchSeed)
+        {
+            return new LocalPlaySession(
+                GameRules.CreatePhaseZeroDefaults(2),
+                GameInitializer.CreateDryArabiaTest01(matchSeed),
+                DryArabiaTest01MapDefinition.MapName);
         }
 
         public static LocalPlaySession Create6PlayerFfa(ulong matchSeed)

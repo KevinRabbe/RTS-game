@@ -17,6 +17,7 @@ namespace RtsGame.Presentation.GodotBridge
             string hoveredResource = hoveredResourceNodeId == 0 ? "-" : hoveredResourceNodeId.ToString();
 
             string lineA = "Tick " + frame.Tick
+                + "  Map " + frame.MapName
                 + "  Food " + player.Food
                 + "  Wood " + player.Wood
                 + "  Gold " + player.Gold

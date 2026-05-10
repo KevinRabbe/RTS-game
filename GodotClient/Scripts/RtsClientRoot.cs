@@ -40,8 +40,8 @@ public partial class RtsClientRoot : Node2D
 		AddChild(_camera);
 		_camera.MakeCurrent();
 		_spriteRenderer.LoadAssets();
-		StartLocalMatch(2);
-		_debugEventLog.Add("ready local match 1v1");
+		StartDryArabiaTest01();
+		_debugEventLog.Add("ready " + DryArabiaMapName);
 	}
 
 	public override void _Process(double delta)
@@ -111,8 +111,8 @@ public partial class RtsClientRoot : Node2D
 	{
 		if (key.Keycode == Key.F1)
 		{
-			StartLocalMatch(2);
-			_debugEventLog.Add("restart local 1v1 (F1)");
+			StartDryArabiaTest01();
+			_debugEventLog.Add("restart " + DryArabiaMapName + " 1v1 (F1)");
 			return;
 		}
 
@@ -218,13 +218,32 @@ public partial class RtsClientRoot : Node2D
 	private void StartLocalMatch(int playerCount)
 	{
 		_facade = GodotClientFacade.CreateLocal(DefaultMatchSeed, playerCount);
+		ResetLocalRuntimeState();
+	}
+
+	private const string DryArabiaMapName = "DryArabiaTest01";
+
+	private void StartDryArabiaTest01()
+	{
+		_facade = GodotClientFacade.CreateDryArabiaTest01(DefaultMatchSeed);
+		ResetLocalRuntimeState();
+	}
+
+	private void ResetLocalRuntimeState()
+	{
+		GodotClientFacade? facade = _facade;
+		if (facade == null)
+		{
+			return;
+		}
+
 		_selectedUnitIds.Clear();
 		_selectedBuildingId = 0;
 		_pendingTradeRouteAId = 0;
 		_hoveredResourceNodeId = 0;
 		_tickAccumulator = 0.0;
 		_paused = false;
-		_facade.AdvanceOneTick();
+		facade.AdvanceOneTick();
 		RefreshFrame();
 	}
 
@@ -561,6 +580,17 @@ public partial class RtsClientRoot : Node2D
 
 	private void DrawResource(GodotPrimitiveDto primitive)
 	{
+		if (_spriteRenderer.TryDrawResource(this, primitive, ToScreen, RawToPixels))
+		{
+			if (primitive.EntityId == _hoveredResourceNodeId)
+			{
+				Rect2 spriteRect = PrimitiveRect(primitive).Grow(6.0f);
+				DrawArc(spriteRect.GetCenter(), spriteRect.Size.X * 0.65f, 0.0f, Mathf.Tau, 32, Colors.White, 2.0f);
+			}
+
+			return;
+		}
+
 		Rect2 rect = PrimitiveRect(primitive);
 		Color color = GetStyleColor(GodotVisualStyleResolver.ResolveResource(primitive));
 		DrawCircle(rect.GetCenter(), rect.Size.X * 0.5f, color);

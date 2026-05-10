@@ -37,9 +37,19 @@ namespace RtsGame.Presentation.GodotBridge
             get { return _session.PlayerCount; }
         }
 
+        public string MapName
+        {
+            get { return _session.MapName; }
+        }
+
         public static GodotClientFacade CreateLocal1v1(ulong matchSeed)
         {
             return new GodotClientFacade(LocalPlaySession.Create1v1(matchSeed));
+        }
+
+        public static GodotClientFacade CreateDryArabiaTest01(ulong matchSeed)
+        {
+            return new GodotClientFacade(LocalPlaySession.CreateDryArabiaTest01(matchSeed));
         }
 
         public static GodotClientFacade CreateLocal6PlayerFfa(ulong matchSeed)
@@ -146,6 +156,7 @@ namespace RtsGame.Presentation.GodotBridge
 
             return new GodotFrameDto(
                 frame.Tick,
+                _session.MapName,
                 snapshot.LocalPlayerIndex,
                 ToLocalPlayerDto(snapshot.LocalPlayer),
                 ToMatchDto(snapshot.Match, _session.ExecutedCommandCount, _session.RejectedCommandCount),

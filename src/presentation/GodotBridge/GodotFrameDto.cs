@@ -3,6 +3,7 @@ namespace RtsGame.Presentation.GodotBridge
     public sealed class GodotFrameDto
     {
         public int Tick { get; }
+        public string MapName { get; }
         public int LocalPlayerIndex { get; }
         public GodotLocalPlayerDto LocalPlayer { get; }
         public GodotMatchDto Match { get; }
@@ -18,8 +19,22 @@ namespace RtsGame.Presentation.GodotBridge
             GodotPrimitiveDto[] primitives,
             GodotUnitStatusDto[] unitStatuses,
             GodotBuildingStatusDto[] buildingStatuses)
+            : this(tick, "Unknown", localPlayerIndex, localPlayer, match, primitives, unitStatuses, buildingStatuses)
+        {
+        }
+
+        public GodotFrameDto(
+            int tick,
+            string mapName,
+            int localPlayerIndex,
+            GodotLocalPlayerDto localPlayer,
+            GodotMatchDto match,
+            GodotPrimitiveDto[] primitives,
+            GodotUnitStatusDto[] unitStatuses,
+            GodotBuildingStatusDto[] buildingStatuses)
         {
             Tick = tick;
+            MapName = mapName;
             LocalPlayerIndex = localPlayerIndex;
             LocalPlayer = localPlayer;
             Match = match;

@@ -25,6 +25,43 @@ namespace RtsGame.Sim.Core
             return state;
         }
 
+        public static GameState CreateDryArabiaTest01(ulong matchSeed)
+        {
+            var state = new GameState(matchSeed, 2);
+
+            for (int player = 0; player < 2; player++)
+            {
+                FixedVector2 spawn = DryArabiaTest01MapDefinition.GetSpawnPosition(player);
+                for (int i = 0; i < 4; i++)
+                {
+                    EntityFactory.CreateUnit(state, player, UnitTypeId.Villager, new FixedVector2(spawn.X + Fixed.FromInt(i - 1), spawn.Y));
+                }
+
+                EntityFactory.CreateUnit(state, player, UnitTypeId.Scout, new FixedVector2(spawn.X, spawn.Y + Fixed.FromInt(2)));
+                CreateDryArabiaStartingResources(state, player);
+            }
+
+            CreateDryArabiaCenterResources(state);
+            EntityFactory.CreateTradePost(state, GameData.NeutralOwnerPlayerIndex, FixedVector2.FromInts(64, 32));
+            EntityFactory.CreateTradePost(state, GameData.NeutralOwnerPlayerIndex, FixedVector2.FromInts(64, 64));
+            return state;
+        }
+
+        private static void CreateDryArabiaStartingResources(GameState state, int playerIndex)
+        {
+            CreateResourceNodes(state, ResourceType.Food, DryArabiaTest01MapDefinition.GetNearbyResourcePositions(playerIndex, ResourceType.Food), GameData.StartingFoodAmount);
+            CreateResourceNodes(state, ResourceType.Wood, DryArabiaTest01MapDefinition.GetNearbyResourcePositions(playerIndex, ResourceType.Wood), GameData.StartingWoodAmount);
+            CreateResourceNodes(state, ResourceType.Gold, DryArabiaTest01MapDefinition.GetNearbyResourcePositions(playerIndex, ResourceType.Gold), GameData.StartingGoldAmount);
+        }
+
+        private static void CreateDryArabiaCenterResources(GameState state)
+        {
+            CreateResourceNode(state, ResourceType.Gold, FixedVector2.FromInts(64, 48), GameData.CenterGoldAmount);
+            CreateResourceNode(state, ResourceType.Gold, FixedVector2.FromInts(68, 50), GameData.CenterGoldAmount);
+            CreateResourceNode(state, ResourceType.Food, FixedVector2.FromInts(60, 44), GameData.CenterFoodAmount);
+            CreateResourceNode(state, ResourceType.Wood, FixedVector2.FromInts(60, 54), GameData.CenterWoodAmount);
+        }
+
         private static void CreateStartingResources(GameState state, FixedVector2 spawn)
         {
             CreateResourceNode(state, ResourceType.Food, new FixedVector2(spawn.X + Fixed.FromInt(6), spawn.Y), GameData.StartingFoodAmount);
@@ -50,6 +87,14 @@ namespace RtsGame.Sim.Core
                 Position = position,
                 RemainingAmount = amount
             });
+        }
+
+        private static void CreateResourceNodes(GameState state, ResourceType resourceType, FixedVector2[] positions, int amount)
+        {
+            for (int i = 0; i < positions.Length; i++)
+            {
+                CreateResourceNode(state, resourceType, positions[i], amount);
+            }
         }
 
         private static FixedVector2 GetSpawnPosition(int playerIndex)

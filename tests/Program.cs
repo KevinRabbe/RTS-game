@@ -37,6 +37,10 @@ namespace RtsGame.Tests
                 new TestCase("test runner detects help argument", TestRunnerDetectsHelpArgument),
                 new TestCase("nomad start creates initial units", NomadStartCreatesInitialUnits),
                 new TestCase("nomad map creates center resources", NomadMapCreatesCenterResources),
+                new TestCase("dry arabia test map initializes deterministically", DryArabiaTestMapInitializesDeterministically),
+                new TestCase("dry arabia test map has valid tc placement zones", DryArabiaTestMapHasValidTcPlacementZones),
+                new TestCase("dry arabia test map has nearby resources", DryArabiaTestMapHasNearbyResources),
+                new TestCase("dry arabia test map resources avoid tc zones", DryArabiaTestMapResourcesAvoidTcZones),
                 new TestCase("placement rejects overlapping building", PlacementRejectsOverlappingBuilding),
                 new TestCase("placement rejects resource overlap", PlacementRejectsResourceOverlap),
                 new TestCase("placement rejects outside map", PlacementRejectsOutsideMap),
@@ -118,6 +122,7 @@ namespace RtsGame.Tests
                 new TestCase("local play session exposes visual frame", LocalPlaySessionExposesVisualFrame),
                 new TestCase("local play session rejects invalid intent through sim", LocalPlaySessionRejectsInvalidIntentThroughSim),
                 new TestCase("local play session creates 6 player ffa", LocalPlaySessionCreates6PlayerFfa),
+                new TestCase("local play session creates dry arabia test map", LocalPlaySessionCreatesDryArabiaTestMap),
                 new TestCase("godot facade returns drawable frame dto", GodotFacadeReturnsDrawableFrameDto),
                 new TestCase("godot facade drives local capital flow", GodotFacadeDrivesLocalCapitalFlow),
                 new TestCase("godot facade creates local 6 player ffa", GodotFacadeCreatesLocal6PlayerFfa),
@@ -200,6 +205,7 @@ namespace RtsGame.Tests
                 new TestCase("godot sprite sheet layout resolves expected frame rect", GodotSpriteSheetLayoutResolvesExpectedFrameRect),
                 new TestCase("godot sprite sheet layout uses deterministic default frame", GodotSpriteSheetLayoutUsesDeterministicDefaultFrame),
                 new TestCase("godot sprite sheet layout returns false for unknown unit type", GodotSpriteSheetLayoutReturnsFalseForUnknownUnitType),
+                new TestCase("godot sprite sheet layout includes placeholder slots", GodotSpriteSheetLayoutIncludesPlaceholderSlots),
                 new TestCase("godot coordinate mapper converts raw to pixels", GodotCoordinateMapperConvertsRawToPixels),
                 new TestCase("godot coordinate mapper converts screen to raw", GodotCoordinateMapperConvertsScreenToRaw),
                 new TestCase("godot coordinate mapper floors screen tile", GodotCoordinateMapperFloorsScreenTile),
@@ -609,6 +615,59 @@ namespace RtsGame.Tests
             AssertEqual(ResourceType.Gold, centerGold.ResourceType, "first center resource should be gold");
             AssertEqual(FixedVector2.FromInts(GameData.MapWidthTiles / 2, GameData.MapHeightTiles / 2), centerGold.Position, "center gold should be placed at map center");
             AssertEqual(GameData.CenterGoldAmount, centerGold.RemainingAmount, "center gold should be high value");
+        }
+
+        private static void DryArabiaTestMapInitializesDeterministically()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState first = GameInitializer.CreateDryArabiaTest01(123);
+            GameState second = GameInitializer.CreateDryArabiaTest01(123);
+
+            AssertEqual(StateChecksum.Compute(first, rules), StateChecksum.Compute(second, rules), "dry arabia test map initialization should be deterministic");
+            AssertEqual(2, first.PlayerStates.Players.Count, "dry arabia test map should create exactly two players");
+            AssertEqual(10, first.EntityState.Units.Count, "dry arabia test map should create five units per player");
+            AssertEqual(4, CountUnits(first, 0, UnitTypeId.Villager), "player 0 should start with four villagers");
+            AssertEqual(1, CountUnits(first, 0, UnitTypeId.Scout), "player 0 should start with one scout");
+            AssertEqual(4, CountUnits(first, 1, UnitTypeId.Villager), "player 1 should start with four villagers");
+            AssertEqual(1, CountUnits(first, 1, UnitTypeId.Scout), "player 1 should start with one scout");
+            AssertEqual(true, CountNeutralTradePosts(first) >= 2, "dry arabia test map should include neutral trade posts");
+            AssertEqual(true, HasResourceAt(first, ResourceType.Gold, FixedVector2.FromInts(64, 48)), "dry arabia test map should include center contested gold");
+        }
+
+        private static void DryArabiaTestMapHasValidTcPlacementZones()
+        {
+            AssertDryArabiaTcPlacementAccepted(0);
+            AssertDryArabiaTcPlacementAccepted(1);
+        }
+
+        private static void DryArabiaTestMapHasNearbyResources()
+        {
+            GameState state = GameInitializer.CreateDryArabiaTest01(125);
+            for (int player = 0; player < 2; player++)
+            {
+                FixedVector2 tc = DryArabiaTest01MapDefinition.GetTownCenterZone(player);
+                AssertEqual(true, HasNearbyResource(state, tc, ResourceType.Food, 10), "player " + player + " should have nearby food");
+                AssertEqual(true, HasNearbyResource(state, tc, ResourceType.Wood, 10), "player " + player + " should have nearby wood");
+                AssertEqual(true, HasNearbyResource(state, tc, ResourceType.Gold, 10), "player " + player + " should have nearby gold");
+            }
+        }
+
+        private static void DryArabiaTestMapResourcesAvoidTcZones()
+        {
+            GameState state = GameInitializer.CreateDryArabiaTest01(126);
+            for (int player = 0; player < 2; player++)
+            {
+                FixedVector2 tc = DryArabiaTest01MapDefinition.GetTownCenterZone(player);
+                for (int i = 0; i < state.EconomyState.ResourceNodes.Count; i++)
+                {
+                    long combinedRaw = Fixed.FromInt(GameData.TownCenterPlacementRadiusTiles + GameData.ResourcePlacementRadiusTiles).Raw;
+                    long combinedSquaredRaw = checked(combinedRaw * combinedRaw);
+                    AssertEqual(
+                        true,
+                        (tc - state.EconomyState.ResourceNodes[i].Position).LengthSquaredRaw() >= combinedSquaredRaw,
+                        "resource " + state.EconomyState.ResourceNodes[i].Id + " should not block player " + player + " TC zone");
+                }
+            }
         }
 
         private static void PlacementRejectsOverlappingBuilding()
@@ -1928,6 +1987,29 @@ namespace RtsGame.Tests
             AssertEqual(5, session.GetSnapshot(5).LocalPlayerIndex, "local FFA snapshot should support player 5 view");
         }
 
+        private static void LocalPlaySessionCreatesDryArabiaTestMap()
+        {
+            LocalPlaySession session = LocalPlaySession.CreateDryArabiaTest01(97);
+
+            session.AdvanceOneTick();
+            GameSnapshot snapshot = session.GetSnapshot(0);
+
+            AssertEqual(2, session.PlayerCount, "dry arabia local session should be a 1v1 map");
+            AssertEqual(DryArabiaTest01MapDefinition.MapName, session.MapName, "dry arabia local session should expose map name");
+            AssertEqual(true, HasResource(snapshot, ResourceType.Food), "dry arabia local session should expose visible local food");
+            AssertEqual(true, HasResource(snapshot, ResourceType.Wood), "dry arabia local session should expose visible local wood");
+            AssertEqual(true, HasResource(snapshot, ResourceType.Gold), "dry arabia local session should expose visible local gold");
+
+            GodotClientFacade facade = GodotClientFacade.CreateDryArabiaTest01(97);
+            facade.AdvanceOneTick();
+            GodotFrameDto frame = facade.GetFrame(0);
+            string hud = GodotHudTextBuilder.Build(frame, new int[0], 0, 0, false);
+
+            AssertEqual(DryArabiaTest01MapDefinition.MapName, facade.MapName, "godot facade should expose dry arabia map name");
+            AssertEqual(DryArabiaTest01MapDefinition.MapName, frame.MapName, "godot frame should expose dry arabia map name");
+            AssertEqual(true, hud.Contains("Map " + DryArabiaTest01MapDefinition.MapName), "hud should include dry arabia map name");
+        }
+
         private static void GodotFacadeReturnsDrawableFrameDto()
         {
             GodotClientFacade facade = GodotClientFacade.CreateLocal1v1(76);
@@ -3024,7 +3106,7 @@ namespace RtsGame.Tests
         private static void GodotHotkeyHelpContainsKnownBindings()
         {
             GodotHotkeyHelpEntry[] entries = GodotHotkeyHelpBuilder.Build(researchIsWired: true);
-            AssertEqual(true, ContainsHotkey(entries, "F1", "Start local 1v1"), "hotkey help should include F1 binding");
+            AssertEqual(true, ContainsHotkey(entries, "F1", "Start DryArabiaTest01 local 1v1"), "hotkey help should include F1 binding");
             AssertEqual(true, ContainsHotkey(entries, "F6", "Start local 6-player FFA"), "hotkey help should include F6 binding");
             AssertEqual(true, ContainsHotkey(entries, "F9", "Toggle primitive/sprite render mode"), "hotkey help should include F9 binding");
             AssertEqual(true, ContainsHotkey(entries, "F10", "Toggle debug overlay"), "hotkey help should include F10 debug overlay binding");
@@ -3117,6 +3199,27 @@ namespace RtsGame.Tests
         {
             bool found = GodotSpriteSheetLayout.TryResolveUnitAsset(999, out _);
             AssertEqual(false, found, "unknown unit type should not resolve to a sprite asset so primitive fallback can render");
+        }
+
+        private static void GodotSpriteSheetLayoutIncludesPlaceholderSlots()
+        {
+            AssertEqual(18, GodotSpriteSheetLayout.ExpectedAssetCount, "phase 6 placeholder registry should include all expected visual slots");
+            AssertEqual(true, GodotSpriteSheetLayout.TryResolveBuildingAsset((int)BuildingTypeId.TownCenter, out GodotSpriteAssetId townCenter), "normal town center should have an asset slot");
+            AssertEqual(GodotSpriteAssetId.TownCenter, townCenter, "normal town center should resolve to its own placeholder slot");
+            AssertEqual(true, GodotSpriteSheetLayout.TryResolveBuildingAsset((int)BuildingTypeId.TradePost, out GodotSpriteAssetId tradePost), "trade post should have an asset slot");
+            AssertEqual(GodotSpriteAssetId.TradePost, tradePost, "trade post should resolve to trade post placeholder slot");
+            AssertEqual(true, GodotSpriteSheetLayout.TryResolveResourceAsset((int)ResourceType.Food, out GodotSpriteAssetId food), "food should have an asset slot");
+            AssertEqual(GodotSpriteAssetId.Food, food, "food should resolve to food placeholder slot");
+            AssertEqual(true, GodotSpriteSheetLayout.TryResolveResourceAsset((int)ResourceType.Wood, out GodotSpriteAssetId wood), "wood should have an asset slot");
+            AssertEqual(GodotSpriteAssetId.Wood, wood, "wood should resolve to wood placeholder slot");
+            AssertEqual(true, GodotSpriteSheetLayout.TryResolveResourceAsset((int)ResourceType.Gold, out GodotSpriteAssetId gold), "gold should have an asset slot");
+            AssertEqual(GodotSpriteAssetId.Gold, gold, "gold should resolve to gold placeholder slot");
+            AssertEqual(true, GodotSpriteSheetLayout.TryResolveUnitAsset((int)UnitTypeId.Cavalry, out GodotSpriteAssetId cavalry), "cavalry should have an asset slot");
+            AssertEqual(GodotSpriteAssetId.Cavalry, cavalry, "cavalry should resolve to cavalry placeholder slot");
+            AssertEqual(true, GodotSpriteSheetLayout.TryResolveUnitAsset((int)UnitTypeId.SiegeCannon, out GodotSpriteAssetId siege), "siege cannon should have an asset slot");
+            AssertEqual(GodotSpriteAssetId.SiegeCannon, siege, "siege cannon should resolve to siege placeholder slot");
+            AssertEqual(true, GodotSpriteSheetLayout.TryResolveUnitAsset((int)UnitTypeId.Mangonel, out GodotSpriteAssetId mangonel), "mangonel should have an asset slot");
+            AssertEqual(GodotSpriteAssetId.Mangonel, mangonel, "mangonel should resolve to mangonel placeholder slot");
         }
 
         private static bool ContainsHotkey(GodotHotkeyHelpEntry[] entries, string input, string action)
@@ -4747,6 +4850,96 @@ namespace RtsGame.Tests
             for (int i = 0; i < frame.Primitives.Count; i++)
             {
                 if (frame.Primitives[i].Kind == kind)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static void AssertDryArabiaTcPlacementAccepted(int playerIndex)
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = GameInitializer.CreateDryArabiaTest01(124);
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(
+                new CommandHeader(0, playerIndex, 0, CommandType.PlaceTownCenter),
+                new PlaceTownCenterCommand(DryArabiaTest01MapDefinition.GetTownCenterZone(playerIndex))));
+            for (int player = 0; player < 2; player++)
+            {
+                if (player == playerIndex)
+                {
+                    continue;
+                }
+
+                buffer.Add(new CommandEnvelope(new CommandHeader(0, player, 0, CommandType.NoOp), new NoOpCommand()));
+            }
+
+            int beforeBuildings = state.EntityState.Buildings.Count;
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(beforeBuildings + 1, state.EntityState.Buildings.Count, "player " + playerIndex + " should be able to place TC in intended dry arabia zone");
+            AssertEqual(0, state.DebugCounters.RejectedCommandCount, "player " + playerIndex + " TC placement zone should not reject");
+        }
+
+        private static int CountUnits(GameState state, int playerIndex, UnitTypeId unitTypeId)
+        {
+            int count = 0;
+            for (int i = 0; i < state.EntityState.Units.Count; i++)
+            {
+                Unit unit = state.EntityState.Units[i];
+                if (unit.OwnerPlayerIndex == playerIndex && unit.UnitTypeId == unitTypeId && !unit.IsDead)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static int CountNeutralTradePosts(GameState state)
+        {
+            int count = 0;
+            for (int i = 0; i < state.EntityState.Buildings.Count; i++)
+            {
+                Building building = state.EntityState.Buildings[i];
+                if (building.OwnerPlayerIndex == GameData.NeutralOwnerPlayerIndex && building.BuildingTypeId == BuildingTypeId.TradePost && !building.IsDead)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static bool HasResourceAt(GameState state, ResourceType resourceType, FixedVector2 position)
+        {
+            for (int i = 0; i < state.EconomyState.ResourceNodes.Count; i++)
+            {
+                ResourceNode node = state.EconomyState.ResourceNodes[i];
+                if (node.ResourceType == resourceType && node.Position.X.Raw == position.X.Raw && node.Position.Y.Raw == position.Y.Raw && !node.IsDepleted)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasNearbyResource(GameState state, FixedVector2 origin, ResourceType resourceType, int maxDistanceTiles)
+        {
+            long maxRaw = Fixed.FromInt(maxDistanceTiles).Raw;
+            long maxSquaredRaw = checked(maxRaw * maxRaw);
+            for (int i = 0; i < state.EconomyState.ResourceNodes.Count; i++)
+            {
+                ResourceNode node = state.EconomyState.ResourceNodes[i];
+                if (node.ResourceType != resourceType || node.IsDepleted)
+                {
+                    continue;
+                }
+
+                if ((origin - node.Position).LengthSquaredRaw() <= maxSquaredRaw)
                 {
                     return true;
                 }

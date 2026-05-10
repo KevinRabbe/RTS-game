@@ -10,7 +10,19 @@ namespace RtsGame.Presentation.GodotBridge
         Scout = 3,
         TradeCart = 4,
         Capital = 5,
-        Wall = 6
+        Wall = 6,
+        TownCenter = 7,
+        TradePost = 8,
+        BuildingScaffold = 9,
+        Food = 10,
+        Wood = 11,
+        Gold = 12,
+        Cavalry = 13,
+        SiegeCannon = 14,
+        Mangonel = 15,
+        GrassTile = 16,
+        DirtTile = 17,
+        RockBlocker = 18
     }
 
     public readonly struct GodotSpriteSheetMetadata
@@ -70,7 +82,19 @@ namespace RtsGame.Presentation.GodotBridge
             new GodotSpriteSheetMetadata(GodotSpriteAssetId.Scout, "Scout", "scout_sheet.png", 3, 3, 1, true, 0),
             new GodotSpriteSheetMetadata(GodotSpriteAssetId.TradeCart, "TradeCart", "trade_cart_sheet.png", 3, 3, 1, true, 0),
             new GodotSpriteSheetMetadata(GodotSpriteAssetId.Capital, "Capital", "capital.png", 1, 1, 0, false, 0),
-            new GodotSpriteSheetMetadata(GodotSpriteAssetId.Wall, "Wall", "wall_sheet.png", 3, 2, 0, false, 3)
+            new GodotSpriteSheetMetadata(GodotSpriteAssetId.Wall, "Wall", "wall_sheet.png", 3, 2, 0, false, 3),
+            new GodotSpriteSheetMetadata(GodotSpriteAssetId.TownCenter, "TownCenter", "town_center.png", 1, 1, 0, false, 0),
+            new GodotSpriteSheetMetadata(GodotSpriteAssetId.TradePost, "TradePost", "trade_post.png", 1, 1, 0, false, 0),
+            new GodotSpriteSheetMetadata(GodotSpriteAssetId.BuildingScaffold, "BuildingScaffold", "building_scaffold.png", 1, 1, 0, false, 0),
+            new GodotSpriteSheetMetadata(GodotSpriteAssetId.Food, "Food", "food.png", 1, 1, 0, false, 0),
+            new GodotSpriteSheetMetadata(GodotSpriteAssetId.Wood, "Wood", "wood.png", 1, 1, 0, false, 0),
+            new GodotSpriteSheetMetadata(GodotSpriteAssetId.Gold, "Gold", "gold.png", 1, 1, 0, false, 0),
+            new GodotSpriteSheetMetadata(GodotSpriteAssetId.Cavalry, "Cavalry", "cavalry_sheet.png", 3, 3, 1, true, 0),
+            new GodotSpriteSheetMetadata(GodotSpriteAssetId.SiegeCannon, "SiegeCannon", "siege_cannon_sheet.png", 3, 3, 1, true, 0),
+            new GodotSpriteSheetMetadata(GodotSpriteAssetId.Mangonel, "Mangonel", "mangonel_sheet.png", 3, 3, 1, true, 0),
+            new GodotSpriteSheetMetadata(GodotSpriteAssetId.GrassTile, "GrassTile", "grass_tile.png", 1, 1, 0, false, 0),
+            new GodotSpriteSheetMetadata(GodotSpriteAssetId.DirtTile, "DirtTile", "dirt_tile.png", 1, 1, 0, false, 0),
+            new GodotSpriteSheetMetadata(GodotSpriteAssetId.RockBlocker, "RockBlocker", "rock_blocker.png", 1, 1, 0, false, 0)
         };
 
         public static int ExpectedAssetCount => Metadata.Length;
@@ -106,11 +130,19 @@ namespace RtsGame.Presentation.GodotBridge
                     assetId = GodotSpriteAssetId.Infantry;
                     return true;
                 case UnitTypeId.Scout:
-                case UnitTypeId.Cavalry:
                     assetId = GodotSpriteAssetId.Scout;
+                    return true;
+                case UnitTypeId.Cavalry:
+                    assetId = GodotSpriteAssetId.Cavalry;
                     return true;
                 case UnitTypeId.TradeCart:
                     assetId = GodotSpriteAssetId.TradeCart;
+                    return true;
+                case UnitTypeId.SiegeCannon:
+                    assetId = GodotSpriteAssetId.SiegeCannon;
+                    return true;
+                case UnitTypeId.Mangonel:
+                    assetId = GodotSpriteAssetId.Mangonel;
                     return true;
                 default:
                     assetId = default;
@@ -123,10 +155,32 @@ namespace RtsGame.Presentation.GodotBridge
             switch ((BuildingTypeId)buildingTypeId)
             {
                 case BuildingTypeId.TownCenter:
-                    assetId = GodotSpriteAssetId.Capital;
+                    assetId = GodotSpriteAssetId.TownCenter;
                     return true;
                 case BuildingTypeId.Wall:
                     assetId = GodotSpriteAssetId.Wall;
+                    return true;
+                case BuildingTypeId.TradePost:
+                    assetId = GodotSpriteAssetId.TradePost;
+                    return true;
+                default:
+                    assetId = default;
+                    return false;
+            }
+        }
+
+        public static bool TryResolveResourceAsset(int resourceTypeId, out GodotSpriteAssetId assetId)
+        {
+            switch ((ResourceType)resourceTypeId)
+            {
+                case ResourceType.Food:
+                    assetId = GodotSpriteAssetId.Food;
+                    return true;
+                case ResourceType.Wood:
+                    assetId = GodotSpriteAssetId.Wood;
+                    return true;
+                case ResourceType.Gold:
+                    assetId = GodotSpriteAssetId.Gold;
                     return true;
                 default:
                     assetId = default;

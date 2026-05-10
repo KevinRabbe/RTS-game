@@ -154,11 +154,34 @@ public sealed class Phase6SpriteRenderer
 			return true;
 		}
 
-		Texture2D? capitalSprite = GetAsset(GodotSpriteAssetId.Capital);
-		if (primitive.TypeId == (int)BuildingTypeId.TownCenter && capitalSprite != null)
+		GodotBuildingStatusDto? buildingStatus = FindBuildingStatus(frame, primitive.EntityId);
+		if (buildingStatus != null && buildingStatus.IsUnderConstruction)
+		{
+			Texture2D? scaffold = GetAsset(GodotSpriteAssetId.BuildingScaffold);
+			if (scaffold != null)
+			{
+				Rect2 scaffoldTarget = GetBuildingSpriteRect(primitive, 2.4f, toScreen, rawToPixels);
+				canvas.DrawTextureRect(scaffold, scaffoldTarget, false);
+				if (selectedBuildingId == primitive.EntityId)
+				{
+					canvas.DrawRect(scaffoldTarget.Grow(2.0f), Colors.White, false, 2.0f);
+				}
+
+				return true;
+			}
+		}
+
+		GodotSpriteAssetId buildingAssetId = primitive.IsCapital ? GodotSpriteAssetId.Capital : default;
+		if (!primitive.IsCapital && !GodotSpriteSheetLayout.TryResolveBuildingAsset(primitive.TypeId, out buildingAssetId))
+		{
+			return false;
+		}
+
+		Texture2D? buildingSprite = GetAsset(buildingAssetId);
+		if (buildingSprite != null)
 		{
 			Rect2 target = GetBuildingSpriteRect(primitive, primitive.IsCapital ? 3.0f : 2.6f, toScreen, rawToPixels);
-			canvas.DrawTextureRect(capitalSprite, target, false);
+			canvas.DrawTextureRect(buildingSprite, target, false);
 			if (selectedBuildingId == primitive.EntityId)
 			{
 				canvas.DrawRect(target.Grow(2.0f), Colors.White, false, 2.0f);
@@ -168,6 +191,36 @@ public sealed class Phase6SpriteRenderer
 		}
 
 		return false;
+	}
+
+	public bool TryDrawResource(
+		Node2D canvas,
+		GodotPrimitiveDto primitive,
+		System.Func<long, long, Vector2> toScreen,
+		System.Func<long, float> rawToPixels)
+	{
+		if (!_useSprites)
+		{
+			return false;
+		}
+
+		if (!GodotSpriteSheetLayout.TryResolveResourceAsset(primitive.TypeId, out GodotSpriteAssetId assetId))
+		{
+			return false;
+		}
+
+		Texture2D? sprite = GetAsset(assetId);
+		if (sprite == null)
+		{
+			return false;
+		}
+
+		Vector2 center = toScreen(primitive.XRaw, primitive.YRaw);
+		float worldSize = rawToPixels(primitive.SizeRaw);
+		float size = Mathf.Max(24.0f, worldSize * 1.8f);
+		var target = new Rect2(center.X - size * 0.5f, center.Y - size * 0.70f, size, size);
+		canvas.DrawTextureRect(sprite, target, false);
+		return true;
 	}
 
 	private static void DrawSheetFrame(Node2D canvas, Texture2D texture, GodotSpriteSheetMetadata metadata, int frameIndex, Rect2 target)
