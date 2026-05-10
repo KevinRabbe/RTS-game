@@ -95,6 +95,10 @@ namespace RtsGame.Sim.Data
         public const int WallWoodCost = 5;
         public const int TradePostWoodCost = 150;
         public const int TradePostGoldCost = 50;
+        public const int InfantryAttack1ResearchTicks = 6;
+        public const int InfantryAttack1FoodCost = 100;
+        public const int InfantryAttack1GoldCost = 50;
+        public const int InfantryAttack1DamageBonus = 2;
 
         public static int GetBuildingPlacementRadiusTiles(BuildingTypeId buildingTypeId)
         {
@@ -232,6 +236,37 @@ namespace RtsGame.Sim.Data
             }
 
             return cost;
+        }
+
+        public static int GetResearchTicks(TechId techId)
+        {
+            switch (techId)
+            {
+                case TechId.InfantryAttack1:
+                    return InfantryAttack1ResearchTicks;
+                default:
+                    return 0;
+            }
+        }
+
+        public static ResourceStockpile GetResearchCost(TechId techId)
+        {
+            var cost = new ResourceStockpile();
+            switch (techId)
+            {
+                case TechId.InfantryAttack1:
+                    cost.Food = InfantryAttack1FoodCost;
+                    cost.Gold = InfantryAttack1GoldCost;
+                    break;
+            }
+
+            return cost;
+        }
+
+        public static bool CanResearch(BuildingTypeId buildingTypeId, TechId techId)
+        {
+            return buildingTypeId == BuildingTypeId.TownCenter
+                && techId == TechId.InfantryAttack1;
         }
 
         public static bool CanTrain(BuildingTypeId buildingTypeId, UnitTypeId unitTypeId)

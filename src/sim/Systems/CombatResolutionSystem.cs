@@ -11,7 +11,11 @@ namespace RtsGame.Sim.Systems
             for (int i = 0; i < state.EntityState.Units.Count; i++)
             {
                 Unit attacker = state.EntityState.Units[i];
-                if (attacker.IsDead || GameData.IsSiege(attacker.UnitTypeId) || GameData.IsAreaDamage(attacker.UnitTypeId))
+                if (attacker.IsDead
+                    || attacker.OwnerPlayerIndex < 0
+                    || attacker.OwnerPlayerIndex >= state.PlayerStates.Players.Count
+                    || GameData.IsSiege(attacker.UnitTypeId)
+                    || GameData.IsAreaDamage(attacker.UnitTypeId))
                 {
                     continue;
                 }
@@ -39,7 +43,9 @@ namespace RtsGame.Sim.Systems
                     continue;
                 }
 
-                int damage = GameData.GetUnitAttackDamage(attacker.UnitTypeId);
+                int damage = TechRules.GetModifiedUnitAttackDamage(
+                    attacker.UnitTypeId,
+                    state.PlayerStates.Players[attacker.OwnerPlayerIndex]);
                 if (damage <= 0)
                 {
                     attacker.AttackTargetId = 0;

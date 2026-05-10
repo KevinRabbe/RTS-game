@@ -105,6 +105,26 @@ namespace RtsGame.Sim.Checksums
                 writer.WriteInt32(player.CapitalStatus.CapitalBuildingId);
                 writer.WriteBool(player.CapitalStatus.IsCapitalAlive);
                 writer.WriteBool(player.CapitalStatus.CapitalBonusActive);
+                writer.WriteListCount(player.TechState.CompletedTechs.Count);
+                foreach (TechId techId in player.TechState.CompletedTechs)
+                {
+                    writer.WriteUInt16((ushort)techId);
+                }
+
+                writer.WriteListCount(player.TechState.ResearchQueue.Count);
+                foreach (ResearchQueueItem item in player.TechState.ResearchQueue)
+                {
+                    writer.WriteUInt16((ushort)item.TechId);
+                    writer.WriteInt32(item.ProgressTicks);
+                    writer.WriteInt32(item.RequiredTicks);
+                }
+
+                writer.WriteListCount(player.TechState.Modifiers.Count);
+                foreach (PlayerModifier modifier in player.TechState.Modifiers)
+                {
+                    writer.WriteUInt16((ushort)modifier.ModifierId);
+                    writer.WriteInt32(modifier.Value);
+                }
             }
 
             writer.WriteInt32(state.RankingState.NextPlacement);

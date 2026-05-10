@@ -13,6 +13,7 @@ namespace RtsGame.Sim.Commands
         Resign = 8,
         PlaceWall = 9,
         CreateTradeRoute = 10,
-        PlaceTradePost = 11
+        PlaceTradePost = 11,
+        ResearchTech = 12
     }
 }

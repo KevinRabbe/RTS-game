@@ -29,6 +29,7 @@ namespace RtsGame.Sim.Data
         public int PopulationCap { get; set; }
         public ResourceStockpile Resources { get; }
         public CapitalStatus CapitalStatus { get; }
+        public PlayerTechState TechState { get; }
 
         public PlayerState(int playerIndex)
         {
@@ -41,6 +42,7 @@ namespace RtsGame.Sim.Data
             PopulationCap = 0;
             Resources = new ResourceStockpile();
             CapitalStatus = new CapitalStatus();
+            TechState = new PlayerTechState();
         }
     }
 }

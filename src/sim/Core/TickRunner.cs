@@ -21,6 +21,7 @@ namespace RtsGame.Sim.Core
                 new ResourceGatherSystem(),
                 new ResourceDepositSystem(),
                 new TrainingSystem(),
+                new ResearchSystem(),
                 new TradeRouteSystem(),
                 new SiegeSetupSystem(),
                 new SiegeAttackSystem(),
