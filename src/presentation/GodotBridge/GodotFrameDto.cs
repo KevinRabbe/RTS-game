@@ -159,6 +159,9 @@ namespace RtsGame.Presentation.GodotBridge
         public bool HasCapitalBeenPlaced { get; }
         public bool IsCapitalAlive { get; }
         public bool CapitalBonusActive { get; }
+        public int[] CompletedTechIds { get; }
+        public GodotResearchStatusDto[] ResearchQueue { get; }
+        public GodotModifierStatusDto[] Modifiers { get; }
 
         public GodotLocalPlayerDto(
             int food,
@@ -169,6 +172,22 @@ namespace RtsGame.Presentation.GodotBridge
             bool hasCapitalBeenPlaced,
             bool isCapitalAlive,
             bool capitalBonusActive)
+            : this(food, wood, gold, populationUsed, populationCap, hasCapitalBeenPlaced, isCapitalAlive, capitalBonusActive, new int[0], new GodotResearchStatusDto[0], new GodotModifierStatusDto[0])
+        {
+        }
+
+        public GodotLocalPlayerDto(
+            int food,
+            int wood,
+            int gold,
+            int populationUsed,
+            int populationCap,
+            bool hasCapitalBeenPlaced,
+            bool isCapitalAlive,
+            bool capitalBonusActive,
+            int[] completedTechIds,
+            GodotResearchStatusDto[] researchQueue,
+            GodotModifierStatusDto[] modifiers)
         {
             Food = food;
             Wood = wood;
@@ -178,6 +197,35 @@ namespace RtsGame.Presentation.GodotBridge
             HasCapitalBeenPlaced = hasCapitalBeenPlaced;
             IsCapitalAlive = isCapitalAlive;
             CapitalBonusActive = capitalBonusActive;
+            CompletedTechIds = completedTechIds;
+            ResearchQueue = researchQueue;
+            Modifiers = modifiers;
+        }
+    }
+
+    public sealed class GodotResearchStatusDto
+    {
+        public int TechId { get; }
+        public int ProgressTicks { get; }
+        public int RequiredTicks { get; }
+
+        public GodotResearchStatusDto(int techId, int progressTicks, int requiredTicks)
+        {
+            TechId = techId;
+            ProgressTicks = progressTicks;
+            RequiredTicks = requiredTicks;
+        }
+    }
+
+    public sealed class GodotModifierStatusDto
+    {
+        public int ModifierId { get; }
+        public int Value { get; }
+
+        public GodotModifierStatusDto(int modifierId, int value)
+        {
+            ModifierId = modifierId;
+            Value = value;
         }
     }
 
@@ -186,12 +234,14 @@ namespace RtsGame.Presentation.GodotBridge
         public bool IsFinished { get; }
         public int WinnerPlayerIndex { get; }
         public int FinishedTick { get; }
+        public int RejectedCommandCount { get; }
 
-        public GodotMatchDto(bool isFinished, int winnerPlayerIndex, int finishedTick)
+        public GodotMatchDto(bool isFinished, int winnerPlayerIndex, int finishedTick, int rejectedCommandCount)
         {
             IsFinished = isFinished;
             WinnerPlayerIndex = winnerPlayerIndex;
             FinishedTick = finishedTick;
+            RejectedCommandCount = rejectedCommandCount;
         }
     }
 }

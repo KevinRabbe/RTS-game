@@ -19,6 +19,8 @@ namespace RtsGame.Presentation.ClientInput
                     return Envelope(tick, playerIndex, sequence, CommandType.GatherResource, new GatherResourceCommand(intent.ResourceNodeId, intent.UnitIds));
                 case ClientIntentType.TrainUnit:
                     return Envelope(tick, playerIndex, sequence, CommandType.TrainUnit, new TrainUnitCommand(intent.BuildingId, intent.UnitTypeId));
+                case ClientIntentType.ResearchTech:
+                    return Envelope(tick, playerIndex, sequence, CommandType.ResearchTech, new ResearchTechCommand(intent.BuildingId, intent.TechId));
                 case ClientIntentType.MoveUnits:
                     return Envelope(tick, playerIndex, sequence, CommandType.MoveUnits, new MoveUnitsCommand(intent.UnitIds, intent.Position));
                 case ClientIntentType.Attack:

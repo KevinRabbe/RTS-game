@@ -159,8 +159,27 @@ namespace RtsGame.Presentation.Snapshots
         public bool HasCapitalBeenPlaced { get; }
         public bool IsCapitalAlive { get; }
         public bool CapitalBonusActive { get; }
+        public IReadOnlyList<TechId> CompletedTechs { get; }
+        public IReadOnlyList<ResearchSnapshot> ResearchQueue { get; }
+        public IReadOnlyList<ModifierSnapshot> Modifiers { get; }
 
         public LocalPlayerSnapshot(int food, int wood, int gold, int populationUsed, int populationCap, bool hasCapitalBeenPlaced, bool isCapitalAlive, bool capitalBonusActive)
+            : this(food, wood, gold, populationUsed, populationCap, hasCapitalBeenPlaced, isCapitalAlive, capitalBonusActive, new TechId[0], new ResearchSnapshot[0], new ModifierSnapshot[0])
+        {
+        }
+
+        public LocalPlayerSnapshot(
+            int food,
+            int wood,
+            int gold,
+            int populationUsed,
+            int populationCap,
+            bool hasCapitalBeenPlaced,
+            bool isCapitalAlive,
+            bool capitalBonusActive,
+            IReadOnlyList<TechId> completedTechs,
+            IReadOnlyList<ResearchSnapshot> researchQueue,
+            IReadOnlyList<ModifierSnapshot> modifiers)
         {
             Food = food;
             Wood = wood;
@@ -170,6 +189,35 @@ namespace RtsGame.Presentation.Snapshots
             HasCapitalBeenPlaced = hasCapitalBeenPlaced;
             IsCapitalAlive = isCapitalAlive;
             CapitalBonusActive = capitalBonusActive;
+            CompletedTechs = completedTechs;
+            ResearchQueue = researchQueue;
+            Modifiers = modifiers;
+        }
+    }
+
+    public readonly struct ResearchSnapshot
+    {
+        public TechId TechId { get; }
+        public int ProgressTicks { get; }
+        public int RequiredTicks { get; }
+
+        public ResearchSnapshot(TechId techId, int progressTicks, int requiredTicks)
+        {
+            TechId = techId;
+            ProgressTicks = progressTicks;
+            RequiredTicks = requiredTicks;
+        }
+    }
+
+    public readonly struct ModifierSnapshot
+    {
+        public ModifierId ModifierId { get; }
+        public int Value { get; }
+
+        public ModifierSnapshot(ModifierId modifierId, int value)
+        {
+            ModifierId = modifierId;
+            Value = value;
         }
     }
 

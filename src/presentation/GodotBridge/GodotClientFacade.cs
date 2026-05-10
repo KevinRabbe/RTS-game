@@ -87,6 +87,11 @@ namespace RtsGame.Presentation.GodotBridge
             _session.QueueIntent(playerIndex, ClientCommandIntent.TrainUnit(buildingId, ToUnitTypeId(unitTypeId)));
         }
 
+        public void QueueResearchTech(int playerIndex, int buildingId, int techId)
+        {
+            _session.QueueIntent(playerIndex, ClientCommandIntent.ResearchTech(buildingId, ToTechId(techId)));
+        }
+
         public void QueueMoveUnits(int playerIndex, int[] unitIds, int tileX, int tileY)
         {
             _session.QueueIntent(playerIndex, ClientCommandIntent.MoveUnits(unitIds, FixedVector2.FromInts(tileX, tileY)));
@@ -143,7 +148,7 @@ namespace RtsGame.Presentation.GodotBridge
                 frame.Tick,
                 snapshot.LocalPlayerIndex,
                 ToLocalPlayerDto(snapshot.LocalPlayer),
-                ToMatchDto(snapshot.Match),
+                ToMatchDto(snapshot.Match, _session.RejectedCommandCount),
                 primitives,
                 unitStatuses,
                 buildingStatuses);
@@ -163,6 +168,22 @@ namespace RtsGame.Presentation.GodotBridge
             }
 
             return (UnitTypeId)rawUnitTypeId;
+        }
+
+        private static TechId ToTechId(int techId)
+        {
+            if (techId < ushort.MinValue || techId > ushort.MaxValue)
+            {
+                throw new ArgumentOutOfRangeException(nameof(techId), "Tech id is outside the valid range.");
+            }
+
+            ushort rawTechId = (ushort)techId;
+            if (!Enum.IsDefined(typeof(TechId), rawTechId))
+            {
+                throw new ArgumentOutOfRangeException(nameof(techId), "Tech id is not defined.");
+            }
+
+            return (TechId)rawTechId;
         }
 
         private static GodotPrimitiveDto ToPrimitiveDto(VisualPrimitive primitive)
@@ -192,7 +213,45 @@ namespace RtsGame.Presentation.GodotBridge
                 snapshot.PopulationCap,
                 snapshot.HasCapitalBeenPlaced,
                 snapshot.IsCapitalAlive,
-                snapshot.CapitalBonusActive);
+                snapshot.CapitalBonusActive,
+                ToCompletedTechIds(snapshot),
+                ToResearchStatusDtos(snapshot),
+                ToModifierStatusDtos(snapshot));
+        }
+
+        private static int[] ToCompletedTechIds(LocalPlayerSnapshot snapshot)
+        {
+            var ids = new int[snapshot.CompletedTechs.Count];
+            for (int i = 0; i < snapshot.CompletedTechs.Count; i++)
+            {
+                ids[i] = (int)snapshot.CompletedTechs[i];
+            }
+
+            return ids;
+        }
+
+        private static GodotResearchStatusDto[] ToResearchStatusDtos(LocalPlayerSnapshot snapshot)
+        {
+            var research = new GodotResearchStatusDto[snapshot.ResearchQueue.Count];
+            for (int i = 0; i < snapshot.ResearchQueue.Count; i++)
+            {
+                ResearchSnapshot item = snapshot.ResearchQueue[i];
+                research[i] = new GodotResearchStatusDto((int)item.TechId, item.ProgressTicks, item.RequiredTicks);
+            }
+
+            return research;
+        }
+
+        private static GodotModifierStatusDto[] ToModifierStatusDtos(LocalPlayerSnapshot snapshot)
+        {
+            var modifiers = new GodotModifierStatusDto[snapshot.Modifiers.Count];
+            for (int i = 0; i < snapshot.Modifiers.Count; i++)
+            {
+                ModifierSnapshot modifier = snapshot.Modifiers[i];
+                modifiers[i] = new GodotModifierStatusDto((int)modifier.ModifierId, modifier.Value);
+            }
+
+            return modifiers;
         }
 
         private static GodotUnitStatusDto ToUnitStatusDto(UnitSnapshot snapshot)
@@ -225,9 +284,9 @@ namespace RtsGame.Presentation.GodotBridge
                 snapshot.TrainingRequiredTicks);
         }
 
-        private static GodotMatchDto ToMatchDto(MatchSnapshot snapshot)
+        private static GodotMatchDto ToMatchDto(MatchSnapshot snapshot, int rejectedCommandCount)
         {
-            return new GodotMatchDto(snapshot.IsFinished, snapshot.WinnerPlayerIndex, snapshot.FinishedTick);
+            return new GodotMatchDto(snapshot.IsFinished, snapshot.WinnerPlayerIndex, snapshot.FinishedTick, rejectedCommandCount);
         }
     }
 }

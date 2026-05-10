@@ -95,6 +95,7 @@ namespace RtsGame.Tests
                 new TestCase("presentation snapshot hides depleted resources", PresentationSnapshotHidesDepletedResources),
                 new TestCase("presentation snapshot includes building status", PresentationSnapshotIncludesBuildingStatus),
                 new TestCase("presentation snapshot includes unit status", PresentationSnapshotIncludesUnitStatus),
+                new TestCase("presentation snapshot includes tech status", PresentationSnapshotIncludesTechStatus),
                 new TestCase("presentation snapshot does not mutate checksum", PresentationSnapshotDoesNotMutateChecksum),
                 new TestCase("simulation does not reference presentation", SimulationDoesNotReferencePresentation),
                 new TestCase("simulation source does not reference presentation", SimulationSourceDoesNotReferencePresentation),
@@ -108,6 +109,7 @@ namespace RtsGame.Tests
                 new TestCase("visual frame includes trade route line", VisualFrameIncludesTradeRouteLine),
                 new TestCase("visual frame does not mutate checksum", VisualFrameDoesNotMutateChecksum),
                 new TestCase("client intent maps movement command", ClientIntentMapsMovementCommand),
+                new TestCase("client intent maps research command", ClientIntentMapsResearchCommand),
                 new TestCase("client intent maps local 1v1 command flow", ClientIntentMapsLocal1v1CommandFlow),
                 new TestCase("client command mapping does not mutate checksum", ClientCommandMappingDoesNotMutateChecksum),
                 new TestCase("local play session advances with automatic noops", LocalPlaySessionAdvancesWithAutomaticNoOps),
@@ -131,6 +133,7 @@ namespace RtsGame.Tests
                 new TestCase("godot facade routes wall command", GodotFacadeRoutesWallCommand),
                 new TestCase("godot facade routes trade post command", GodotFacadeRoutesTradePostCommand),
                 new TestCase("godot facade routes trade cart training command", GodotFacadeRoutesTradeCartTrainingCommand),
+                new TestCase("godot facade routes research command", GodotFacadeRoutesResearchCommand),
                 new TestCase("godot interaction router prioritizes attack", GodotInteractionRouterPrioritizesAttack),
                 new TestCase("godot interaction router routes build assignment", GodotInteractionRouterRoutesBuildAssignment),
                 new TestCase("godot interaction router ignores completed build target", GodotInteractionRouterIgnoresCompletedBuildTarget),
@@ -142,8 +145,23 @@ namespace RtsGame.Tests
                 new TestCase("godot selection router ignores enemy primitive", GodotSelectionRouterIgnoresEnemyPrimitive),
                 new TestCase("godot selection router returns none", GodotSelectionRouterReturnsNone),
                 new TestCase("godot hud text includes economy and selection", GodotHudTextIncludesEconomyAndSelection),
+                new TestCase("godot hud text build lines returns two lines", GodotHudTextBuildLinesReturnsTwoLines),
                 new TestCase("godot hud text includes unit gather status", GodotHudTextIncludesUnitGatherStatus),
                 new TestCase("godot hud text includes building training status", GodotHudTextIncludesBuildingTrainingStatus),
+                new TestCase("godot hud text includes research action ready", GodotHudTextIncludesResearchActionReady),
+                new TestCase("godot hud text includes research action queued", GodotHudTextIncludesResearchActionQueued),
+                new TestCase("godot hud text includes research action done", GodotHudTextIncludesResearchActionDone),
+                new TestCase("godot hud text includes research action blocked build", GodotHudTextIncludesResearchActionBlockedBuild),
+                new TestCase("godot hud text includes research action cost", GodotHudTextIncludesResearchActionCost),
+                new TestCase("godot hud text includes train action status for town center", GodotHudTextIncludesTrainActionStatusForTownCenter),
+                new TestCase("godot hud text includes train action status for trade post", GodotHudTextIncludesTrainActionStatusForTradePost),
+                new TestCase("godot hud text includes research status", GodotHudTextIncludesResearchStatus),
+                new TestCase("godot hud text includes queued research count", GodotHudTextIncludesQueuedResearchCount),
+                new TestCase("godot hud text includes modifier status", GodotHudTextIncludesModifierStatus),
+                new TestCase("godot hud text includes modifier count", GodotHudTextIncludesModifierCount),
+                new TestCase("godot hud text includes completed tech label", GodotHudTextIncludesCompletedTechLabel),
+                new TestCase("godot hud text includes completed tech count", GodotHudTextIncludesCompletedTechCount),
+                new TestCase("godot hud text includes rejected command count", GodotHudTextIncludesRejectedCommandCount),
                 new TestCase("godot hud text handles missing status", GodotHudTextHandlesMissingStatus),
                 new TestCase("godot primitive hit test includes boundary", GodotPrimitiveHitTestIncludesBoundary),
                 new TestCase("godot primitive hit test rejects outside", GodotPrimitiveHitTestRejectsOutside),
@@ -151,6 +169,22 @@ namespace RtsGame.Tests
                 new TestCase("godot visual style resolves enemy unit", GodotVisualStyleResolvesEnemyUnit),
                 new TestCase("godot visual style resolves building types", GodotVisualStyleResolvesBuildingTypes),
                 new TestCase("godot visual style resolves resources", GodotVisualStyleResolvesResources),
+                new TestCase("godot tech label resolver resolves known tech", GodotTechLabelResolverResolvesKnownTech),
+                new TestCase("godot tech label resolver falls back for unknown tech", GodotTechLabelResolverFallsBackForUnknownTech),
+                new TestCase("godot tech label resolver resolves known modifier", GodotTechLabelResolverResolvesKnownModifier),
+                new TestCase("godot tech label resolver falls back for unknown modifier", GodotTechLabelResolverFallsBackForUnknownModifier),
+                new TestCase("godot research action evaluator returns ready", GodotResearchActionEvaluatorReturnsReady),
+                new TestCase("godot research action evaluator returns queued", GodotResearchActionEvaluatorReturnsQueued),
+                new TestCase("godot research action evaluator returns done", GodotResearchActionEvaluatorReturnsDone),
+                new TestCase("godot research action evaluator returns missing resources", GodotResearchActionEvaluatorReturnsMissingResources),
+                new TestCase("godot research action evaluator returns none", GodotResearchActionEvaluatorReturnsNone),
+                new TestCase("godot research action evaluator returns not applicable", GodotResearchActionEvaluatorReturnsNotApplicable),
+                new TestCase("godot research action evaluator returns blocked construction", GodotResearchActionEvaluatorReturnsBlockedConstruction),
+                new TestCase("godot train action evaluator returns ready", GodotTrainActionEvaluatorReturnsReady),
+                new TestCase("godot train action evaluator returns missing resources", GodotTrainActionEvaluatorReturnsMissingResources),
+                new TestCase("godot train action evaluator returns population capped", GodotTrainActionEvaluatorReturnsPopulationCapped),
+                new TestCase("godot train action evaluator returns not applicable", GodotTrainActionEvaluatorReturnsNotApplicable),
+                new TestCase("godot train action evaluator returns blocked construction", GodotTrainActionEvaluatorReturnsBlockedConstruction),
                 new TestCase("godot primitive draw kind resolves known primitives", GodotPrimitiveDrawKindResolvesKnownPrimitives),
                 new TestCase("godot primitive draw kind returns none for unknown", GodotPrimitiveDrawKindReturnsNoneForUnknown),
                 new TestCase("godot coordinate mapper converts raw to pixels", GodotCoordinateMapperConvertsRawToPixels),
@@ -1556,6 +1590,22 @@ namespace RtsGame.Tests
             AssertEqual(false, unit.HasMoveTarget, "unit snapshot should expose move target state");
         }
 
+        private static void PresentationSnapshotIncludesTechStatus()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateResearchReadyState(165, 1, out int buildingId);
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.ResearchTech), new ResearchTechCommand(buildingId, TechId.InfantryAttack1)));
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            GameSnapshot snapshot = GameSnapshotBuilder.Build(state, 0);
+
+            AssertEqual(1, snapshot.LocalPlayer.ResearchQueue.Count, "snapshot should expose queued research");
+            AssertEqual(TechId.InfantryAttack1, snapshot.LocalPlayer.ResearchQueue[0].TechId, "snapshot should expose research tech id");
+            AssertEqual(1, snapshot.LocalPlayer.ResearchQueue[0].ProgressTicks, "snapshot should expose research progress");
+            AssertEqual(GameData.InfantryAttack1ResearchTicks, snapshot.LocalPlayer.ResearchQueue[0].RequiredTicks, "snapshot should expose research required ticks");
+        }
+
         private static void PresentationSnapshotDoesNotMutateChecksum()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -1723,6 +1773,21 @@ namespace RtsGame.Tests
             AssertEqual(7u, envelope.Header.Sequence, "client intent should copy sequence");
             AssertEqual(CommandType.MoveUnits, envelope.Header.CommandType, "client movement intent should map to movement command");
             AssertEqual(CommandType.MoveUnits, envelope.Payload.Type, "payload should be movement command");
+        }
+
+        private static void ClientIntentMapsResearchCommand()
+        {
+            CommandEnvelope envelope = ClientCommandMapper.ToCommandEnvelope(
+                ClientCommandIntent.ResearchTech(11, TechId.InfantryAttack1),
+                13,
+                0,
+                8);
+
+            AssertEqual(13, envelope.Header.Tick, "client research intent should copy command tick");
+            AssertEqual(0, envelope.Header.PlayerIndex, "client research intent should copy player index");
+            AssertEqual(8u, envelope.Header.Sequence, "client research intent should copy sequence");
+            AssertEqual(CommandType.ResearchTech, envelope.Header.CommandType, "client research intent should map to research command");
+            AssertEqual(CommandType.ResearchTech, envelope.Payload.Type, "payload should be research command");
         }
 
         private static void ClientIntentMapsLocal1v1CommandFlow()
@@ -2092,6 +2157,22 @@ namespace RtsGame.Tests
             AssertEqual(0, facade.RejectedCommandCount, "valid facade trade cart training flow should not reject");
         }
 
+        private static void GodotFacadeRoutesResearchCommand()
+        {
+            GodotClientFacade facade = CreateGodotFacadeWithCompletedCapital(98);
+            facade.QueueGatherResource(0, 1, new[] { 1, 2 });
+            facade.QueueGatherResource(0, 3, new[] { 3, 4 });
+            facade.AdvanceTicks(10);
+            facade.QueueResearchTech(0, 11, (int)TechId.InfantryAttack1);
+            facade.AdvanceOneTick();
+
+            GodotFrameDto frame = facade.GetFrame(0);
+            AssertEqual(1, frame.LocalPlayer.ResearchQueue.Length, "godot facade should expose queued research after routing command");
+            AssertEqual((int)TechId.InfantryAttack1, frame.LocalPlayer.ResearchQueue[0].TechId, "godot facade should expose research tech id");
+            AssertEqual(1, frame.LocalPlayer.ResearchQueue[0].ProgressTicks, "godot facade should expose research progress");
+            AssertEqual(0, facade.RejectedCommandCount, "valid facade research flow should not reject");
+        }
+
         private static void GodotInteractionRouterPrioritizesAttack()
         {
             GodotFrameDto frame = CreateGodotInteractionFrame(new[]
@@ -2252,10 +2333,27 @@ namespace RtsGame.Tests
             AssertEqual(true, text.Contains("Wood 80"), "hud should include wood");
             AssertEqual(true, text.Contains("Gold 30"), "hud should include gold");
             AssertEqual(true, text.Contains("Pop 6/20"), "hud should include population");
+            AssertEqual(true, text.Contains("Rej 0"), "hud should include rejected command count");
             AssertEqual(true, text.Contains("Selected 1,2"), "hud should include selected units");
             AssertEqual(true, text.Contains("Building 11"), "hud should include selected building");
             AssertEqual(true, text.Contains("Resource 5"), "hud should include hovered resource");
             AssertEqual(true, text.Contains("Paused"), "hud should include pause state");
+            AssertEqual(true, text.Contains("Keys F1/F6 C/W/T V/I/K Y R Space"), "hud should include control hint text");
+        }
+
+        private static void GodotHudTextBuildLinesReturnsTwoLines()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+
+            string[] lines = GodotHudTextBuilder.BuildLines(frame, new int[0], 0, 0, false);
+
+            AssertEqual(2, lines.Length, "hud text should return two lines for runtime readability");
+            AssertEqual(true, lines[0].Contains("Tick 1"), "first hud line should include match/economy summary");
+            AssertEqual(true, lines[1].Contains("Selected -"), "second hud line should include interaction summary");
         }
 
         private static void GodotHudTextIncludesUnitGatherStatus()
@@ -2288,6 +2386,289 @@ namespace RtsGame.Tests
             string text = GodotHudTextBuilder.Build(frame, new int[0], 11, 0, false);
 
             AssertEqual(true, text.Contains("Train 1 4/" + GameData.VillagerTrainTicks), "hud should include selected building training status");
+        }
+
+        private static void GodotHudTextIncludesResearchActionReady()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(GameData.InfantryAttack1FoodCost, 0, GameData.InfantryAttack1GoldCost, 0, 0, false, false, false),
+                new GodotUnitStatusDto[0],
+                new[] { new GodotBuildingStatusDto(21, (int)BuildingTypeId.TownCenter, false, 0, 0, 0, 0, 0, 0) });
+
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 21, 0, false);
+
+            AssertEqual(true, text.Contains("Y:Research Ready"), "hud should show ready research action for selected town center");
+        }
+
+        private static void GodotHudTextIncludesResearchActionQueued()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(
+                    GameData.InfantryAttack1FoodCost,
+                    0,
+                    GameData.InfantryAttack1GoldCost,
+                    0,
+                    0,
+                    false,
+                    false,
+                    false,
+                    new int[0],
+                    new[] { new GodotResearchStatusDto((int)TechId.InfantryAttack1, 1, GameData.InfantryAttack1ResearchTicks) },
+                    new GodotModifierStatusDto[0]),
+                new GodotUnitStatusDto[0],
+                new[] { new GodotBuildingStatusDto(22, (int)BuildingTypeId.TownCenter, false, 0, 0, 0, 0, 0, 0) });
+
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 22, 0, false);
+
+            AssertEqual(true, text.Contains("Y:Research Queued"), "hud should show queued research action for selected town center");
+        }
+
+        private static void GodotHudTextIncludesResearchActionDone()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    false,
+                    false,
+                    false,
+                    new[] { (int)TechId.InfantryAttack1 },
+                    new GodotResearchStatusDto[0],
+                    new GodotModifierStatusDto[0]),
+                new GodotUnitStatusDto[0],
+                new[] { new GodotBuildingStatusDto(23, (int)BuildingTypeId.TownCenter, false, 0, 0, 0, 0, 0, 0) });
+
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 23, 0, false);
+
+            AssertEqual(true, text.Contains("Y:Research Done"), "hud should show completed research action for selected town center");
+        }
+
+        private static void GodotHudTextIncludesResearchActionBlockedBuild()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotUnitStatusDto[0],
+                new[] { new GodotBuildingStatusDto(24, (int)BuildingTypeId.TownCenter, true, 1, 5, 0, 0, 0, 0) });
+
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 24, 0, false);
+
+            AssertEqual(true, text.Contains("Y:Research Blocked(Build)"), "hud should show blocked research action for under-construction town center");
+        }
+
+        private static void GodotHudTextIncludesResearchActionCost()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotUnitStatusDto[0],
+                new[] { new GodotBuildingStatusDto(25, (int)BuildingTypeId.TownCenter, false, 0, 0, 0, 0, 0, 0) });
+
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 25, 0, false);
+
+            AssertEqual(true, text.Contains("Y:Research Cost " + GameData.InfantryAttack1FoodCost + "F/" + GameData.InfantryAttack1GoldCost + "G"), "hud should show research cost action when resources are missing");
+        }
+
+        private static void GodotHudTextIncludesTrainActionStatusForTownCenter()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(GameData.VillagerFoodCost, 0, 0, 0, 10, false, false, false),
+                new GodotUnitStatusDto[0],
+                new[] { new GodotBuildingStatusDto(26, (int)BuildingTypeId.TownCenter, false, 0, 0, 0, 0, 0, 0) });
+
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 26, 0, false);
+
+            AssertEqual(true, text.Contains("V:Ready"), "town center should show villager train action as ready with enough food");
+            AssertEqual(true, text.Contains("I:Cost"), "town center should show infantry train action as cost when missing food");
+            AssertEqual(true, text.Contains("K:N/A"), "town center should show trade cart train action as not applicable");
+        }
+
+        private static void GodotHudTextIncludesTrainActionStatusForTradePost()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, GameData.TradeCartWoodCost, GameData.TradeCartGoldCost, 0, 10, false, false, false),
+                new GodotUnitStatusDto[0],
+                new[] { new GodotBuildingStatusDto(27, (int)BuildingTypeId.TradePost, false, 0, 0, 0, 0, 0, 0) });
+
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 27, 0, false);
+
+            AssertEqual(true, text.Contains("V:N/A"), "trade post should show villager train action as not applicable");
+            AssertEqual(true, text.Contains("I:N/A"), "trade post should show infantry train action as not applicable");
+            AssertEqual(true, text.Contains("K:Ready"), "trade post should show trade cart train action as ready with enough resources");
+        }
+
+        private static void GodotHudTextIncludesResearchStatus()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    false,
+                    false,
+                    false,
+                    new int[0],
+                    new[] { new GodotResearchStatusDto((int)TechId.InfantryAttack1, 2, GameData.InfantryAttack1ResearchTicks) },
+                    new GodotModifierStatusDto[0]),
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 0, 0, false);
+
+            AssertEqual(true, text.Contains("Research InfAtk1 2/" + GameData.InfantryAttack1ResearchTicks), "hud should include active research status");
+        }
+
+        private static void GodotHudTextIncludesQueuedResearchCount()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    false,
+                    false,
+                    false,
+                    new int[0],
+                    new[]
+                    {
+                        new GodotResearchStatusDto((int)TechId.InfantryAttack1, 2, GameData.InfantryAttack1ResearchTicks),
+                        new GodotResearchStatusDto(99, 0, 10)
+                    },
+                    new GodotModifierStatusDto[0]),
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 0, 0, false);
+
+            AssertEqual(true, text.Contains("Research InfAtk1 2/" + GameData.InfantryAttack1ResearchTicks + " +1"), "hud should include queued research count suffix");
+        }
+
+        private static void GodotHudTextIncludesModifierStatus()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    false,
+                    false,
+                    false,
+                    new[] { (int)TechId.InfantryAttack1 },
+                    new GodotResearchStatusDto[0],
+                    new[] { new GodotModifierStatusDto((int)ModifierId.InfantryAttackBonus, GameData.InfantryAttack1DamageBonus) }),
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 0, 0, false);
+
+            AssertEqual(true, text.Contains("Mod InfAtkBonus=" + GameData.InfantryAttack1DamageBonus), "hud should include first active modifier status");
+        }
+
+        private static void GodotHudTextIncludesModifierCount()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    false,
+                    false,
+                    false,
+                    new[] { (int)TechId.InfantryAttack1 },
+                    new GodotResearchStatusDto[0],
+                    new[]
+                    {
+                        new GodotModifierStatusDto((int)ModifierId.InfantryAttackBonus, GameData.InfantryAttack1DamageBonus),
+                        new GodotModifierStatusDto(99, 2)
+                    }),
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 0, 0, false);
+
+            AssertEqual(true, text.Contains("Mod InfAtkBonus=" + GameData.InfantryAttack1DamageBonus + " +1"), "hud should include active modifier count suffix");
+        }
+
+        private static void GodotHudTextIncludesCompletedTechLabel()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    false,
+                    false,
+                    false,
+                    new[] { (int)TechId.InfantryAttack1 },
+                    new GodotResearchStatusDto[0],
+                    new GodotModifierStatusDto[0]),
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 0, 0, false);
+
+            AssertEqual(true, text.Contains("Tech InfAtk1"), "hud should include completed tech label when research queue is empty");
+        }
+
+        private static void GodotHudTextIncludesCompletedTechCount()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    false,
+                    false,
+                    false,
+                    new[] { (int)TechId.InfantryAttack1, 99 },
+                    new GodotResearchStatusDto[0],
+                    new GodotModifierStatusDto[0]),
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 0, 0, false);
+
+            AssertEqual(true, text.Contains("Tech #99 (2)"), "hud should include completed tech count suffix");
+        }
+
+        private static void GodotHudTextIncludesRejectedCommandCount()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0],
+                3);
+
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 0, 0, false);
+
+            AssertEqual(true, text.Contains("Rej 3"), "hud should include rejected command count from match dto");
         }
 
         private static void GodotHudTextHandlesMissingStatus()
@@ -2370,6 +2751,180 @@ namespace RtsGame.Tests
             AssertEqual(GodotVisualStyle.FoodResource, GodotVisualStyleResolver.ResolveResource(food), "food should resolve to food resource style");
             AssertEqual(GodotVisualStyle.WoodResource, GodotVisualStyleResolver.ResolveResource(wood), "wood should resolve to wood resource style");
             AssertEqual(GodotVisualStyle.GoldResource, GodotVisualStyleResolver.ResolveResource(gold), "gold should resolve to gold resource style");
+        }
+
+        private static void GodotTechLabelResolverResolvesKnownTech()
+        {
+            AssertEqual("InfAtk1", GodotTechLabelResolver.ResolveTechLabel((int)TechId.InfantryAttack1), "known tech id should map to readable label");
+        }
+
+        private static void GodotTechLabelResolverFallsBackForUnknownTech()
+        {
+            AssertEqual("#99", GodotTechLabelResolver.ResolveTechLabel(99), "unknown tech id should map to numeric fallback");
+        }
+
+        private static void GodotTechLabelResolverResolvesKnownModifier()
+        {
+            AssertEqual("InfAtkBonus", GodotTechLabelResolver.ResolveModifierLabel((int)ModifierId.InfantryAttackBonus), "known modifier id should map to readable label");
+        }
+
+        private static void GodotTechLabelResolverFallsBackForUnknownModifier()
+        {
+            AssertEqual("#42", GodotTechLabelResolver.ResolveModifierLabel(42), "unknown modifier id should map to numeric fallback");
+        }
+
+        private static void GodotResearchActionEvaluatorReturnsReady()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(GameData.InfantryAttack1FoodCost, 0, GameData.InfantryAttack1GoldCost, 0, 0, false, false, false),
+                new GodotUnitStatusDto[0],
+                new[] { new GodotBuildingStatusDto(31, (int)BuildingTypeId.TownCenter, false, 0, 0, 0, 0, 0, 0) });
+
+            AssertEqual(GodotResearchActionState.Ready, GodotResearchActionEvaluator.EvaluateInfantryAttack1(frame, 31), "evaluator should report ready when building and resources are valid");
+        }
+
+        private static void GodotResearchActionEvaluatorReturnsQueued()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(
+                    GameData.InfantryAttack1FoodCost,
+                    0,
+                    GameData.InfantryAttack1GoldCost,
+                    0,
+                    0,
+                    false,
+                    false,
+                    false,
+                    new int[0],
+                    new[] { new GodotResearchStatusDto((int)TechId.InfantryAttack1, 1, GameData.InfantryAttack1ResearchTicks) },
+                    new GodotModifierStatusDto[0]),
+                new GodotUnitStatusDto[0],
+                new[] { new GodotBuildingStatusDto(32, (int)BuildingTypeId.TownCenter, false, 0, 0, 0, 0, 0, 0) });
+
+            AssertEqual(GodotResearchActionState.Queued, GodotResearchActionEvaluator.EvaluateInfantryAttack1(frame, 32), "evaluator should report queued when infantry attack research already exists in queue");
+        }
+
+        private static void GodotResearchActionEvaluatorReturnsDone()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    false,
+                    false,
+                    false,
+                    new[] { (int)TechId.InfantryAttack1 },
+                    new GodotResearchStatusDto[0],
+                    new GodotModifierStatusDto[0]),
+                new GodotUnitStatusDto[0],
+                new[] { new GodotBuildingStatusDto(33, (int)BuildingTypeId.TownCenter, false, 0, 0, 0, 0, 0, 0) });
+
+            AssertEqual(GodotResearchActionState.Done, GodotResearchActionEvaluator.EvaluateInfantryAttack1(frame, 33), "evaluator should report done when infantry attack tech is already completed");
+        }
+
+        private static void GodotResearchActionEvaluatorReturnsMissingResources()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotUnitStatusDto[0],
+                new[] { new GodotBuildingStatusDto(34, (int)BuildingTypeId.TownCenter, false, 0, 0, 0, 0, 0, 0) });
+
+            AssertEqual(GodotResearchActionState.MissingResources, GodotResearchActionEvaluator.EvaluateInfantryAttack1(frame, 34), "evaluator should report missing resources when cost cannot be paid");
+        }
+
+        private static void GodotResearchActionEvaluatorReturnsNone()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotUnitStatusDto[0],
+                new[] { new GodotBuildingStatusDto(35, (int)BuildingTypeId.TownCenter, false, 0, 0, 0, 0, 0, 0) });
+
+            AssertEqual(GodotResearchActionState.None, GodotResearchActionEvaluator.EvaluateInfantryAttack1(frame, 0), "evaluator should report none when no building is selected");
+        }
+
+        private static void GodotResearchActionEvaluatorReturnsNotApplicable()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(GameData.InfantryAttack1FoodCost, 0, GameData.InfantryAttack1GoldCost, 0, 0, false, false, false),
+                new GodotUnitStatusDto[0],
+                new[] { new GodotBuildingStatusDto(36, (int)BuildingTypeId.TradePost, false, 0, 0, 0, 0, 0, 0) });
+
+            AssertEqual(GodotResearchActionState.NotApplicable, GodotResearchActionEvaluator.EvaluateInfantryAttack1(frame, 36), "evaluator should report not applicable for non-research building type");
+        }
+
+        private static void GodotResearchActionEvaluatorReturnsBlockedConstruction()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(GameData.InfantryAttack1FoodCost, 0, GameData.InfantryAttack1GoldCost, 0, 0, false, false, false),
+                new GodotUnitStatusDto[0],
+                new[] { new GodotBuildingStatusDto(37, (int)BuildingTypeId.TownCenter, true, 1, 5, 0, 0, 0, 0) });
+
+            AssertEqual(GodotResearchActionState.BlockedConstruction, GodotResearchActionEvaluator.EvaluateInfantryAttack1(frame, 37), "evaluator should report blocked construction for incomplete selected town center");
+        }
+
+        private static void GodotTrainActionEvaluatorReturnsReady()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(GameData.VillagerFoodCost, 0, 0, 0, 10, false, false, false),
+                new GodotUnitStatusDto[0],
+                new[] { new GodotBuildingStatusDto(41, (int)BuildingTypeId.TownCenter, false, 0, 0, 0, 0, 0, 0) });
+
+            AssertEqual(GodotTrainActionState.Ready, GodotTrainActionEvaluator.Evaluate(frame, 41, (int)UnitTypeId.Villager), "train evaluator should report ready when training constraints are satisfied");
+        }
+
+        private static void GodotTrainActionEvaluatorReturnsMissingResources()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 10, false, false, false),
+                new GodotUnitStatusDto[0],
+                new[] { new GodotBuildingStatusDto(42, (int)BuildingTypeId.TownCenter, false, 0, 0, 0, 0, 0, 0) });
+
+            AssertEqual(GodotTrainActionState.MissingResources, GodotTrainActionEvaluator.Evaluate(frame, 42, (int)UnitTypeId.Villager), "train evaluator should report missing resources when cost cannot be paid");
+        }
+
+        private static void GodotTrainActionEvaluatorReturnsPopulationCapped()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(GameData.VillagerFoodCost, 0, 0, 5, 5, false, false, false),
+                new GodotUnitStatusDto[0],
+                new[] { new GodotBuildingStatusDto(43, (int)BuildingTypeId.TownCenter, false, 0, 0, 0, 0, 0, 0) });
+
+            AssertEqual(GodotTrainActionState.PopulationCapped, GodotTrainActionEvaluator.Evaluate(frame, 43, (int)UnitTypeId.Villager), "train evaluator should report population cap block before queueing");
+        }
+
+        private static void GodotTrainActionEvaluatorReturnsNotApplicable()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(GameData.TradeCartWoodCost, 0, GameData.TradeCartGoldCost, 0, 10, false, false, false),
+                new GodotUnitStatusDto[0],
+                new[] { new GodotBuildingStatusDto(44, (int)BuildingTypeId.TownCenter, false, 0, 0, 0, 0, 0, 0) });
+
+            AssertEqual(GodotTrainActionState.NotApplicable, GodotTrainActionEvaluator.Evaluate(frame, 44, (int)UnitTypeId.TradeCart), "train evaluator should report not applicable when building cannot train the unit type");
+        }
+
+        private static void GodotTrainActionEvaluatorReturnsBlockedConstruction()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(GameData.VillagerFoodCost, 0, 0, 0, 10, false, false, false),
+                new GodotUnitStatusDto[0],
+                new[] { new GodotBuildingStatusDto(45, (int)BuildingTypeId.TownCenter, true, 1, 5, 0, 0, 0, 0) });
+
+            AssertEqual(GodotTrainActionState.BlockedConstruction, GodotTrainActionEvaluator.Evaluate(frame, 45, (int)UnitTypeId.Villager), "train evaluator should report blocked construction for incomplete selected building");
         }
 
         private static void GodotPrimitiveDrawKindResolvesKnownPrimitives()
@@ -4161,7 +4716,7 @@ namespace RtsGame.Tests
                 0,
                 0,
                 new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
-                new GodotMatchDto(false, -1, -1),
+                new GodotMatchDto(false, -1, -1, 0),
                 primitives,
                 unitStatuses,
                 buildingStatuses);
@@ -4171,13 +4726,14 @@ namespace RtsGame.Tests
             int tick,
             GodotLocalPlayerDto localPlayer,
             GodotUnitStatusDto[] unitStatuses,
-            GodotBuildingStatusDto[] buildingStatuses)
+            GodotBuildingStatusDto[] buildingStatuses,
+            int rejectedCommandCount = 0)
         {
             return new GodotFrameDto(
                 tick,
                 0,
                 localPlayer,
-                new GodotMatchDto(false, -1, -1),
+                new GodotMatchDto(false, -1, -1, rejectedCommandCount),
                 new GodotPrimitiveDto[0],
                 unitStatuses,
                 buildingStatuses);

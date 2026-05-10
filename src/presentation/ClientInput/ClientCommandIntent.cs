@@ -13,6 +13,7 @@ namespace RtsGame.Presentation.ClientInput
         public int BuildingId { get; }
         public int ResourceNodeId { get; }
         public UnitTypeId UnitTypeId { get; }
+        public TechId TechId { get; }
         public int TradeCartId { get; }
         public int TradeRouteAId { get; }
         public int TradeRouteBId { get; }
@@ -25,6 +26,7 @@ namespace RtsGame.Presentation.ClientInput
             int buildingId,
             int resourceNodeId,
             UnitTypeId unitTypeId,
+            TechId techId,
             int tradeCartId,
             int tradeRouteAId,
             int tradeRouteBId)
@@ -36,6 +38,7 @@ namespace RtsGame.Presentation.ClientInput
             BuildingId = buildingId;
             ResourceNodeId = resourceNodeId;
             UnitTypeId = unitTypeId;
+            TechId = techId;
             TradeCartId = tradeCartId;
             TradeRouteAId = tradeRouteAId;
             TradeRouteBId = tradeRouteBId;
@@ -43,57 +46,62 @@ namespace RtsGame.Presentation.ClientInput
 
         public static ClientCommandIntent NoOp()
         {
-            return new ClientCommandIntent(ClientIntentType.NoOp, FixedVector2.FromInts(0, 0), new int[0], 0, 0, 0, 0, 0, 0, 0);
+            return new ClientCommandIntent(ClientIntentType.NoOp, FixedVector2.FromInts(0, 0), new int[0], 0, 0, 0, 0, 0, 0, 0, 0);
         }
 
         public static ClientCommandIntent PlaceTownCenter(FixedVector2 position)
         {
-            return new ClientCommandIntent(ClientIntentType.PlaceTownCenter, position, new int[0], 0, 0, 0, 0, 0, 0, 0);
+            return new ClientCommandIntent(ClientIntentType.PlaceTownCenter, position, new int[0], 0, 0, 0, 0, 0, 0, 0, 0);
         }
 
         public static ClientCommandIntent AssignBuild(int buildingId, IReadOnlyList<int> builderUnitIds)
         {
-            return new ClientCommandIntent(ClientIntentType.AssignBuild, FixedVector2.FromInts(0, 0), builderUnitIds, 0, buildingId, 0, 0, 0, 0, 0);
+            return new ClientCommandIntent(ClientIntentType.AssignBuild, FixedVector2.FromInts(0, 0), builderUnitIds, 0, buildingId, 0, 0, 0, 0, 0, 0);
         }
 
         public static ClientCommandIntent GatherResource(int resourceNodeId, IReadOnlyList<int> unitIds)
         {
-            return new ClientCommandIntent(ClientIntentType.GatherResource, FixedVector2.FromInts(0, 0), unitIds, 0, 0, resourceNodeId, 0, 0, 0, 0);
+            return new ClientCommandIntent(ClientIntentType.GatherResource, FixedVector2.FromInts(0, 0), unitIds, 0, 0, resourceNodeId, 0, 0, 0, 0, 0);
         }
 
         public static ClientCommandIntent TrainUnit(int buildingId, UnitTypeId unitTypeId)
         {
-            return new ClientCommandIntent(ClientIntentType.TrainUnit, FixedVector2.FromInts(0, 0), new int[0], 0, buildingId, 0, unitTypeId, 0, 0, 0);
+            return new ClientCommandIntent(ClientIntentType.TrainUnit, FixedVector2.FromInts(0, 0), new int[0], 0, buildingId, 0, unitTypeId, 0, 0, 0, 0);
+        }
+
+        public static ClientCommandIntent ResearchTech(int buildingId, TechId techId)
+        {
+            return new ClientCommandIntent(ClientIntentType.ResearchTech, FixedVector2.FromInts(0, 0), new int[0], 0, buildingId, 0, 0, techId, 0, 0, 0);
         }
 
         public static ClientCommandIntent MoveUnits(IReadOnlyList<int> unitIds, FixedVector2 target)
         {
-            return new ClientCommandIntent(ClientIntentType.MoveUnits, target, unitIds, 0, 0, 0, 0, 0, 0, 0);
+            return new ClientCommandIntent(ClientIntentType.MoveUnits, target, unitIds, 0, 0, 0, 0, 0, 0, 0, 0);
         }
 
         public static ClientCommandIntent Attack(IReadOnlyList<int> attackerUnitIds, int targetEntityId)
         {
-            return new ClientCommandIntent(ClientIntentType.Attack, FixedVector2.FromInts(0, 0), attackerUnitIds, targetEntityId, 0, 0, 0, 0, 0, 0);
+            return new ClientCommandIntent(ClientIntentType.Attack, FixedVector2.FromInts(0, 0), attackerUnitIds, targetEntityId, 0, 0, 0, 0, 0, 0, 0);
         }
 
         public static ClientCommandIntent Resign()
         {
-            return new ClientCommandIntent(ClientIntentType.Resign, FixedVector2.FromInts(0, 0), new int[0], 0, 0, 0, 0, 0, 0, 0);
+            return new ClientCommandIntent(ClientIntentType.Resign, FixedVector2.FromInts(0, 0), new int[0], 0, 0, 0, 0, 0, 0, 0, 0);
         }
 
         public static ClientCommandIntent PlaceWall(FixedVector2 position)
         {
-            return new ClientCommandIntent(ClientIntentType.PlaceWall, position, new int[0], 0, 0, 0, 0, 0, 0, 0);
+            return new ClientCommandIntent(ClientIntentType.PlaceWall, position, new int[0], 0, 0, 0, 0, 0, 0, 0, 0);
         }
 
         public static ClientCommandIntent CreateTradeRoute(int tradeCartId, int tradeRouteAId, int tradeRouteBId)
         {
-            return new ClientCommandIntent(ClientIntentType.CreateTradeRoute, FixedVector2.FromInts(0, 0), new int[0], 0, 0, 0, 0, tradeCartId, tradeRouteAId, tradeRouteBId);
+            return new ClientCommandIntent(ClientIntentType.CreateTradeRoute, FixedVector2.FromInts(0, 0), new int[0], 0, 0, 0, 0, 0, tradeCartId, tradeRouteAId, tradeRouteBId);
         }
 
         public static ClientCommandIntent PlaceTradePost(FixedVector2 position)
         {
-            return new ClientCommandIntent(ClientIntentType.PlaceTradePost, position, new int[0], 0, 0, 0, 0, 0, 0, 0);
+            return new ClientCommandIntent(ClientIntentType.PlaceTradePost, position, new int[0], 0, 0, 0, 0, 0, 0, 0, 0);
         }
     }
 }

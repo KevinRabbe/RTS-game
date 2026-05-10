@@ -88,7 +88,10 @@ namespace RtsGame.Presentation.Snapshots
                 player.PopulationCap,
                 player.CapitalStatus.HasCapitalBeenPlaced,
                 player.CapitalStatus.IsCapitalAlive,
-                player.CapitalStatus.CapitalBonusActive);
+                player.CapitalStatus.CapitalBonusActive,
+                BuildCompletedTechs(player),
+                BuildResearchQueue(player),
+                BuildModifiers(player));
 
             var match = new MatchSnapshot(
                 state.MatchResultState.IsFinished,
@@ -96,6 +99,41 @@ namespace RtsGame.Presentation.Snapshots
                 state.MatchResultState.FinishedTick);
 
             return new GameSnapshot(state.Tick, localPlayerIndex, units, buildings, resources, localPlayer, match);
+        }
+
+        private static IReadOnlyList<TechId> BuildCompletedTechs(PlayerState player)
+        {
+            var completed = new List<TechId>();
+            for (int i = 0; i < player.TechState.CompletedTechs.Count; i++)
+            {
+                completed.Add(player.TechState.CompletedTechs[i]);
+            }
+
+            return completed;
+        }
+
+        private static IReadOnlyList<ResearchSnapshot> BuildResearchQueue(PlayerState player)
+        {
+            var queue = new List<ResearchSnapshot>();
+            for (int i = 0; i < player.TechState.ResearchQueue.Count; i++)
+            {
+                ResearchQueueItem item = player.TechState.ResearchQueue[i];
+                queue.Add(new ResearchSnapshot(item.TechId, item.ProgressTicks, item.RequiredTicks));
+            }
+
+            return queue;
+        }
+
+        private static IReadOnlyList<ModifierSnapshot> BuildModifiers(PlayerState player)
+        {
+            var modifiers = new List<ModifierSnapshot>();
+            for (int i = 0; i < player.TechState.Modifiers.Count; i++)
+            {
+                PlayerModifier modifier = player.TechState.Modifiers[i];
+                modifiers.Add(new ModifierSnapshot(modifier.ModifierId, modifier.Value));
+            }
+
+            return modifiers;
         }
 
         private static bool IsVisibleToLocalPlayer(GameState state, int localPlayerIndex, FixedVector2 position)
