@@ -6,13 +6,17 @@ using RtsGame.Sim.Data;
 public sealed class Phase6SpriteRenderer
 {
 	private const string ArtRoot = "res://Art/Phase6Pack/";
+	private static readonly AssetDefinition[] AssetDefinitions =
+	{
+		new AssetDefinition("Villager", "villager_sheet.png"),
+		new AssetDefinition("Infantry", "infantry_sheet.png"),
+		new AssetDefinition("Scout", "scout_sheet.png"),
+		new AssetDefinition("TradeCart", "trade_cart_sheet.png"),
+		new AssetDefinition("Capital", "capital.png"),
+		new AssetDefinition("Wall", "wall_sheet.png")
+	};
+	private readonly Dictionary<string, Texture2D?> _assetRegistry = new Dictionary<string, Texture2D?>();
 
-	private Texture2D? _villagerSheet;
-	private Texture2D? _infantrySheet;
-	private Texture2D? _scoutSheet;
-	private Texture2D? _tradeCartSheet;
-	private Texture2D? _capitalSprite;
-	private Texture2D? _wallSheet;
 	private bool _useSprites = true;
 	private int _loadedAssetCount;
 
@@ -34,6 +38,29 @@ public sealed class Phase6SpriteRenderer
 		get { return _loadedAssetCount; }
 	}
 
+	public int ExpectedAssetCount
+	{
+		get { return AssetDefinitions.Length; }
+	}
+
+	public string MissingAssetsLabel
+	{
+		get
+		{
+			List<string> missing = new List<string>();
+			for (int i = 0; i < AssetDefinitions.Length; i++)
+			{
+				string key = AssetDefinitions[i].Key;
+				if (!_assetRegistry.TryGetValue(key, out Texture2D? texture) || texture == null)
+				{
+					missing.Add(key);
+				}
+			}
+
+			return missing.Count == 0 ? "None" : string.Join(", ", missing);
+		}
+	}
+
 	public void ToggleRenderMode()
 	{
 		_useSprites = !_useSprites;
@@ -41,12 +68,13 @@ public sealed class Phase6SpriteRenderer
 
 	public void LoadAssets()
 	{
-		_villagerSheet = ResourceLoader.Load<Texture2D>(ArtRoot + "villager_sheet.png");
-		_infantrySheet = ResourceLoader.Load<Texture2D>(ArtRoot + "infantry_sheet.png");
-		_scoutSheet = ResourceLoader.Load<Texture2D>(ArtRoot + "scout_sheet.png");
-		_tradeCartSheet = ResourceLoader.Load<Texture2D>(ArtRoot + "trade_cart_sheet.png");
-		_capitalSprite = ResourceLoader.Load<Texture2D>(ArtRoot + "capital.png");
-		_wallSheet = ResourceLoader.Load<Texture2D>(ArtRoot + "wall_sheet.png");
+		_assetRegistry.Clear();
+		for (int i = 0; i < AssetDefinitions.Length; i++)
+		{
+			AssetDefinition definition = AssetDefinitions[i];
+			_assetRegistry[definition.Key] = ResourceLoader.Load<Texture2D>(ArtRoot + definition.FileName);
+		}
+
 		_loadedAssetCount = CountLoadedAssets();
 	}
 
@@ -65,11 +93,11 @@ public sealed class Phase6SpriteRenderer
 
 		Texture2D? sheet = primitive.TypeId switch
 		{
-			(int)UnitTypeId.Villager => _villagerSheet,
-			(int)UnitTypeId.Infantry => _infantrySheet,
-			(int)UnitTypeId.Scout => _scoutSheet,
-			(int)UnitTypeId.Cavalry => _scoutSheet,
-			(int)UnitTypeId.TradeCart => _tradeCartSheet,
+			(int)UnitTypeId.Villager => GetAsset("Villager"),
+			(int)UnitTypeId.Infantry => GetAsset("Infantry"),
+			(int)UnitTypeId.Scout => GetAsset("Scout"),
+			(int)UnitTypeId.Cavalry => GetAsset("Scout"),
+			(int)UnitTypeId.TradeCart => GetAsset("TradeCart"),
 			_ => null
 		};
 		if (sheet == null)
@@ -103,12 +131,13 @@ public sealed class Phase6SpriteRenderer
 			return false;
 		}
 
-		if (primitive.TypeId == (int)BuildingTypeId.Wall && _wallSheet != null)
+		Texture2D? wallSheet = GetAsset("Wall");
+		if (primitive.TypeId == (int)BuildingTypeId.Wall && wallSheet != null)
 		{
 			GodotBuildingStatusDto? status = FindBuildingStatus(frame, primitive.EntityId);
 			Rect2 target = GetBuildingSpriteRect(primitive, 3.4f, toScreen, rawToPixels);
 			int frameIndex = status != null && status.IsUnderConstruction ? 3 : 0;
-			DrawSheetFrame(canvas, _wallSheet, 3, 2, frameIndex, target);
+			DrawSheetFrame(canvas, wallSheet, 3, 2, frameIndex, target);
 			if (selectedBuildingId == primitive.EntityId)
 			{
 				canvas.DrawRect(target.Grow(2.0f), Colors.White, false, 2.0f);
@@ -117,10 +146,11 @@ public sealed class Phase6SpriteRenderer
 			return true;
 		}
 
-		if (primitive.TypeId == (int)BuildingTypeId.TownCenter && _capitalSprite != null)
+		Texture2D? capitalSprite = GetAsset("Capital");
+		if (primitive.TypeId == (int)BuildingTypeId.TownCenter && capitalSprite != null)
 		{
 			Rect2 target = GetBuildingSpriteRect(primitive, primitive.IsCapital ? 3.6f : 3.1f, toScreen, rawToPixels);
-			canvas.DrawTextureRect(_capitalSprite, target, false);
+			canvas.DrawTextureRect(capitalSprite, target, false);
 			if (selectedBuildingId == primitive.EntityId)
 			{
 				canvas.DrawRect(target.Grow(2.0f), Colors.White, false, 2.0f);
@@ -235,39 +265,35 @@ public sealed class Phase6SpriteRenderer
 		return false;
 	}
 
+	private Texture2D? GetAsset(string key)
+	{
+		_assetRegistry.TryGetValue(key, out Texture2D? texture);
+		return texture;
+	}
+
 	private int CountLoadedAssets()
 	{
 		int count = 0;
-		if (_villagerSheet != null)
+		foreach (KeyValuePair<string, Texture2D?> entry in _assetRegistry)
 		{
-			count++;
-		}
-
-		if (_infantrySheet != null)
-		{
-			count++;
-		}
-
-		if (_scoutSheet != null)
-		{
-			count++;
-		}
-
-		if (_tradeCartSheet != null)
-		{
-			count++;
-		}
-
-		if (_capitalSprite != null)
-		{
-			count++;
-		}
-
-		if (_wallSheet != null)
-		{
-			count++;
+			if (entry.Value != null)
+			{
+				count++;
+			}
 		}
 
 		return count;
+	}
+
+	private readonly struct AssetDefinition
+	{
+		public AssetDefinition(string key, string fileName)
+		{
+			Key = key;
+			FileName = fileName;
+		}
+
+		public string Key { get; }
+		public string FileName { get; }
 	}
 }

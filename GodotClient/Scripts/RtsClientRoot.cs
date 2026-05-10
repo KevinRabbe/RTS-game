@@ -500,7 +500,25 @@ public partial class RtsClientRoot : Node2D
 			DrawString(ThemeDB.FallbackFont, new Vector2(12.0f, 20.0f + i * 18.0f), lines[i], HorizontalAlignment.Left, -1.0f, 16, Colors.White);
 		}
 
-		DrawString(ThemeDB.FallbackFont, new Vector2(12.0f, 56.0f), "Render " + _spriteRenderer.RenderModeLabel + " (F9)  Assets " + _spriteRenderer.LoadedAssetCount + "/6", HorizontalAlignment.Left, -1.0f, 16, Colors.White);
+		DrawString(
+			ThemeDB.FallbackFont,
+			new Vector2(12.0f, 56.0f),
+			"Render " + _spriteRenderer.RenderModeLabel + " (F9)  Assets " + _spriteRenderer.LoadedAssetCount + "/" + _spriteRenderer.ExpectedAssetCount,
+			HorizontalAlignment.Left,
+			-1.0f,
+			16,
+			Colors.White);
+		if (_spriteRenderer.LoadedAssetCount < _spriteRenderer.ExpectedAssetCount)
+		{
+			DrawString(
+				ThemeDB.FallbackFont,
+				new Vector2(12.0f, 74.0f),
+				"Missing: " + _spriteRenderer.MissingAssetsLabel,
+				HorizontalAlignment.Left,
+				-1.0f,
+				14,
+				Colors.LightGray);
+		}
 	}
 
 	private static Color GetStyleColor(GodotVisualStyle style)
