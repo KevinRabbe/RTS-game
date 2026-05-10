@@ -27,6 +27,7 @@ public partial class RtsClientRoot : Node2D
 	private bool _paused;
 	private bool _showDebugOverlay = true;
 	private bool _showHotkeyHelp;
+	private bool _screenshotMode;
 	private string _commandMarkerLabel = "";
 	private Color _commandMarkerColor = Colors.White;
 	private Vector2 _commandMarkerWorldPosition = Vector2.Zero;
@@ -179,6 +180,14 @@ public partial class RtsClientRoot : Node2D
 		{
 			StartLocalMatch(6);
 			_debugEventLog.Add("restart local 6-player ffa (F6)");
+			return;
+		}
+
+		if (key.Keycode == Key.F12)
+		{
+			_screenshotMode = !_screenshotMode;
+			_debugEventLog.Add(_screenshotMode ? "screenshot mode on" : "screenshot mode off");
+			RefreshFrame();
 			return;
 		}
 
@@ -778,6 +787,13 @@ public partial class RtsClientRoot : Node2D
 		}
 
 		Vector2 uiOrigin = GetUiOrigin();
+
+		if (_screenshotMode)
+		{
+			DrawMinimalHud(uiOrigin);
+			return;
+		}
+
 		string[] lines = GodotHudTextBuilder.BuildLines(
 			_frame,
 			_selectedUnitIds.ToArray(),
@@ -829,6 +845,21 @@ public partial class RtsClientRoot : Node2D
 		{
 			DrawHotkeyHelpPanel(uiOrigin, uiSize);
 		}
+	}
+
+	private void DrawMinimalHud(Vector2 uiOrigin)
+	{
+		GodotLocalPlayerDto player = _frame!.LocalPlayer;
+		string line = "Tick " + _frame.Tick
+			+ "  Map " + _frame.MapName
+			+ "  Food " + player.Food
+			+ "  Wood " + player.Wood
+			+ "  Gold " + player.Gold
+			+ "  Pop " + player.PopulationUsed + "/" + player.PopulationCap
+			+ "  " + _spriteRenderer.RenderModeLabel;
+
+		DrawRect(new Rect2(uiOrigin, new Vector2(1120.0f, 32.0f)), new Color(0.0f, 0.0f, 0.0f, 0.50f));
+		DrawString(ThemeDB.FallbackFont, uiOrigin + new Vector2(12.0f, 22.0f), line, HorizontalAlignment.Left, -1.0f, 16, Colors.White);
 	}
 
 	private void DrawDebugOverlay(Vector2 uiOrigin, Vector2 uiSize)

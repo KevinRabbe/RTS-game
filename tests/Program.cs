@@ -3118,6 +3118,7 @@ namespace RtsGame.Tests
             AssertEqual(true, ContainsHotkey(entries, "F6", "Start local 6-player FFA"), "hotkey help should include F6 binding");
             AssertEqual(true, ContainsHotkey(entries, "F9", "Toggle sprites/primitives"), "hotkey help should include F9 binding");
             AssertEqual(true, ContainsHotkey(entries, "F10", "Toggle debug overlay"), "hotkey help should include F10 debug overlay binding");
+            AssertEqual(true, ContainsHotkey(entries, "F12", "Toggle screenshot mode"), "hotkey help should include F12 screenshot mode binding");
             AssertEqual(true, ContainsHotkey(entries, "H/F11", "Toggle hotkey help"), "hotkey help should include H/F11 help binding");
             AssertEqual(true, ContainsHotkey(entries, "Space", "Pause / unpause"), "hotkey help should include pause binding");
             AssertEqual(true, ContainsHotkey(entries, "Left Click", "Select / confirm placement"), "hotkey help should include left-click selection behavior");

@@ -32,6 +32,7 @@ namespace RtsGame.Presentation.GodotBridge
                 new GodotHotkeyHelpEntry("View:", ""),
                 new GodotHotkeyHelpEntry("F9", "Toggle sprites/primitives"),
                 new GodotHotkeyHelpEntry("F10", "Toggle debug overlay"),
+                new GodotHotkeyHelpEntry("F12", "Toggle screenshot mode"),
                 new GodotHotkeyHelpEntry("H/F11", "Toggle hotkey help"),
                 new GodotHotkeyHelpEntry("Space", "Pause / unpause"),
                 new GodotHotkeyHelpEntry("", ""),
