@@ -2345,7 +2345,7 @@ namespace RtsGame.Tests
             AssertEqual(true, text.Contains("Building 11"), "hud should include selected building");
             AssertEqual(true, text.Contains("Resource 5"), "hud should include hovered resource");
             AssertEqual(true, text.Contains("Paused"), "hud should include pause state");
-            AssertEqual(true, text.Contains("Keys F1/F6 C/W/T V/I/K Y R Space"), "hud should include control hint text");
+            AssertEqual(true, text.Contains("Press H for hotkeys"), "hud should include control hint text");
         }
 
         private static void GodotHudTextBuildLinesReturnsTwoLines()
@@ -2987,10 +2987,22 @@ namespace RtsGame.Tests
         private static void GodotHotkeyHelpContainsKnownBindings()
         {
             GodotHotkeyHelpEntry[] entries = GodotHotkeyHelpBuilder.Build(researchIsWired: true);
+            AssertEqual(true, ContainsHotkey(entries, "F1", "Start local 1v1"), "hotkey help should include F1 binding");
+            AssertEqual(true, ContainsHotkey(entries, "F6", "Start local 6-player FFA"), "hotkey help should include F6 binding");
+            AssertEqual(true, ContainsHotkey(entries, "F9", "Toggle primitive/sprite render mode"), "hotkey help should include F9 binding");
             AssertEqual(true, ContainsHotkey(entries, "F10", "Toggle debug overlay"), "hotkey help should include F10 debug overlay binding");
-            AssertEqual(true, ContainsHotkey(entries, "H / F11", "Toggle hotkey help panel"), "hotkey help should include H/F11 help binding");
-            AssertEqual(true, ContainsHotkey(entries, "F9", "Toggle primitive/sprite render mode"), "hotkey help should include F9 render binding");
-            AssertEqual(true, ContainsHotkey(entries, "Right Click", "Move/attack/gather/build depending on target"), "hotkey help should include context right-click behavior");
+            AssertEqual(true, ContainsHotkey(entries, "H/F11", "Toggle hotkey help"), "hotkey help should include H/F11 help binding");
+            AssertEqual(true, ContainsHotkey(entries, "Space", "Pause / unpause"), "hotkey help should include pause binding");
+            AssertEqual(true, ContainsHotkey(entries, "Left Click", "Select unit, building, or resource"), "hotkey help should include left-click selection behavior");
+            AssertEqual(true, ContainsHotkey(entries, "Right Click", "Context action: move, attack, gather, or assign build"), "hotkey help should include right-click context behavior");
+            AssertEqual(true, ContainsHotkey(entries, "C", "Place Town Center at mouse"), "hotkey help should include C placement binding");
+            AssertEqual(true, ContainsHotkey(entries, "W", "Place Wall at mouse"), "hotkey help should include W placement binding");
+            AssertEqual(true, ContainsHotkey(entries, "T", "Place Trade Post at mouse"), "hotkey help should include T placement binding");
+            AssertEqual(true, ContainsHotkey(entries, "R", "Create Trade Route with selected Trade Cart"), "hotkey help should include R trade route binding");
+            AssertEqual(true, ContainsHotkey(entries, "V", "Train Villager from selected building"), "hotkey help should include V train villager binding");
+            AssertEqual(true, ContainsHotkey(entries, "I", "Train Infantry from selected building"), "hotkey help should include I train infantry binding");
+            AssertEqual(true, ContainsHotkey(entries, "K", "Train Trade Cart from selected Trade Post"), "hotkey help should include K train trade cart binding");
+            AssertEqual(true, ContainsHotkey(entries, "Y", "Research current available tech"), "hotkey help should include Y research binding");
         }
 
         private static void SimulationSourceDoesNotReferenceDebugOverlayHelpers()

@@ -204,7 +204,7 @@ namespace RtsGame.Presentation.GodotBridge
 
         private static string GetControlHintText()
         {
-            return "  Keys F1/F6 C/W/T V/I/K Y R Space";
+            return "  Press H for hotkeys";
         }
 
         private static string ToTrainActionLabel(GodotTrainActionState state)

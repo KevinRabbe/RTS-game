@@ -22,8 +22,8 @@ namespace RtsGame.Presentation.GodotBridge
                 new GodotHotkeyHelpEntry("F6", "Start local 6-player FFA"),
                 new GodotHotkeyHelpEntry("F9", "Toggle primitive/sprite render mode"),
                 new GodotHotkeyHelpEntry("F10", "Toggle debug overlay"),
-                new GodotHotkeyHelpEntry("H / F11", "Toggle hotkey help panel"),
-                new GodotHotkeyHelpEntry("Space", "Pause/unpause"),
+                new GodotHotkeyHelpEntry("H/F11", "Toggle hotkey help"),
+                new GodotHotkeyHelpEntry("Space", "Pause / unpause"),
                 new GodotHotkeyHelpEntry("Arrows", "Move camera"),
                 new GodotHotkeyHelpEntry("C", "Place Town Center at mouse"),
                 new GodotHotkeyHelpEntry("W", "Place Wall at mouse"),
@@ -33,8 +33,8 @@ namespace RtsGame.Presentation.GodotBridge
                 new GodotHotkeyHelpEntry("I", "Train Infantry from selected building"),
                 new GodotHotkeyHelpEntry("K", "Train Trade Cart from selected Trade Post"),
                 new GodotHotkeyHelpEntry("Y", researchIsWired ? "Research current available tech" : "Research reserved/not active"),
-                new GodotHotkeyHelpEntry("Left Click", "Select unit/building/resource"),
-                new GodotHotkeyHelpEntry("Right Click", "Move/attack/gather/build depending on target")
+                new GodotHotkeyHelpEntry("Left Click", "Select unit, building, or resource"),
+                new GodotHotkeyHelpEntry("Right Click", "Context action: move, attack, gather, or assign build")
             };
         }
     }
