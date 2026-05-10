@@ -25,6 +25,10 @@ public partial class RtsClientRoot : Node2D
 	private bool _paused;
 	private bool _showDebugOverlay = true;
 	private bool _showHotkeyHelp;
+	private string _commandMarkerLabel = "";
+	private Color _commandMarkerColor = Colors.White;
+	private Vector2 _commandMarkerWorldPosition = Vector2.Zero;
+	private int _commandMarkerTicksRemaining;
 	private int _hoveredResourceNodeId;
 	private int _selectedBuildingId;
 	private int _pendingTradeRouteAId;
@@ -47,6 +51,11 @@ public partial class RtsClientRoot : Node2D
 		}
 
 		UpdateCamera(delta);
+		if (_commandMarkerTicksRemaining > 0)
+		{
+			_commandMarkerTicksRemaining--;
+		}
+
 		if (_paused)
 		{
 			RefreshFrame();
@@ -148,6 +157,7 @@ public partial class RtsClientRoot : Node2D
 		if (key.Keycode == Key.C)
 		{
 			Vector2I tile = ScreenToTile(GetGlobalMousePosition());
+			SetCommandMarker("TC", ToScreen(TileToRaw(tile.X), TileToRaw(tile.Y)), Colors.LightBlue);
 			QueueCommandAndConfirm(
 				"place town center p=" + LocalPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ")",
 				facade => facade.QueuePlaceTownCenter(LocalPlayerIndex, tile.X, tile.Y));
@@ -157,6 +167,7 @@ public partial class RtsClientRoot : Node2D
 		if (key.Keycode == Key.W)
 		{
 			Vector2I tile = ScreenToTile(GetGlobalMousePosition());
+			SetCommandMarker("Wall", ToScreen(TileToRaw(tile.X), TileToRaw(tile.Y)), Colors.LightGray);
 			QueueCommandAndConfirm(
 				"place wall p=" + LocalPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ")",
 				facade => facade.QueuePlaceWall(LocalPlayerIndex, tile.X, tile.Y));
@@ -166,6 +177,7 @@ public partial class RtsClientRoot : Node2D
 		if (key.Keycode == Key.T)
 		{
 			Vector2I tile = ScreenToTile(GetGlobalMousePosition());
+			SetCommandMarker("TradePost", ToScreen(TileToRaw(tile.X), TileToRaw(tile.Y)), Colors.Gold);
 			QueueCommandAndConfirm(
 				"place trade post p=" + LocalPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ")",
 				facade => facade.QueuePlaceTradePost(LocalPlayerIndex, tile.X, tile.Y));
@@ -243,24 +255,43 @@ public partial class RtsClientRoot : Node2D
 
 			if (intent.Kind == GodotInteractionIntentKind.Attack)
 			{
+				GodotPrimitiveDto? target = FindPrimitiveByEntityId(frame, intent.TargetEntityId);
+				if (target != null)
+				{
+					SetCommandMarker("Attack", ToScreen(target.XRaw, target.YRaw), Colors.IndianRed);
+				}
+
 				QueueCommandAndConfirm(
 					"attack p=" + LocalPlayerIndex + " targetEntity=" + intent.TargetEntityId,
 					f => f.QueueAttack(LocalPlayerIndex, _selectedUnitIds.ToArray(), intent.TargetEntityId));
 			}
 			else if (intent.Kind == GodotInteractionIntentKind.AssignBuild)
 			{
+				GodotPrimitiveDto? target = FindPrimitiveByEntityId(frame, intent.TargetEntityId);
+				if (target != null)
+				{
+					SetCommandMarker("Build", ToScreen(target.XRaw, target.YRaw), Colors.Khaki);
+				}
+
 				QueueCommandAndConfirm(
 					"assign build p=" + LocalPlayerIndex + " targetBuilding=" + intent.TargetEntityId,
 					f => f.QueueAssignBuild(LocalPlayerIndex, intent.TargetEntityId, _selectedUnitIds.ToArray()));
 			}
 			else if (intent.Kind == GodotInteractionIntentKind.GatherResource)
 			{
+				GodotPrimitiveDto? target = FindPrimitiveByEntityId(frame, intent.ResourceNodeId);
+				if (target != null)
+				{
+					SetCommandMarker("Gather", ToScreen(target.XRaw, target.YRaw), Colors.ForestGreen);
+				}
+
 				QueueCommandAndConfirm(
 					"gather p=" + LocalPlayerIndex + " resource=" + intent.ResourceNodeId,
 					f => f.QueueGatherResource(LocalPlayerIndex, intent.ResourceNodeId, _selectedUnitIds.ToArray()));
 			}
 			else if (intent.Kind == GodotInteractionIntentKind.Move)
 			{
+				SetCommandMarker("Move", ToScreen(TileToRaw(tile.X), TileToRaw(tile.Y)), Colors.LightSkyBlue);
 				QueueCommandAndConfirm(
 					"move p=" + LocalPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ")",
 					f => f.QueueMoveUnits(LocalPlayerIndex, _selectedUnitIds.ToArray(), tile.X, tile.Y));
@@ -392,6 +423,7 @@ public partial class RtsClientRoot : Node2D
 		QueueCommandAndConfirm(
 			"trade route p=" + LocalPlayerIndex + " cart=" + tradeCartId + " A=" + routeA + " B=" + tradePostId,
 			facade => facade.QueueCreateTradeRoute(LocalPlayerIndex, tradeCartId, routeA, tradePostId));
+		SetCommandMarker("TradeRoute", screenPosition, Colors.Gold);
 		_pendingTradeRouteAId = 0;
 	}
 
@@ -459,32 +491,46 @@ public partial class RtsClientRoot : Node2D
 
 	private void DrawUnit(GodotPrimitiveDto primitive)
 	{
+		bool isSelected = _selectedUnitIds.Contains(primitive.EntityId);
 		if (_spriteRenderer.TryDrawUnit(this, primitive, _frame, _selectedUnitIds, ToScreen, RawToPixels))
 		{
+			if (isSelected)
+			{
+				DrawSelectionRing(primitive, Colors.Aqua);
+			}
+
 			return;
 		}
 
 		Rect2 rect = PrimitiveRect(primitive);
 		Color color = GetStyleColor(GodotVisualStyleResolver.ResolveUnit(primitive, LocalPlayerIndex));
 		DrawRect(rect, color);
-		if (_selectedUnitIds.Contains(primitive.EntityId))
+		if (isSelected)
 		{
+			DrawSelectionRing(primitive, Colors.Aqua);
 			DrawRect(rect.Grow(2.0f), Colors.White, false, 2.0f);
 		}
 	}
 
 	private void DrawBuilding(GodotPrimitiveDto primitive)
 	{
+		bool isSelected = _selectedBuildingId == primitive.EntityId;
 		if (_spriteRenderer.TryDrawBuilding(this, primitive, _frame, _selectedBuildingId, ToScreen, RawToPixels))
 		{
+			if (isSelected)
+			{
+				DrawSelectionRing(primitive, Colors.Gold);
+			}
+
 			return;
 		}
 
 		Rect2 rect = PrimitiveRect(primitive);
 		Color color = GetStyleColor(GodotVisualStyleResolver.ResolveBuilding(primitive));
 		DrawRect(rect, color);
-		if (_selectedBuildingId == primitive.EntityId)
+		if (isSelected)
 		{
+			DrawSelectionRing(primitive, Colors.Gold);
 			DrawRect(rect.Grow(2.0f), Colors.White, false, 2.0f);
 		}
 	}
@@ -533,6 +579,7 @@ public partial class RtsClientRoot : Node2D
 			return;
 		}
 
+		Vector2 uiOrigin = GetUiOrigin();
 		string[] lines = GodotHudTextBuilder.BuildLines(
 			_frame,
 			_selectedUnitIds.ToArray(),
@@ -540,14 +587,21 @@ public partial class RtsClientRoot : Node2D
 			_hoveredResourceNodeId,
 			_paused);
 
+		float hudHeight = 64.0f;
+		if (_spriteRenderer.LoadedAssetCount < _spriteRenderer.ExpectedAssetCount)
+		{
+			hudHeight = 82.0f;
+		}
+
+		DrawRect(new Rect2(uiOrigin, new Vector2(1120.0f, hudHeight)), new Color(0.0f, 0.0f, 0.0f, 0.50f));
 		for (int i = 0; i < lines.Length; i++)
 		{
-			DrawString(ThemeDB.FallbackFont, new Vector2(12.0f, 20.0f + i * 18.0f), lines[i], HorizontalAlignment.Left, -1.0f, 16, Colors.White);
+			DrawString(ThemeDB.FallbackFont, uiOrigin + new Vector2(12.0f, 20.0f + i * 18.0f), lines[i], HorizontalAlignment.Left, -1.0f, 16, Colors.White);
 		}
 
 		DrawString(
 			ThemeDB.FallbackFont,
-			new Vector2(12.0f, 56.0f),
+			uiOrigin + new Vector2(12.0f, 56.0f),
 			"Render " + _spriteRenderer.RenderModeLabel + " (F9)  Assets " + _spriteRenderer.LoadedAssetCount + "/" + _spriteRenderer.ExpectedAssetCount,
 			HorizontalAlignment.Left,
 			-1.0f,
@@ -557,7 +611,7 @@ public partial class RtsClientRoot : Node2D
 		{
 			DrawString(
 				ThemeDB.FallbackFont,
-				new Vector2(12.0f, 74.0f),
+				uiOrigin + new Vector2(12.0f, 74.0f),
 				"Missing: " + _spriteRenderer.MissingAssetsLabel,
 				HorizontalAlignment.Left,
 				-1.0f,
@@ -565,20 +619,22 @@ public partial class RtsClientRoot : Node2D
 				Colors.LightGray);
 		}
 
+		DrawCommandMarker();
+
 		if (_showDebugOverlay)
 		{
-			DrawDebugOverlay();
+			DrawDebugOverlay(uiOrigin);
 		}
 
 		if (_showHotkeyHelp)
 		{
-			DrawHotkeyHelpPanel();
+			DrawHotkeyHelpPanel(uiOrigin);
 		}
 	}
 
-	private void DrawDebugOverlay()
+	private void DrawDebugOverlay(Vector2 uiOrigin)
 	{
-		Vector2 panelPos = new Vector2(12.0f, 96.0f);
+		Vector2 panelPos = uiOrigin + new Vector2(0.0f, 88.0f);
 		float panelWidth = 1120.0f;
 		float panelHeight = 246.0f;
 		DrawRect(new Rect2(panelPos, new Vector2(panelWidth, panelHeight)), new Color(0.0f, 0.0f, 0.0f, 0.52f));
@@ -600,10 +656,10 @@ public partial class RtsClientRoot : Node2D
 		}
 	}
 
-	private void DrawHotkeyHelpPanel()
+	private void DrawHotkeyHelpPanel(Vector2 uiOrigin)
 	{
 		GodotHotkeyHelpEntry[] entries = GodotHotkeyHelpBuilder.Build(researchIsWired: true);
-		Vector2 panelPos = new Vector2(12.0f, 352.0f);
+		Vector2 panelPos = uiOrigin + new Vector2(0.0f, 344.0f);
 		float panelWidth = 620.0f;
 		float panelHeight = 24.0f + entries.Length * 16.0f + 12.0f;
 		DrawRect(new Rect2(panelPos, new Vector2(panelWidth, panelHeight)), new Color(0.0f, 0.0f, 0.0f, 0.56f));
@@ -613,6 +669,45 @@ public partial class RtsClientRoot : Node2D
 			string line = entries[i].Input + ": " + entries[i].Action;
 			DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(10.0f, 38.0f + i * 16.0f), line, HorizontalAlignment.Left, -1.0f, 13, Colors.LightGray);
 		}
+	}
+
+	private void DrawSelectionRing(GodotPrimitiveDto primitive, Color color)
+	{
+		Vector2 center = ToScreen(primitive.XRaw, primitive.YRaw);
+		float radius = Mathf.Max(9.0f, RawToPixels(primitive.SizeRaw) * 0.66f);
+		DrawArc(center + new Vector2(0.0f, 4.0f), radius, 0.0f, Mathf.Tau, 32, color, 2.0f);
+	}
+
+	private void DrawCommandMarker()
+	{
+		if (_commandMarkerTicksRemaining <= 0)
+		{
+			return;
+		}
+
+		float pulse = 1.0f + (_commandMarkerTicksRemaining % 6) * 0.12f;
+		DrawArc(_commandMarkerWorldPosition, 10.0f * pulse, 0.0f, Mathf.Tau, 40, _commandMarkerColor, 2.0f);
+		DrawString(ThemeDB.FallbackFont, _commandMarkerWorldPosition + new Vector2(14.0f, -10.0f), _commandMarkerLabel, HorizontalAlignment.Left, -1.0f, 13, _commandMarkerColor);
+	}
+
+	private static Vector2 GetUiOriginFromCamera(Camera2D? camera, Rect2 viewportRect)
+	{
+		if (camera == null)
+		{
+			return Vector2.Zero;
+		}
+
+		Vector2 zoom = camera.Zoom;
+		float zoomX = Mathf.IsZeroApprox(zoom.X) ? 1.0f : zoom.X;
+		float zoomY = Mathf.IsZeroApprox(zoom.Y) ? 1.0f : zoom.Y;
+		float halfWidth = viewportRect.Size.X * 0.5f * zoomX;
+		float halfHeight = viewportRect.Size.Y * 0.5f * zoomY;
+		return new Vector2(camera.Position.X - halfWidth + 12.0f, camera.Position.Y - halfHeight + 12.0f);
+	}
+
+	private Vector2 GetUiOrigin()
+	{
+		return GetUiOriginFromCamera(_camera, GetViewportRect());
 	}
 
 	private void QueueCommandAndConfirm(string intentDescription, Action<GodotClientFacade> queueAction)
@@ -635,6 +730,27 @@ public partial class RtsClientRoot : Node2D
 		int afterRejected = _frame?.Match.RejectedCommandCount ?? facade.RejectedCommandCount;
 		GodotCommandResultKind result = GodotCommandResultClassifier.Classify(beforeExecuted, beforeRejected, afterExecuted, afterRejected);
 		_debugEventLog.Add("result " + result + " ex " + beforeExecuted + "->" + afterExecuted + " rej " + beforeRejected + "->" + afterRejected);
+	}
+
+	private static GodotPrimitiveDto? FindPrimitiveByEntityId(GodotFrameDto frame, int entityId)
+	{
+		for (int i = 0; i < frame.Primitives.Length; i++)
+		{
+			if (frame.Primitives[i].EntityId == entityId)
+			{
+				return frame.Primitives[i];
+			}
+		}
+
+		return null;
+	}
+
+	private void SetCommandMarker(string label, Vector2 worldPosition, Color color)
+	{
+		_commandMarkerLabel = label;
+		_commandMarkerWorldPosition = worldPosition;
+		_commandMarkerColor = color;
+		_commandMarkerTicksRemaining = 40;
 	}
 
 	private static Color GetStyleColor(GodotVisualStyle style)
@@ -688,6 +804,11 @@ public partial class RtsClientRoot : Node2D
 	private static long ScreenToRaw(float screenCoordinate)
 	{
 		return GodotCoordinateMapper.ScreenToRaw(screenCoordinate, TilePixels);
+	}
+
+	private static long TileToRaw(int tileCoordinate)
+	{
+		return ScreenToRaw(tileCoordinate * TilePixels);
 	}
 
 	private static Vector2I ScreenToTile(Vector2 screenPosition)

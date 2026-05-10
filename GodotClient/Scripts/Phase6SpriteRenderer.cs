@@ -143,7 +143,7 @@ public sealed class Phase6SpriteRenderer
 			}
 
 			GodotBuildingStatusDto? status = FindBuildingStatus(frame, primitive.EntityId);
-			Rect2 target = GetBuildingSpriteRect(primitive, 3.4f, toScreen, rawToPixels);
+			Rect2 target = GetBuildingSpriteRect(primitive, 2.7f, toScreen, rawToPixels);
 			int frameIndex = status != null && status.IsUnderConstruction ? wallMetadata.UnderConstructionFrameIndex : wallMetadata.DefaultFrameIndex;
 			DrawSheetFrame(canvas, wallSheet, wallMetadata, frameIndex, target);
 			if (selectedBuildingId == primitive.EntityId)
@@ -157,7 +157,7 @@ public sealed class Phase6SpriteRenderer
 		Texture2D? capitalSprite = GetAsset(GodotSpriteAssetId.Capital);
 		if (primitive.TypeId == (int)BuildingTypeId.TownCenter && capitalSprite != null)
 		{
-			Rect2 target = GetBuildingSpriteRect(primitive, primitive.IsCapital ? 3.6f : 3.1f, toScreen, rawToPixels);
+			Rect2 target = GetBuildingSpriteRect(primitive, primitive.IsCapital ? 3.0f : 2.6f, toScreen, rawToPixels);
 			canvas.DrawTextureRect(capitalSprite, target, false);
 			if (selectedBuildingId == primitive.EntityId)
 			{
@@ -181,16 +181,16 @@ public sealed class Phase6SpriteRenderer
 	{
 		Vector2 center = toScreen(primitive.XRaw, primitive.YRaw);
 		float worldSize = rawToPixels(primitive.SizeRaw);
-		float size = Mathf.Max(34.0f, worldSize * 3.2f);
-		return new Rect2(center.X - size * 0.5f, center.Y - size * 0.72f, size, size);
+		float size = Mathf.Max(28.0f, worldSize * 2.65f);
+		return new Rect2(center.X - size * 0.5f, center.Y - size * 0.78f, size, size);
 	}
 
 	private static Rect2 GetBuildingSpriteRect(GodotPrimitiveDto primitive, float scale, System.Func<long, long, Vector2> toScreen, System.Func<long, float> rawToPixels)
 	{
 		Vector2 center = toScreen(primitive.XRaw, primitive.YRaw);
 		float worldSize = rawToPixels(primitive.SizeRaw);
-		float size = Mathf.Max(84.0f, worldSize * scale);
-		return new Rect2(center.X - size * 0.5f, center.Y - size * 0.74f, size, size);
+		float size = Mathf.Max(68.0f, worldSize * scale);
+		return new Rect2(center.X - size * 0.5f, center.Y - size * 0.80f, size, size);
 	}
 
 	private static GodotUnitStatusDto? FindUnitStatus(GodotFrameDto? frame, int unitId)
