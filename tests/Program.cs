@@ -2474,7 +2474,7 @@ namespace RtsGame.Tests
 
             AssertEqual(2, lines.Length, "hud text should return two lines for runtime readability");
             AssertEqual(true, lines[0].Contains("Tick 1"), "first hud line should include match/economy summary");
-            AssertEqual(true, lines[1].Contains("Selected -"), "second hud line should include interaction summary");
+            AssertEqual(true, lines[1].Contains("Selected none"), "second hud line should include interaction summary");
         }
 
         private static void GodotHudTextIncludesUnitGatherStatus()

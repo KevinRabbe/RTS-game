@@ -8,14 +8,14 @@ namespace RtsGame.Presentation.GodotBridge
     {
         public static string[] BuildLines(GodotFrameDto? frame, IReadOnlyCollection<int> selectedUnitIds, int selectedBuildingId, int hoveredResourceNodeId)
         {
-            string selectedUnits = selectedUnitIds.Count == 0 ? "-" : string.Join(",", selectedUnitIds);
-            string selectedBuilding = selectedBuildingId == 0 ? "-" : selectedBuildingId.ToString();
-            string hoveredResource = hoveredResourceNodeId == 0 ? "-" : hoveredResourceNodeId.ToString();
+            string selectedUnits = selectedUnitIds.Count == 0 ? "none" : string.Join(",", selectedUnitIds);
+            string selectedBuilding = selectedBuildingId == 0 ? "none" : selectedBuildingId.ToString();
+            string hoveredResource = hoveredResourceNodeId == 0 ? "none" : hoveredResourceNodeId.ToString();
 
             string status = "SelectedUnits " + selectedUnits + "  SelectedBuilding " + selectedBuilding + "  HoveredResource " + hoveredResource;
             if (frame == null || selectedUnitIds.Count == 0)
             {
-                return new[] { status, "UnitStatus -" };
+                return new[] { status, "Unit Status: none" };
             }
 
             foreach (int unitId in selectedUnitIds)
@@ -41,7 +41,7 @@ namespace RtsGame.Presentation.GodotBridge
                 }
             }
 
-            return new[] { status, "UnitStatus -" };
+            return new[] { status, "Unit Status: none" };
         }
 
         private static string ResolveResourceLabel(int carriedResourceTypeId)

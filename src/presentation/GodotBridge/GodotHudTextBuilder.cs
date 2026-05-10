@@ -12,9 +12,9 @@ namespace RtsGame.Presentation.GodotBridge
             bool paused)
         {
             GodotLocalPlayerDto player = frame.LocalPlayer;
-            string selected = selectedUnitIds.Length == 0 ? "-" : string.Join(",", selectedUnitIds);
-            string selectedBuilding = selectedBuildingId == 0 ? "-" : selectedBuildingId.ToString();
-            string hoveredResource = hoveredResourceNodeId == 0 ? "-" : hoveredResourceNodeId.ToString();
+            string selected = selectedUnitIds.Length == 0 ? "none" : string.Join(",", selectedUnitIds);
+            string selectedBuilding = selectedBuildingId == 0 ? "none" : selectedBuildingId.ToString();
+            string hoveredResource = hoveredResourceNodeId == 0 ? "none" : hoveredResourceNodeId.ToString();
 
             string lineA = "Tick " + frame.Tick
                 + "  Map " + frame.MapName

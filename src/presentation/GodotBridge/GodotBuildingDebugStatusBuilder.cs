@@ -9,14 +9,14 @@ namespace RtsGame.Presentation.GodotBridge
         {
             if (frame == null || selectedBuildingId == 0)
             {
-                return new[] { "Building -", "Training -" };
+                return new[] { "Building Status: none", "Training: none" };
             }
 
             GodotBuildingStatusDto? status = FindBuildingStatus(frame, selectedBuildingId);
             GodotPrimitiveDto? primitive = FindBuildingPrimitive(frame, selectedBuildingId);
             if (status == null || primitive == null)
             {
-                return new[] { "Building " + selectedBuildingId, "Training -" };
+                return new[] { "Building Status: none", "Training: none" };
             }
 
             string typeLabel = ResolveBuildingTypeLabel(status.BuildingTypeId);
