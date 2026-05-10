@@ -136,6 +136,7 @@ namespace RtsGame.Tests
                 new TestCase("godot facade routes research command", GodotFacadeRoutesResearchCommand),
                 new TestCase("godot interaction router prioritizes attack", GodotInteractionRouterPrioritizesAttack),
                 new TestCase("godot interaction router routes build assignment", GodotInteractionRouterRoutesBuildAssignment),
+                new TestCase("godot interaction router routes build assignment with expanded bounds", GodotInteractionRouterRoutesBuildAssignmentWithExpandedBounds),
                 new TestCase("godot interaction router ignores completed build target", GodotInteractionRouterIgnoresCompletedBuildTarget),
                 new TestCase("godot interaction router routes resources", GodotInteractionRouterRoutesResources),
                 new TestCase("godot interaction router routes move fallback", GodotInteractionRouterRoutesMoveFallback),
@@ -165,6 +166,7 @@ namespace RtsGame.Tests
                 new TestCase("godot hud text handles missing status", GodotHudTextHandlesMissingStatus),
                 new TestCase("godot primitive hit test includes boundary", GodotPrimitiveHitTestIncludesBoundary),
                 new TestCase("godot primitive hit test rejects outside", GodotPrimitiveHitTestRejectsOutside),
+                new TestCase("godot primitive interaction hit test expands building bounds", GodotPrimitiveInteractionHitTestExpandsBuildingBounds),
                 new TestCase("godot visual style resolves local unit types", GodotVisualStyleResolvesLocalUnitTypes),
                 new TestCase("godot visual style resolves enemy unit", GodotVisualStyleResolvesEnemyUnit),
                 new TestCase("godot visual style resolves building types", GodotVisualStyleResolvesBuildingTypes),
@@ -2213,6 +2215,24 @@ namespace RtsGame.Tests
             AssertEqual(21, intent.TargetEntityId, "build assignment intent should expose target building id");
         }
 
+        private static void GodotInteractionRouterRoutesBuildAssignmentWithExpandedBounds()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(
+                new[]
+                {
+                    CreateGodotPrimitive(VisualPrimitiveKind.BuildingRectangle, 121, 0, 5, 5)
+                },
+                new[]
+                {
+                    new GodotBuildingStatusDto(121, (int)BuildingTypeId.TownCenter, true, 1, GameData.TownCenterBuildTicks, 0, 0, 0, 0)
+                });
+
+            GodotInteractionIntent intent = GodotInteractionRouter.RouteRightClick(frame, 0, true, Fixed.FromInt(6).Raw, Fixed.FromInt(6).Raw);
+
+            AssertEqual(GodotInteractionIntentKind.AssignBuild, intent.Kind, "expanded interaction bounds should route build assignment near foundations");
+            AssertEqual(121, intent.TargetEntityId, "expanded interaction bounds should preserve target building id");
+        }
+
         private static void GodotInteractionRouterIgnoresCompletedBuildTarget()
         {
             GodotFrameDto frame = CreateGodotInteractionFrame(
@@ -2716,6 +2736,19 @@ namespace RtsGame.Tests
                 Fixed.FromInt(10).Raw);
 
             AssertEqual(false, contains, "hit test should reject points beyond primitive boundary");
+        }
+
+        private static void GodotPrimitiveInteractionHitTestExpandsBuildingBounds()
+        {
+            GodotPrimitiveDto primitive = CreateGodotPrimitiveWithType(VisualPrimitiveKind.BuildingRectangle, 102, 0, (int)BuildingTypeId.TownCenter, 10, 10);
+
+            long outsideCoreX = primitive.XRaw + primitive.SizeRaw;
+            long outsideCoreY = primitive.YRaw + primitive.SizeRaw;
+            bool containsCore = GodotPrimitiveHitTest.ContainsPoint(primitive, outsideCoreX, outsideCoreY);
+            bool containsInteraction = GodotPrimitiveHitTest.ContainsPointForInteraction(primitive, outsideCoreX, outsideCoreY);
+
+            AssertEqual(false, containsCore, "core hit test should stay strict");
+            AssertEqual(true, containsInteraction, "interaction hit test should expand building bounds for playability");
         }
 
         private static void GodotVisualStyleResolvesLocalUnitTypes()

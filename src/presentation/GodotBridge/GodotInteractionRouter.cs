@@ -67,7 +67,7 @@ namespace RtsGame.Presentation.GodotBridge
                     continue;
                 }
 
-                if (GodotPrimitiveHitTest.ContainsPoint(primitive, xRaw, yRaw))
+                if (GodotPrimitiveHitTest.ContainsPointForInteraction(primitive, xRaw, yRaw))
                 {
                     return primitive.EntityId;
                 }
@@ -90,7 +90,7 @@ namespace RtsGame.Presentation.GodotBridge
                     continue;
                 }
 
-                if (GodotPrimitiveHitTest.ContainsPoint(primitive, xRaw, yRaw))
+                if (GodotPrimitiveHitTest.ContainsPointForInteraction(primitive, xRaw, yRaw))
                 {
                     return primitive.EntityId;
                 }
@@ -116,7 +116,7 @@ namespace RtsGame.Presentation.GodotBridge
                     continue;
                 }
 
-                if (GodotPrimitiveHitTest.ContainsPoint(primitive, xRaw, yRaw))
+                if (GodotPrimitiveHitTest.ContainsPointForInteraction(primitive, xRaw, yRaw))
                 {
                     return primitive.EntityId;
                 }

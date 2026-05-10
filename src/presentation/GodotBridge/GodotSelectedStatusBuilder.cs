@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using RtsGame.Presentation.Visuals;
 using RtsGame.Sim.Data;
 
 namespace RtsGame.Presentation.GodotBridge
@@ -26,10 +27,17 @@ namespace RtsGame.Presentation.GodotBridge
                     string build = unit.CurrentBuildTargetId == 0 ? "BuildTarget -" : "BuildTarget " + unit.CurrentBuildTargetId;
                     string resource = unit.CurrentResourceNodeId == 0 ? "ResourceTarget -" : "ResourceTarget " + unit.CurrentResourceNodeId;
                     string attack = unit.AttackTargetId == 0 ? "AttackTarget -" : "AttackTarget " + unit.AttackTargetId;
+                    bool isFullCarry = unit.CarriedAmount >= GameData.VillagerCarryCapacity;
                     string carry = unit.CarriedAmount == 0
                         ? "Carry -"
-                        : "Carry " + unit.CarriedAmount + " " + ResolveResourceLabel(unit.CarriedResourceTypeId);
-                    return new[] { status, move + "  " + build + "  " + resource + "  " + attack + "  " + carry };
+                        : "Carry " + unit.CarriedAmount + " " + ResolveResourceLabel(unit.CarriedResourceTypeId) + (isFullCarry ? " (Full)" : "");
+                    string depositHint = "";
+                    if (unit.CarriedAmount > 0 && !HasCompletedTownCenter(frame, frame.LocalPlayerIndex))
+                    {
+                        depositHint = "  DepositNeedsCompletedTC";
+                    }
+
+                    return new[] { status, move + "  " + build + "  " + resource + "  " + attack + "  " + carry + depositHint };
                 }
             }
 
@@ -67,6 +75,29 @@ namespace RtsGame.Presentation.GodotBridge
             }
 
             return null;
+        }
+
+        private static bool HasCompletedTownCenter(GodotFrameDto frame, int ownerPlayerIndex)
+        {
+            for (int i = 0; i < frame.Primitives.Length; i++)
+            {
+                GodotPrimitiveDto primitive = frame.Primitives[i];
+                if (primitive.OwnerPlayerIndex == ownerPlayerIndex
+                    && primitive.TypeId == (int)BuildingTypeId.TownCenter
+                    && primitive.Kind == (int)VisualPrimitiveKind.BuildingRectangle)
+                {
+                    for (int j = 0; j < frame.BuildingStatuses.Length; j++)
+                    {
+                        GodotBuildingStatusDto building = frame.BuildingStatuses[j];
+                        if (building.BuildingId == primitive.EntityId && !building.IsUnderConstruction)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
         }
     }
 }

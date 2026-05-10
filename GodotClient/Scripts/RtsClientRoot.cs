@@ -30,6 +30,7 @@ public partial class RtsClientRoot : Node2D
 	private Vector2 _commandMarkerWorldPosition = Vector2.Zero;
 	private int _commandMarkerTicksRemaining;
 	private int _hoveredResourceNodeId;
+	private int _hoveredBuildingId;
 	private int _selectedBuildingId;
 	private int _pendingTradeRouteAId;
 
@@ -237,6 +238,8 @@ public partial class RtsClientRoot : Node2D
 
 		Vector2 mouseWorldPosition = GetGlobalMousePosition();
 		Vector2I tile = ScreenToTile(mouseWorldPosition);
+		long mouseXRaw = ScreenToRaw(mouseWorldPosition.X);
+		long mouseYRaw = ScreenToRaw(mouseWorldPosition.Y);
 		if (mouse.ButtonIndex == MouseButton.Left)
 		{
 			SelectAt(mouseWorldPosition);
@@ -246,12 +249,16 @@ public partial class RtsClientRoot : Node2D
 
 		if (mouse.ButtonIndex == MouseButton.Right && _selectedUnitIds.Count > 0)
 		{
+			GodotInteractionProbeResult probe = GodotInteractionProbe.Probe(frame, LocalPlayerIndex, mouseXRaw, mouseYRaw);
 			GodotInteractionIntent intent = GodotInteractionRouter.RouteRightClick(
 				frame,
 				LocalPlayerIndex,
 				_selectedUnitIds.Count > 0,
-				ScreenToRaw(mouseWorldPosition.X),
-				ScreenToRaw(mouseWorldPosition.Y));
+				mouseXRaw,
+				mouseYRaw);
+			_debugEventLog.Add(
+				"rclick raw=(" + mouseXRaw + "," + mouseYRaw + ") tile=(" + tile.X + "," + tile.Y + ") target="
+				+ probe.TargetKind + ":" + probe.TargetEntityId + " route=" + intent.Kind);
 
 			if (intent.Kind == GodotInteractionIntentKind.Attack)
 			{
@@ -515,12 +522,19 @@ public partial class RtsClientRoot : Node2D
 	private void DrawBuilding(GodotPrimitiveDto primitive)
 	{
 		bool isSelected = _selectedBuildingId == primitive.EntityId;
+		bool isHovered = _hoveredBuildingId == primitive.EntityId;
 		if (_spriteRenderer.TryDrawBuilding(this, primitive, _frame, _selectedBuildingId, ToScreen, RawToPixels))
 		{
 			if (isSelected)
 			{
 				DrawSelectionRing(primitive, Colors.Gold);
 			}
+			else if (isHovered)
+			{
+				DrawSelectionRing(primitive, Colors.Khaki);
+			}
+
+			DrawConstructionOverlayIfNeeded(primitive);
 
 			return;
 		}
@@ -533,6 +547,12 @@ public partial class RtsClientRoot : Node2D
 			DrawSelectionRing(primitive, Colors.Gold);
 			DrawRect(rect.Grow(2.0f), Colors.White, false, 2.0f);
 		}
+		else if (isHovered)
+		{
+			DrawSelectionRing(primitive, Colors.Khaki);
+		}
+
+		DrawConstructionOverlayIfNeeded(primitive);
 	}
 
 	private void DrawResource(GodotPrimitiveDto primitive)
@@ -636,7 +656,9 @@ public partial class RtsClientRoot : Node2D
 	private void DrawDebugOverlay(Vector2 uiOrigin, Vector2 uiSize)
 	{
 		string[] statusLines = GodotSelectedStatusBuilder.BuildLines(_frame, _selectedUnitIds, _selectedBuildingId, _hoveredResourceNodeId);
+		string buildingLine = BuildBuildingStatusLine();
 		DrawSelectedStatusPanel(uiOrigin, uiSize, statusLines);
+		DrawBuildingStatusPanel(uiOrigin, buildingLine);
 
 		float panelWidth = 420.0f;
 		float panelHeight = 168.0f;
@@ -678,6 +700,13 @@ public partial class RtsClientRoot : Node2D
 		{
 			DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(10.0f, 19.0f + i * 16.0f), statusLines[i], HorizontalAlignment.Left, -1.0f, 13, Colors.LightGray);
 		}
+	}
+
+	private void DrawBuildingStatusPanel(Vector2 uiOrigin, string line)
+	{
+		Vector2 panelPos = uiOrigin + new Vector2(0.0f, 76.0f);
+		DrawRect(new Rect2(panelPos, new Vector2(760.0f, 18.0f)), new Color(0.0f, 0.0f, 0.0f, 0.46f));
+		DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(8.0f, 13.0f), line, HorizontalAlignment.Left, -1.0f, 12, Colors.LightGray);
 	}
 
 	private void DrawSelectionRing(GodotPrimitiveDto primitive, Color color)
@@ -845,8 +874,11 @@ public partial class RtsClientRoot : Node2D
 
 	private void RefreshFrame()
 	{
+		GodotFrameDto? previous = _frame;
 		_frame = _facade!.GetFrame(LocalPlayerIndex);
+		LogDepositEvents(previous, _frame);
 		_hoveredResourceNodeId = FindResourceAt(GetGlobalMousePosition());
+		_hoveredBuildingId = FindHoveredBuildingAt(GetGlobalMousePosition());
 		QueueRedraw();
 	}
 
@@ -858,5 +890,147 @@ public partial class RtsClientRoot : Node2D
 		}
 
 		return GodotInteractionRouter.FindResourceAt(_frame, ScreenToRaw(screenPosition.X), ScreenToRaw(screenPosition.Y));
+	}
+
+	private int FindHoveredBuildingAt(Vector2 screenPosition)
+	{
+		if (_frame == null)
+		{
+			return 0;
+		}
+
+		long xRaw = ScreenToRaw(screenPosition.X);
+		long yRaw = ScreenToRaw(screenPosition.Y);
+		for (int i = 0; i < _frame.Primitives.Length; i++)
+		{
+			GodotPrimitiveDto primitive = _frame.Primitives[i];
+			if (primitive.OwnerPlayerIndex != LocalPlayerIndex)
+			{
+				continue;
+			}
+
+			if (GodotPrimitiveDrawKindResolver.Resolve(primitive) != GodotPrimitiveDrawKind.Building)
+			{
+				continue;
+			}
+
+			if (GodotPrimitiveHitTest.ContainsPointForInteraction(primitive, xRaw, yRaw))
+			{
+				return primitive.EntityId;
+			}
+		}
+
+		return 0;
+	}
+
+	private string BuildBuildingStatusLine()
+	{
+		if (_frame == null)
+		{
+			return "Building -";
+		}
+
+		int buildingId = _selectedBuildingId != 0 ? _selectedBuildingId : _hoveredBuildingId;
+		if (buildingId == 0)
+		{
+			return "Building -";
+		}
+
+		GodotBuildingStatusDto? status = FindBuildingStatus(_frame, buildingId);
+		GodotPrimitiveDto? primitive = FindPrimitiveByEntityId(_frame, buildingId);
+		if (status == null || primitive == null)
+		{
+			return "Building " + buildingId;
+		}
+
+		string typeLabel = status.BuildingTypeId == 1 ? "TownCenter" : status.BuildingTypeId == 2 ? "Wall" : status.BuildingTypeId == 3 ? "TradePost" : "Type" + status.BuildingTypeId;
+		bool canTrain = status.BuildingTypeId == 1 || status.BuildingTypeId == 3;
+		return "Building " + status.BuildingId
+			+ "  Type " + typeLabel
+			+ "  UnderConstruction " + status.IsUnderConstruction
+			+ "  Progress " + status.BuildProgressTicks + "/" + status.RequiredBuildTicks
+			+ "  Capital " + primitive.IsCapital
+			+ "  CanTrain " + canTrain;
+	}
+
+	private void DrawConstructionOverlayIfNeeded(GodotPrimitiveDto primitive)
+	{
+		if (_frame == null)
+		{
+			return;
+		}
+
+		GodotBuildingStatusDto? status = FindBuildingStatus(_frame, primitive.EntityId);
+		if (status == null || !status.IsUnderConstruction)
+		{
+			return;
+		}
+
+		Vector2 center = ToScreen(primitive.XRaw, primitive.YRaw);
+		var bgRect = new Rect2(center.X - 44.0f, center.Y - 30.0f, 88.0f, 20.0f);
+		DrawRect(bgRect, new Color(0.0f, 0.0f, 0.0f, 0.5f));
+		DrawString(ThemeDB.FallbackFont, bgRect.Position + new Vector2(4.0f, 9.0f), "BUILDING", HorizontalAlignment.Left, -1.0f, 11, Colors.Khaki);
+		DrawString(ThemeDB.FallbackFont, bgRect.Position + new Vector2(4.0f, 19.0f), status.BuildProgressTicks + "/" + status.RequiredBuildTicks, HorizontalAlignment.Left, -1.0f, 10, Colors.LightGray);
+	}
+
+	private static GodotBuildingStatusDto? FindBuildingStatus(GodotFrameDto frame, int buildingId)
+	{
+		for (int i = 0; i < frame.BuildingStatuses.Length; i++)
+		{
+			if (frame.BuildingStatuses[i].BuildingId == buildingId)
+			{
+				return frame.BuildingStatuses[i];
+			}
+		}
+
+		return null;
+	}
+
+	private void LogDepositEvents(GodotFrameDto? previous, GodotFrameDto current)
+	{
+		if (previous == null)
+		{
+			return;
+		}
+
+		int foodDelta = current.LocalPlayer.Food - previous.LocalPlayer.Food;
+		int woodDelta = current.LocalPlayer.Wood - previous.LocalPlayer.Wood;
+		int goldDelta = current.LocalPlayer.Gold - previous.LocalPlayer.Gold;
+		if (foodDelta <= 0 && woodDelta <= 0 && goldDelta <= 0)
+		{
+			return;
+		}
+
+		for (int i = 0; i < previous.UnitStatuses.Length; i++)
+		{
+			GodotUnitStatusDto before = previous.UnitStatuses[i];
+			if (before.CarriedAmount <= 0)
+			{
+				continue;
+			}
+
+			GodotUnitStatusDto? after = FindUnitStatus(current, before.UnitId);
+			if (after == null || after.CarriedAmount > 0)
+			{
+				continue;
+			}
+
+			string resource = before.CarriedResourceTypeId == 1 ? "food" : before.CarriedResourceTypeId == 2 ? "wood" : before.CarriedResourceTypeId == 3 ? "gold" : "resource";
+			_debugEventLog.Add("unit " + before.UnitId + " deposited " + before.CarriedAmount + " " + resource);
+			return;
+		}
+	}
+
+	private static GodotUnitStatusDto? FindUnitStatus(GodotFrameDto frame, int unitId)
+	{
+		for (int i = 0; i < frame.UnitStatuses.Length; i++)
+		{
+			if (frame.UnitStatuses[i].UnitId == unitId)
+			{
+				return frame.UnitStatuses[i];
+			}
+		}
+
+		return null;
 	}
 }

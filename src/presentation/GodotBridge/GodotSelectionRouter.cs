@@ -33,7 +33,7 @@ namespace RtsGame.Presentation.GodotBridge
                     continue;
                 }
 
-                if (GodotPrimitiveHitTest.ContainsPoint(primitive, xRaw, yRaw))
+                if (GodotPrimitiveHitTest.ContainsPointForInteraction(primitive, xRaw, yRaw))
                 {
                     return new GodotSelectionResult(GodotSelectionKind.Unit, primitive.EntityId);
                 }
@@ -49,7 +49,7 @@ namespace RtsGame.Presentation.GodotBridge
                     continue;
                 }
 
-                if (GodotPrimitiveHitTest.ContainsPoint(primitive, xRaw, yRaw))
+                if (GodotPrimitiveHitTest.ContainsPointForInteraction(primitive, xRaw, yRaw))
                 {
                     return new GodotSelectionResult(GodotSelectionKind.Building, primitive.EntityId);
                 }
