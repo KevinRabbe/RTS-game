@@ -346,6 +346,7 @@ public partial class RtsClientRoot : Node2D
 	{
 		if (_selectedBuildingId == 0)
 		{
+			_debugEventLog.Add("train blocked reason=building not selected unit=" + GodotBuildingDebugStatusBuilder.ResolveUnitTypeLabel(unitTypeId));
 			return;
 		}
 
@@ -357,13 +358,16 @@ public partial class RtsClientRoot : Node2D
 		GodotTrainActionState state = GodotTrainActionEvaluator.Evaluate(_frame, _selectedBuildingId, unitTypeId);
 		if (state != GodotTrainActionState.Ready)
 		{
-			_debugEventLog.Add("train blocked state=" + state + " building=" + _selectedBuildingId + " unitType=" + unitTypeId);
+			_debugEventLog.Add(
+				"train blocked reason=" + GodotBuildingDebugStatusBuilder.ResolveTrainBlockedReason(state)
+				+ " building=" + _selectedBuildingId
+				+ " unit=" + GodotBuildingDebugStatusBuilder.ResolveUnitTypeLabel(unitTypeId));
 			RefreshFrame();
 			return;
 		}
 
 		QueueCommandAndConfirm(
-			"train p=" + LocalPlayerIndex + " building=" + _selectedBuildingId + " unitType=" + unitTypeId,
+			"train p=" + LocalPlayerIndex + " " + GodotBuildingDebugStatusBuilder.BuildTrainIntentText(_selectedBuildingId, unitTypeId),
 			facade => facade.QueueTrainUnit(LocalPlayerIndex, _selectedBuildingId, unitTypeId));
 	}
 
@@ -656,9 +660,9 @@ public partial class RtsClientRoot : Node2D
 	private void DrawDebugOverlay(Vector2 uiOrigin, Vector2 uiSize)
 	{
 		string[] statusLines = GodotSelectedStatusBuilder.BuildLines(_frame, _selectedUnitIds, _selectedBuildingId, _hoveredResourceNodeId);
-		string buildingLine = BuildBuildingStatusLine();
+		string[] buildingLines = GodotBuildingDebugStatusBuilder.BuildLines(_frame, _selectedBuildingId);
 		DrawSelectedStatusPanel(uiOrigin, uiSize, statusLines);
-		DrawBuildingStatusPanel(uiOrigin, buildingLine);
+		DrawBuildingStatusPanel(uiOrigin, buildingLines);
 
 		float panelWidth = 420.0f;
 		float panelHeight = 168.0f;
@@ -702,11 +706,14 @@ public partial class RtsClientRoot : Node2D
 		}
 	}
 
-	private void DrawBuildingStatusPanel(Vector2 uiOrigin, string line)
+	private void DrawBuildingStatusPanel(Vector2 uiOrigin, string[] lines)
 	{
 		Vector2 panelPos = uiOrigin + new Vector2(0.0f, 76.0f);
-		DrawRect(new Rect2(panelPos, new Vector2(760.0f, 18.0f)), new Color(0.0f, 0.0f, 0.0f, 0.46f));
-		DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(8.0f, 13.0f), line, HorizontalAlignment.Left, -1.0f, 12, Colors.LightGray);
+		DrawRect(new Rect2(panelPos, new Vector2(860.0f, 34.0f)), new Color(0.0f, 0.0f, 0.0f, 0.46f));
+		for (int i = 0; i < lines.Length && i < 2; i++)
+		{
+			DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(8.0f, 13.0f + i * 15.0f), lines[i], HorizontalAlignment.Left, -1.0f, 12, Colors.LightGray);
+		}
 	}
 
 	private void DrawSelectionRing(GodotPrimitiveDto primitive, Color color)
@@ -921,36 +928,6 @@ public partial class RtsClientRoot : Node2D
 		}
 
 		return 0;
-	}
-
-	private string BuildBuildingStatusLine()
-	{
-		if (_frame == null)
-		{
-			return "Building -";
-		}
-
-		int buildingId = _selectedBuildingId != 0 ? _selectedBuildingId : _hoveredBuildingId;
-		if (buildingId == 0)
-		{
-			return "Building -";
-		}
-
-		GodotBuildingStatusDto? status = FindBuildingStatus(_frame, buildingId);
-		GodotPrimitiveDto? primitive = FindPrimitiveByEntityId(_frame, buildingId);
-		if (status == null || primitive == null)
-		{
-			return "Building " + buildingId;
-		}
-
-		string typeLabel = status.BuildingTypeId == 1 ? "TownCenter" : status.BuildingTypeId == 2 ? "Wall" : status.BuildingTypeId == 3 ? "TradePost" : "Type" + status.BuildingTypeId;
-		bool canTrain = status.BuildingTypeId == 1 || status.BuildingTypeId == 3;
-		return "Building " + status.BuildingId
-			+ "  Type " + typeLabel
-			+ "  UnderConstruction " + status.IsUnderConstruction
-			+ "  Progress " + status.BuildProgressTicks + "/" + status.RequiredBuildTicks
-			+ "  Capital " + primitive.IsCapital
-			+ "  CanTrain " + canTrain;
 	}
 
 	private void DrawConstructionOverlayIfNeeded(GodotPrimitiveDto primitive)

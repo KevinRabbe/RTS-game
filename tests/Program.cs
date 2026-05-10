@@ -192,6 +192,10 @@ namespace RtsGame.Tests
                 new TestCase("godot debug event log keeps bounded messages", GodotDebugEventLogKeepsBoundedMessages),
                 new TestCase("godot command result classifier classifies counter deltas", GodotCommandResultClassifierClassifiesCounterDeltas),
                 new TestCase("godot hotkey help contains known bindings", GodotHotkeyHelpContainsKnownBindings),
+                new TestCase("godot building debug status includes training queue count", GodotBuildingDebugStatusIncludesTrainingQueueCount),
+                new TestCase("godot building debug status includes training progress", GodotBuildingDebugStatusIncludesTrainingProgress),
+                new TestCase("godot building debug status marks incomplete training unavailable", GodotBuildingDebugStatusMarksIncompleteTrainingUnavailable),
+                new TestCase("godot train intent text includes unit and building", GodotTrainIntentTextIncludesUnitAndBuilding),
                 new TestCase("simulation source does not reference debug overlay helpers", SimulationSourceDoesNotReferenceDebugOverlayHelpers),
                 new TestCase("godot sprite sheet layout resolves expected frame rect", GodotSpriteSheetLayoutResolvesExpectedFrameRect),
                 new TestCase("godot sprite sheet layout uses deterministic default frame", GodotSpriteSheetLayoutUsesDeterministicDefaultFrame),
@@ -3036,6 +3040,44 @@ namespace RtsGame.Tests
             AssertEqual(true, ContainsHotkey(entries, "I", "Train Infantry from selected building"), "hotkey help should include I train infantry binding");
             AssertEqual(true, ContainsHotkey(entries, "K", "Train Trade Cart from selected Trade Post"), "hotkey help should include K train trade cart binding");
             AssertEqual(true, ContainsHotkey(entries, "Y", "Research current available tech"), "hotkey help should include Y research binding");
+        }
+
+        private static void GodotBuildingDebugStatusIncludesTrainingQueueCount()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(
+                new[] { CreateGodotPrimitiveWithType(VisualPrimitiveKind.BuildingRectangle, 211, 0, (int)BuildingTypeId.TownCenter, 5, 5) },
+                new[] { new GodotBuildingStatusDto(211, (int)BuildingTypeId.TownCenter, false, 5, 5, 2, (int)UnitTypeId.Villager, 1, 3) });
+
+            string[] lines = GodotBuildingDebugStatusBuilder.BuildLines(frame, 211);
+            AssertEqual(true, lines[1].Contains("Queue 2"), "selected building debug status should include training queue count");
+        }
+
+        private static void GodotBuildingDebugStatusIncludesTrainingProgress()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(
+                new[] { CreateGodotPrimitiveWithType(VisualPrimitiveKind.BuildingRectangle, 212, 0, (int)BuildingTypeId.TradePost, 5, 5) },
+                new[] { new GodotBuildingStatusDto(212, (int)BuildingTypeId.TradePost, false, 5, 5, 1, (int)UnitTypeId.TradeCart, 2, 4) });
+
+            string[] lines = GodotBuildingDebugStatusBuilder.BuildLines(frame, 212);
+            AssertEqual(true, lines[1].Contains("TradeCart 2/4"), "selected building debug status should include training progress");
+        }
+
+        private static void GodotBuildingDebugStatusMarksIncompleteTrainingUnavailable()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(
+                new[] { CreateGodotPrimitiveWithType(VisualPrimitiveKind.BuildingRectangle, 213, 0, (int)BuildingTypeId.TownCenter, 5, 5) },
+                new[] { new GodotBuildingStatusDto(213, (int)BuildingTypeId.TownCenter, true, 3, 5, 0, 0, 0, 0) });
+
+            string[] lines = GodotBuildingDebugStatusBuilder.BuildLines(frame, 213);
+            AssertEqual(true, lines[0].Contains("BUILDING 3/5"), "selected incomplete building status should include build progress");
+            AssertEqual(true, lines[1].Contains("unavailable until complete"), "selected incomplete building should mark training unavailable");
+        }
+
+        private static void GodotTrainIntentTextIncludesUnitAndBuilding()
+        {
+            string text = GodotBuildingDebugStatusBuilder.BuildTrainIntentText(22, (int)UnitTypeId.TradeCart);
+            AssertEqual(true, text.Contains("building=22"), "train intent text should include building id");
+            AssertEqual(true, text.Contains("TradeCart"), "train intent text should include unit type label");
         }
 
         private static void SimulationSourceDoesNotReferenceDebugOverlayHelpers()
