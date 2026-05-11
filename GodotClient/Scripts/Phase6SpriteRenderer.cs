@@ -84,34 +84,42 @@ public sealed class Phase6SpriteRenderer
 
 		float size = tilePixels;
 
-		if (grass != null)
+		if (grass != null && GodotSpriteSheetLayout.TryGetMetadata(GodotSpriteAssetId.GrassTile, out var grassMetadata))
 		{
-			// Base grass layer
-			for (int y = 0; y < heightTiles; y++)
+			// Base layer: Calm sandy dry-ground color
+			canvas.DrawRect(new Rect2(0, 0, widthTiles * size, heightTiles * size), new Color(0.82f, 0.75f, 0.55f));
+
+			// Sparse broad grass tiles (every 8 tiles, 8x size)
+			// This reduces noise while providing texture.
+			int step = 8;
+			float drawSize = size * step;
+			for (int y = 0; y < heightTiles; y += step)
 			{
-				for (int x = 0; x < widthTiles; x++)
+				for (int x = 0; x < widthTiles; x += step)
 				{
-					canvas.DrawTextureRect(grass, new Rect2(x * size, y * size, size, size), false);
+					// Draw a single frame from the grass sheet to avoid sheet-squashing noise.
+					DrawSheetFrame(canvas, grass, grassMetadata, 0, new Rect2(x * size, y * size, drawSize, drawSize));
 				}
 			}
 
-			// Decorative dirt path (horizontal strip in the middle)
-			if (dirt != null)
+			// Subtle decorative dirt path
+			if (dirt != null && GodotSpriteSheetLayout.TryGetMetadata(GodotSpriteAssetId.DirtTile, out var dirtMetadata))
 			{
 				int midY = heightTiles / 2;
-				for (int x = 32; x < 96; x++)
+				float pathSize = size * 2.0f;
+				for (int x = 32; x < 96; x += 4)
 				{
-					canvas.DrawTextureRect(dirt, new Rect2(x * size, midY * size, size, size), false);
+					DrawSheetFrame(canvas, dirt, dirtMetadata, 0, new Rect2(x * size, (midY - 1) * size, pathSize, pathSize));
 				}
 			}
 
-			// Decorative rocks (just a few fixed ones for baseline feel)
-			if (rock != null)
+			// Sparse rock props
+			if (rock != null && GodotSpriteSheetLayout.TryGetMetadata(GodotSpriteAssetId.RockBlocker, out var rockMetadata))
 			{
-				canvas.DrawTextureRect(rock, new Rect2(60 * size, 40 * size, size, size), false);
-				canvas.DrawTextureRect(rock, new Rect2(68 * size, 52 * size, size, size), false);
-				canvas.DrawTextureRect(rock, new Rect2(30 * size, 30 * size, size, size), false);
-				canvas.DrawTextureRect(rock, new Rect2(98 * size, 66 * size, size, size), false);
+				float rockSize = size * 2.0f;
+				// Just two rocks at the center region to maintain focus.
+				DrawSheetFrame(canvas, rock, rockMetadata, 0, new Rect2(60 * size, 40 * size, rockSize, rockSize));
+				DrawSheetFrame(canvas, rock, rockMetadata, 1, new Rect2(68 * size, 52 * size, rockSize, rockSize));
 			}
 		}
 		else
@@ -119,7 +127,7 @@ public sealed class Phase6SpriteRenderer
 			// Primitive fallback
 			canvas.DrawRect(new Rect2(0, 0, widthTiles * size, heightTiles * size), new Color(0.76f, 0.70f, 0.50f));
 			// Simple path line
-			canvas.DrawLine(new Vector2(32 * size, (heightTiles / 2.0f) * size), new Vector2(96 * size, (heightTiles / 2.0f) * size), new Color(0.6f, 0.5f, 0.3f), 4.0f);
+			canvas.DrawLine(new Vector2(32 * size, (heightTiles / 2.0f) * size), new Vector2(96 * size, (heightTiles / 2.0f) * size), new Color(0.6f, 0.5f, 0.3f), 2.0f);
 		}
 	}
 
