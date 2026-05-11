@@ -214,6 +214,7 @@ namespace RtsGame.Tests
                 new TestCase("godot sprite sheet layout uses deterministic default frame", GodotSpriteSheetLayoutUsesDeterministicDefaultFrame),
                 new TestCase("godot sprite sheet layout returns false for unknown unit type", GodotSpriteSheetLayoutReturnsFalseForUnknownUnitType),
                 new TestCase("godot sprite sheet layout includes placeholder slots", GodotSpriteSheetLayoutIncludesPlaceholderSlots),
+                new TestCase("godot sprite sheet layout filenames are correct", GodotSpriteSheetLayoutFilenamesAreCorrect),
                 new TestCase("godot coordinate mapper converts raw to pixels", GodotCoordinateMapperConvertsRawToPixels),
                 new TestCase("godot coordinate mapper converts screen to raw", GodotCoordinateMapperConvertsScreenToRaw),
                 new TestCase("godot coordinate mapper floors screen tile", GodotCoordinateMapperFloorsScreenTile),
@@ -3229,6 +3230,34 @@ namespace RtsGame.Tests
             AssertEqual(GodotSpriteAssetId.SiegeCannon, siege, "siege cannon should resolve to siege placeholder slot");
             AssertEqual(true, GodotSpriteSheetLayout.TryResolveUnitAsset((int)UnitTypeId.Mangonel, out GodotSpriteAssetId mangonel), "mangonel should have an asset slot");
             AssertEqual(GodotSpriteAssetId.Mangonel, mangonel, "mangonel should resolve to mangonel placeholder slot");
+        }
+
+        private static void GodotSpriteSheetLayoutFilenamesAreCorrect()
+        {
+            AssertFilename(GodotSpriteAssetId.Villager, "villager_sheet.png");
+            AssertFilename(GodotSpriteAssetId.Infantry, "infantry_sheet.png");
+            AssertFilename(GodotSpriteAssetId.Scout, "scout_sheet.png");
+            AssertFilename(GodotSpriteAssetId.TradeCart, "trade_cart_sheet.png");
+            AssertFilename(GodotSpriteAssetId.Capital, "capital.png");
+            AssertFilename(GodotSpriteAssetId.Wall, "wall_sheet.png");
+            AssertFilename(GodotSpriteAssetId.TownCenter, "town_center.png");
+            AssertFilename(GodotSpriteAssetId.TradePost, "trade_post.png");
+            AssertFilename(GodotSpriteAssetId.BuildingScaffold, "building_scaffold.png");
+            AssertFilename(GodotSpriteAssetId.Food, "food.png");
+            AssertFilename(GodotSpriteAssetId.Wood, "wood.png");
+            AssertFilename(GodotSpriteAssetId.Gold, "gold.png");
+            AssertFilename(GodotSpriteAssetId.Cavalry, "cavalry_sheet.png");
+            AssertFilename(GodotSpriteAssetId.SiegeCannon, "siege_cannon_sheet.png");
+            AssertFilename(GodotSpriteAssetId.Mangonel, "mangonel_sheet.png");
+            AssertFilename(GodotSpriteAssetId.GrassTile, "grass_tile_sheet.png");
+            AssertFilename(GodotSpriteAssetId.DirtTile, "dirt_path_tile_sheet.png");
+            AssertFilename(GodotSpriteAssetId.RockBlocker, "rock_blocker_sheet.png");
+        }
+
+        private static void AssertFilename(GodotSpriteAssetId id, string expectedFileName)
+        {
+            GodotSpriteSheetLayout.TryGetMetadata(id, out var metadata);
+            AssertEqual(expectedFileName, metadata.FileName, $"Asset {id} should have filename {expectedFileName}");
         }
 
         private static bool ContainsHotkey(GodotHotkeyHelpEntry[] entries, string input, string action)

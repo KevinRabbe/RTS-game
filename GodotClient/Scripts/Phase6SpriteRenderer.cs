@@ -132,61 +132,64 @@ public sealed class Phase6SpriteRenderer
 			return false;
 		}
 
+		GodotBuildingStatusDto? status = FindBuildingStatus(frame, primitive.EntityId);
+
+		// Priority 1: Construction Scaffold
+		if (status != null && status.IsUnderConstruction)
+		{
+			Texture2D? scaffold = GetAsset(GodotSpriteAssetId.BuildingScaffold);
+			if (scaffold != null)
+			{
+				Rect2 target = GetBuildingSpriteRect(primitive, 2.4f, toScreen, rawToPixels);
+				canvas.DrawTextureRect(scaffold, target, false);
+				if (selectedBuildingId == primitive.EntityId)
+				{
+					canvas.DrawRect(target.Grow(2.0f), Colors.White, false, 2.0f);
+				}
+				return true;
+			}
+		}
+
+		// Priority 2: Special Wall Sheet
 		if (primitive.TypeId == (int)BuildingTypeId.Wall &&
 			GodotSpriteSheetLayout.TryResolveBuildingAsset(primitive.TypeId, out GodotSpriteAssetId wallAssetId) &&
 			GodotSpriteSheetLayout.TryGetMetadata(wallAssetId, out GodotSpriteSheetMetadata wallMetadata))
 		{
 			Texture2D? wallSheet = GetAsset(wallAssetId);
-			if (wallSheet == null)
+			if (wallSheet != null)
 			{
-				return false;
-			}
-
-			GodotBuildingStatusDto? status = FindBuildingStatus(frame, primitive.EntityId);
-			Rect2 target = GetBuildingSpriteRect(primitive, 2.7f, toScreen, rawToPixels);
-			int frameIndex = status != null && status.IsUnderConstruction ? wallMetadata.UnderConstructionFrameIndex : wallMetadata.DefaultFrameIndex;
-			DrawSheetFrame(canvas, wallSheet, wallMetadata, frameIndex, target);
-			if (selectedBuildingId == primitive.EntityId)
-			{
-				canvas.DrawRect(target.Grow(2.0f), Colors.White, false, 2.0f);
-			}
-
-			return true;
-		}
-
-		GodotBuildingStatusDto? buildingStatus = FindBuildingStatus(frame, primitive.EntityId);
-		if (buildingStatus != null && buildingStatus.IsUnderConstruction)
-		{
-			Texture2D? scaffold = GetAsset(GodotSpriteAssetId.BuildingScaffold);
-			if (scaffold != null)
-			{
-				Rect2 scaffoldTarget = GetBuildingSpriteRect(primitive, 2.4f, toScreen, rawToPixels);
-				canvas.DrawTextureRect(scaffold, scaffoldTarget, false);
+				Rect2 target = GetBuildingSpriteRect(primitive, 2.7f, toScreen, rawToPixels);
+				int frameIndex = wallMetadata.DefaultFrameIndex;
+				DrawSheetFrame(canvas, wallSheet, wallMetadata, frameIndex, target);
 				if (selectedBuildingId == primitive.EntityId)
 				{
-					canvas.DrawRect(scaffoldTarget.Grow(2.0f), Colors.White, false, 2.0f);
+					canvas.DrawRect(target.Grow(2.0f), Colors.White, false, 2.0f);
 				}
-
 				return true;
 			}
 		}
 
-		GodotSpriteAssetId buildingAssetId = primitive.IsCapital ? GodotSpriteAssetId.Capital : default;
-		if (!primitive.IsCapital && !GodotSpriteSheetLayout.TryResolveBuildingAsset(primitive.TypeId, out buildingAssetId))
+		// Priority 3: Capital vs TownCenter vs Other
+		GodotSpriteAssetId assetId;
+		if (primitive.TypeId == (int)BuildingTypeId.TownCenter)
+		{
+			assetId = primitive.IsCapital ? GodotSpriteAssetId.Capital : GodotSpriteAssetId.TownCenter;
+		}
+		else if (!GodotSpriteSheetLayout.TryResolveBuildingAsset(primitive.TypeId, out assetId))
 		{
 			return false;
 		}
 
-		Texture2D? buildingSprite = GetAsset(buildingAssetId);
-		if (buildingSprite != null)
+		Texture2D? sprite = GetAsset(assetId);
+		if (sprite != null)
 		{
-			Rect2 target = GetBuildingSpriteRect(primitive, primitive.IsCapital ? 3.0f : 2.6f, toScreen, rawToPixels);
-			canvas.DrawTextureRect(buildingSprite, target, false);
+			float scale = primitive.IsCapital ? 3.0f : 2.6f;
+			Rect2 target = GetBuildingSpriteRect(primitive, scale, toScreen, rawToPixels);
+			canvas.DrawTextureRect(sprite, target, false);
 			if (selectedBuildingId == primitive.EntityId)
 			{
 				canvas.DrawRect(target.Grow(2.0f), Colors.White, false, 2.0f);
 			}
-
 			return true;
 		}
 

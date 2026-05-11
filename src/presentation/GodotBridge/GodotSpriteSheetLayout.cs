@@ -92,9 +92,9 @@ namespace RtsGame.Presentation.GodotBridge
             new GodotSpriteSheetMetadata(GodotSpriteAssetId.Cavalry, "Cavalry", "cavalry_sheet.png", 3, 3, 1, true, 0),
             new GodotSpriteSheetMetadata(GodotSpriteAssetId.SiegeCannon, "SiegeCannon", "siege_cannon_sheet.png", 3, 3, 1, true, 0),
             new GodotSpriteSheetMetadata(GodotSpriteAssetId.Mangonel, "Mangonel", "mangonel_sheet.png", 3, 3, 1, true, 0),
-            new GodotSpriteSheetMetadata(GodotSpriteAssetId.GrassTile, "GrassTile", "grass_tile.png", 1, 1, 0, false, 0),
-            new GodotSpriteSheetMetadata(GodotSpriteAssetId.DirtTile, "DirtTile", "dirt_tile.png", 1, 1, 0, false, 0),
-            new GodotSpriteSheetMetadata(GodotSpriteAssetId.RockBlocker, "RockBlocker", "rock_blocker.png", 1, 1, 0, false, 0)
+            new GodotSpriteSheetMetadata(GodotSpriteAssetId.GrassTile, "GrassTile", "grass_tile_sheet.png", 1, 1, 0, false, 0),
+            new GodotSpriteSheetMetadata(GodotSpriteAssetId.DirtTile, "DirtTile", "dirt_path_tile_sheet.png", 1, 1, 0, false, 0),
+            new GodotSpriteSheetMetadata(GodotSpriteAssetId.RockBlocker, "RockBlocker", "rock_blocker_sheet.png", 1, 1, 0, false, 0)
         };
 
         public static int ExpectedAssetCount => Metadata.Length;

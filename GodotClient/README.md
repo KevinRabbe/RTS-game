@@ -75,12 +75,31 @@ Placeholder sprite assets must live in:
 
 Expected filenames:
 
+Units:
 - `villager_sheet.png`
 - `infantry_sheet.png`
 - `scout_sheet.png`
 - `trade_cart_sheet.png`
+- `cavalry_sheet.png`
+- `siege_cannon_sheet.png`
+- `mangonel_sheet.png`
+
+Buildings:
 - `capital.png`
+- `town_center.png`
+- `trade_post.png`
 - `wall_sheet.png`
+- `building_scaffold.png`
+
+Resources:
+- `food.png`
+- `wood.png`
+- `gold.png`
+
+Terrain / props:
+- `grass_tile_sheet.png`
+- `dirt_path_tile_sheet.png`
+- `rock_blocker_sheet.png`
 
 If some files are missing, the Godot shell keeps running and falls back to primitive rendering for missing sprite mappings.
 
