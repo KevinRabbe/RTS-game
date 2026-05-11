@@ -89,28 +89,23 @@ public sealed class Phase6SpriteRenderer
 			// Base layer: Calm sandy dry-ground color
 			canvas.DrawRect(new Rect2(0, 0, widthTiles * size, heightTiles * size), new Color(0.82f, 0.75f, 0.55f));
 
-			// Sparse broad grass tiles (every 8 tiles, 8x size)
-			// This reduces noise while providing texture.
-			int step = 8;
-			float drawSize = size * step;
-			for (int y = 0; y < heightTiles; y += step)
-			{
-				for (int x = 0; x < widthTiles; x += step)
-				{
-					// Draw a single frame from the grass sheet to avoid sheet-squashing noise.
-					DrawSheetFrame(canvas, grass, grassMetadata, 0, new Rect2(x * size, y * size, drawSize, drawSize));
-				}
-			}
+			// Sparse scattered grass patches (not a grid)
+			// This provides texture without the "floating plates" grid look.
+			float patchSize = size * 6.0f;
+			DrawSheetFrame(canvas, grass, grassMetadata, 0, new Rect2(12 * size, 15 * size, patchSize, patchSize));
+			DrawSheetFrame(canvas, grass, grassMetadata, 0, new Rect2(85 * size, 22 * size, patchSize, patchSize));
+			DrawSheetFrame(canvas, grass, grassMetadata, 0, new Rect2(42 * size, 75 * size, patchSize, patchSize));
+			DrawSheetFrame(canvas, grass, grassMetadata, 0, new Rect2(105 * size, 65 * size, patchSize, patchSize));
+			DrawSheetFrame(canvas, grass, grassMetadata, 0, new Rect2(20 * size, 55 * size, patchSize, patchSize));
 
-			// Subtle decorative dirt path
+			// Subtle decorative dirt path (scattered accents)
 			if (dirt != null && GodotSpriteSheetLayout.TryGetMetadata(GodotSpriteAssetId.DirtTile, out var dirtMetadata))
 			{
 				int midY = heightTiles / 2;
 				float pathSize = size * 2.0f;
-				for (int x = 32; x < 96; x += 4)
-				{
-					DrawSheetFrame(canvas, dirt, dirtMetadata, 0, new Rect2(x * size, (midY - 1) * size, pathSize, pathSize));
-				}
+				DrawSheetFrame(canvas, dirt, dirtMetadata, 0, new Rect2(45 * size, (midY - 1) * size, pathSize, pathSize));
+				DrawSheetFrame(canvas, dirt, dirtMetadata, 0, new Rect2(65 * size, (midY - 1) * size, pathSize, pathSize));
+				DrawSheetFrame(canvas, dirt, dirtMetadata, 0, new Rect2(85 * size, (midY - 1) * size, pathSize, pathSize));
 			}
 
 			// Sparse rock props
