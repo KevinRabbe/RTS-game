@@ -70,6 +70,58 @@ public sealed class Phase6SpriteRenderer
 
 		_loadedAssetCount = CountLoadedAssets();
 	}
+	
+	public void DrawTerrain(Node2D canvas, string mapName, int widthTiles, int heightTiles, float tilePixels)
+	{
+		if (mapName != "DryArabiaTest01")
+		{
+			return;
+		}
+
+		Texture2D? grass = _useSprites ? GetAsset(GodotSpriteAssetId.GrassTile) : null;
+		Texture2D? dirt = _useSprites ? GetAsset(GodotSpriteAssetId.DirtTile) : null;
+		Texture2D? rock = _useSprites ? GetAsset(GodotSpriteAssetId.RockBlocker) : null;
+
+		float size = tilePixels;
+
+		if (grass != null)
+		{
+			// Base grass layer
+			for (int y = 0; y < heightTiles; y++)
+			{
+				for (int x = 0; x < widthTiles; x++)
+				{
+					canvas.DrawTextureRect(grass, new Rect2(x * size, y * size, size, size), false);
+				}
+			}
+
+			// Decorative dirt path (horizontal strip in the middle)
+			if (dirt != null)
+			{
+				int midY = heightTiles / 2;
+				for (int x = 32; x < 96; x++)
+				{
+					canvas.DrawTextureRect(dirt, new Rect2(x * size, midY * size, size, size), false);
+				}
+			}
+
+			// Decorative rocks (just a few fixed ones for baseline feel)
+			if (rock != null)
+			{
+				canvas.DrawTextureRect(rock, new Rect2(60 * size, 40 * size, size, size), false);
+				canvas.DrawTextureRect(rock, new Rect2(68 * size, 52 * size, size, size), false);
+				canvas.DrawTextureRect(rock, new Rect2(30 * size, 30 * size, size, size), false);
+				canvas.DrawTextureRect(rock, new Rect2(98 * size, 66 * size, size, size), false);
+			}
+		}
+		else
+		{
+			// Primitive fallback
+			canvas.DrawRect(new Rect2(0, 0, widthTiles * size, heightTiles * size), new Color(0.76f, 0.70f, 0.50f));
+			// Simple path line
+			canvas.DrawLine(new Vector2(32 * size, (heightTiles / 2.0f) * size), new Vector2(96 * size, (heightTiles / 2.0f) * size), new Color(0.6f, 0.5f, 0.3f), 4.0f);
+		}
+	}
 
 	public bool TryDrawUnit(
 		Node2D canvas,

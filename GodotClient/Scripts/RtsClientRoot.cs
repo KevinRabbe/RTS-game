@@ -154,6 +154,8 @@ public partial class RtsClientRoot : Node2D
 			return;
 		}
 
+		_spriteRenderer.DrawTerrain(this, _frame.MapName, _facade!.MapWidthTiles, _facade.MapHeightTiles, TilePixels);
+
 		for (int i = 0; i < _frame.Primitives.Length; i++)
 		{
 			DrawPrimitive(_frame.Primitives[i]);
