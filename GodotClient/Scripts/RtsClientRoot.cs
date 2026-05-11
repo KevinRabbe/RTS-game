@@ -437,13 +437,42 @@ public partial class RtsClientRoot : Node2D
 		float mapWidthPx = _facade.MapWidthTiles * TilePixels;
 		float mapHeightPx = _facade.MapHeightTiles * TilePixels;
 
-		// Add a reasonable padding to let the edge still be visible while panning
-		float padding = 400.0f;
-		
-		float minX = -padding;
-		float minY = -padding;
-		float maxX = mapWidthPx + padding;
-		float maxY = mapHeightPx + padding;
+		// Account for viewport size so the edges of the view stay within map bounds
+		Rect2 viewportRect = GetViewportRect();
+		Vector2 zoom = _camera.Zoom;
+		float zoomX = Mathf.IsZeroApprox(zoom.X) ? 1.0f : zoom.X;
+		float zoomY = Mathf.IsZeroApprox(zoom.Y) ? 1.0f : zoom.Y;
+
+		// Visible world width/height = viewport pixels / zoom
+		float viewWidth = viewportRect.Size.X / zoomX;
+		float viewHeight = viewportRect.Size.Y / zoomY;
+
+		float halfViewWidth = viewWidth * 0.5f;
+		float halfViewHeight = viewHeight * 0.5f;
+
+		float minX, maxX, minY, maxY;
+
+		if (viewWidth < mapWidthPx)
+		{
+			minX = halfViewWidth;
+			maxX = mapWidthPx - halfViewWidth;
+		}
+		else
+		{
+			// Map is smaller than viewport, center it
+			minX = maxX = mapWidthPx * 0.5f;
+		}
+
+		if (viewHeight < mapHeightPx)
+		{
+			minY = halfViewHeight;
+			maxY = mapHeightPx - halfViewHeight;
+		}
+		else
+		{
+			// Map is smaller than viewport, center it
+			minY = maxY = mapHeightPx * 0.5f;
+		}
 
 		float clampedX = Mathf.Clamp(_camera.Position.X, minX, maxX);
 		float clampedY = Mathf.Clamp(_camera.Position.Y, minY, maxY);
