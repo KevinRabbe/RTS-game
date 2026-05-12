@@ -89,32 +89,56 @@ public sealed class Phase6SpriteRenderer
 			// Base layer: Calm sandy dry-ground color
 			canvas.DrawRect(new Rect2(0, 0, widthTiles * size, heightTiles * size), new Color(0.82f, 0.75f, 0.55f));
 
-			// Sparse scattered grass patches (not a grid)
-			// This provides texture without the "floating plates" grid look.
+			// --- Environmental Decoration Clusters ---
 			float patchSize = size * 6.0f;
+			
+			// Scattered desert patches
 			DrawSheetFrame(canvas, grass, grassMetadata, 0, new Rect2(12 * size, 15 * size, patchSize, patchSize));
-			DrawSheetFrame(canvas, grass, grassMetadata, 0, new Rect2(85 * size, 22 * size, patchSize, patchSize));
-			DrawSheetFrame(canvas, grass, grassMetadata, 0, new Rect2(42 * size, 75 * size, patchSize, patchSize));
+			DrawSheetFrame(canvas, grass, grassMetadata, 1, new Rect2(85 * size, 22 * size, patchSize, patchSize));
+			DrawSheetFrame(canvas, grass, grassMetadata, 2, new Rect2(42 * size, 75 * size, patchSize, patchSize));
 			DrawSheetFrame(canvas, grass, grassMetadata, 0, new Rect2(105 * size, 65 * size, patchSize, patchSize));
-			DrawSheetFrame(canvas, grass, grassMetadata, 0, new Rect2(20 * size, 55 * size, patchSize, patchSize));
+			DrawSheetFrame(canvas, grass, grassMetadata, 1, new Rect2(20 * size, 55 * size, patchSize, patchSize));
 
-			// Subtle decorative dirt path (scattered accents)
+			// --- Starting Area Polish (Base Zones) ---
+			// Player 0 (Start area near 24, 48)
+			DrawSheetFrame(canvas, grass, grassMetadata, 1, new Rect2(18 * size, 42 * size, patchSize * 1.2f, patchSize * 1.2f));
+			DrawSheetFrame(canvas, grass, grassMetadata, 2, new Rect2(28 * size, 54 * size, patchSize, patchSize));
+			
+			// Player 1 (Start area near 104, 48)
+			DrawSheetFrame(canvas, grass, grassMetadata, 1, new Rect2(110 * size, 42 * size, patchSize * 1.2f, patchSize * 1.2f));
+			DrawSheetFrame(canvas, grass, grassMetadata, 2, new Rect2(98 * size, 54 * size, patchSize, patchSize));
+
+			// --- Contested Center Identity ---
 			if (dirt != null && GodotSpriteSheetLayout.TryGetMetadata(GodotSpriteAssetId.DirtTile, out var dirtMetadata))
 			{
 				int midY = heightTiles / 2;
-				float pathSize = size * 2.0f;
-				DrawSheetFrame(canvas, dirt, dirtMetadata, 0, new Rect2(45 * size, (midY - 1) * size, pathSize, pathSize));
-				DrawSheetFrame(canvas, dirt, dirtMetadata, 0, new Rect2(65 * size, (midY - 1) * size, pathSize, pathSize));
-				DrawSheetFrame(canvas, dirt, dirtMetadata, 0, new Rect2(85 * size, (midY - 1) * size, pathSize, pathSize));
+				float pathSize = size * 4.0f;
+				
+				// Central trails
+				DrawSheetFrame(canvas, dirt, dirtMetadata, 0, new Rect2(40 * size, (midY - 2) * size, pathSize, pathSize));
+				DrawSheetFrame(canvas, dirt, dirtMetadata, 0, new Rect2(80 * size, (midY - 2) * size, pathSize, pathSize));
+				
+				// Center focus area (large dirt patch)
+				DrawSheetFrame(canvas, dirt, dirtMetadata, 1, new Rect2(54 * size, (midY - 5) * size, size * 20, size * 10));
 			}
 
-			// Sparse rock props
+			// --- Decorative rock clusters ---
 			if (rock != null && GodotSpriteSheetLayout.TryGetMetadata(GodotSpriteAssetId.RockBlocker, out var rockMetadata))
 			{
-				float rockSize = size * 2.0f;
-				// Just two rocks at the center region to maintain focus.
-				DrawSheetFrame(canvas, rock, rockMetadata, 0, new Rect2(60 * size, 40 * size, rockSize, rockSize));
-				DrawSheetFrame(canvas, rock, rockMetadata, 1, new Rect2(68 * size, 52 * size, rockSize, rockSize));
+				float rockSize = size * 2.5f;
+				
+				// Center cluster (Contested identity)
+				DrawSheetFrame(canvas, rock, rockMetadata, 0, new Rect2(58 * size, 42 * size, rockSize, rockSize));
+				DrawSheetFrame(canvas, rock, rockMetadata, 1, new Rect2(66 * size, 50 * size, rockSize, rockSize));
+				DrawSheetFrame(canvas, rock, rockMetadata, 2, new Rect2(62 * size, 46 * size, rockSize * 1.5f, rockSize * 1.5f));
+				
+				// Scatter rocks near start area borders
+				DrawSheetFrame(canvas, rock, rockMetadata, 0, new Rect2(35 * size, 30 * size, rockSize, rockSize));
+				DrawSheetFrame(canvas, rock, rockMetadata, 1, new Rect2(90 * size, 65 * size, rockSize, rockSize));
+				
+				// Corner outliers
+				DrawSheetFrame(canvas, rock, rockMetadata, 0, new Rect2(10 * size, 80 * size, rockSize, rockSize));
+				DrawSheetFrame(canvas, rock, rockMetadata, 1, new Rect2(110 * size, 10 * size, rockSize, rockSize));
 			}
 		}
 		else
@@ -226,9 +250,11 @@ public sealed class Phase6SpriteRenderer
 
 		// Priority 3: Capital vs TownCenter vs Other
 		GodotSpriteAssetId assetId;
+		float scale = 2.6f;
 		if (primitive.TypeId == (int)BuildingTypeId.TownCenter)
 		{
 			assetId = primitive.IsCapital ? GodotSpriteAssetId.Capital : GodotSpriteAssetId.TownCenter;
+			scale = primitive.IsCapital ? 3.8f : 3.2f;
 		}
 		else if (!GodotSpriteSheetLayout.TryResolveBuildingAsset(primitive.TypeId, out assetId))
 		{
@@ -238,7 +264,6 @@ public sealed class Phase6SpriteRenderer
 		Texture2D? sprite = GetAsset(assetId);
 		if (sprite != null)
 		{
-			float scale = primitive.IsCapital ? 3.0f : 2.6f;
 			Rect2 target = GetBuildingSpriteRect(primitive, scale, toScreen, rawToPixels);
 			canvas.DrawTextureRect(sprite, target, false);
 			if (selectedBuildingId == primitive.EntityId)
@@ -275,7 +300,7 @@ public sealed class Phase6SpriteRenderer
 
 		Vector2 center = toScreen(primitive.XRaw, primitive.YRaw);
 		float worldSize = rawToPixels(primitive.SizeRaw);
-		float size = Mathf.Max(24.0f, worldSize * 1.8f);
+		float size = Mathf.Max(38.0f, worldSize * 2.4f);
 		var target = new Rect2(center.X - size * 0.5f, center.Y - size * 0.70f, size, size);
 		canvas.DrawTextureRect(sprite, target, false);
 		return true;
@@ -292,15 +317,15 @@ public sealed class Phase6SpriteRenderer
 	{
 		Vector2 center = toScreen(primitive.XRaw, primitive.YRaw);
 		float worldSize = rawToPixels(primitive.SizeRaw);
-		float size = Mathf.Max(36.0f, worldSize * 3.35f);
-		return new Rect2(center.X - size * 0.5f, center.Y - size * 0.78f, size, size);
+		float size = Mathf.Max(42.0f, worldSize * 3.8f);
+		return new Rect2(center.X - size * 0.5f, center.Y - size * 0.85f, size, size);
 	}
 
 	private static Rect2 GetBuildingSpriteRect(GodotPrimitiveDto primitive, float scale, System.Func<long, long, Vector2> toScreen, System.Func<long, float> rawToPixels)
 	{
 		Vector2 center = toScreen(primitive.XRaw, primitive.YRaw);
 		float worldSize = rawToPixels(primitive.SizeRaw);
-		float size = Mathf.Max(68.0f, worldSize * scale);
+		float size = Mathf.Max(80.0f, worldSize * scale);
 		return new Rect2(center.X - size * 0.5f, center.Y - size * 0.80f, size, size);
 	}
 
