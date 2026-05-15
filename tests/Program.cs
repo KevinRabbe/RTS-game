@@ -278,6 +278,10 @@ namespace RtsGame.Tests
                 new TestCase("mangonel lockstep", MangonelLockstep),
                 new TestCase("place wall creates vulnerable construction", PlaceWallCreatesVulnerableConstruction),
                 new TestCase("assigned villagers complete wall", AssignedVillagersCompleteWall),
+                new TestCase("assign build sets adjacent deterministic approach target", AssignBuildSetsAdjacentDeterministicApproachTarget),
+                new TestCase("assign build gives distinct approach tiles for multiple villagers", AssignBuildGivesDistinctApproachTilesForMultipleVillagers),
+                new TestCase("assign build rejects when no interaction tile is reachable", AssignBuildRejectsWhenNoInteractionTileIsReachable),
+                new TestCase("dry arabia tc build assignment progresses and updates population", DryArabiaTcBuildAssignmentProgressesAndUpdatesPopulation),
                 new TestCase("under construction wall can be destroyed", UnderConstructionWallCanBeDestroyed),
                 new TestCase("wall replay determinism", WallReplayDeterminism),
                 new TestCase("wall lockstep", WallLockstep),
@@ -4278,6 +4282,109 @@ namespace RtsGame.Tests
             AssertEqual(0, state.EntityState.Units[0].CurrentBuildTargetId, "builder assignment should clear after completion");
         }
 
+        private static void AssignBuildSetsAdjacentDeterministicApproachTarget()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = GameInitializer.CreateNomadStart(141, 1);
+            int tcId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(10, 10));
+            Building building = state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index];
+            Unit villager = state.EntityState.Units[0];
+            villager.Position = FixedVector2.FromInts(6, 10);
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AssignBuild), new AssignBuildCommand(tcId, new[] { villager.Id })));
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(true, villager.HasMoveTarget, "assigned builder should get movement target");
+            int targetX = SpatialRules.GetTileX(villager.MoveTarget);
+            int targetY = SpatialRules.GetTileY(villager.MoveTarget);
+            AssertEqual(false, SpatialRules.IsTileInsideBuildingFootprint(building, targetX, targetY), "build approach target should never be inside footprint");
+            AssertEqual(true,
+                SpatialRules.IsTileInsideBuildingFootprint(building, targetX + 1, targetY)
+                    || SpatialRules.IsTileInsideBuildingFootprint(building, targetX - 1, targetY)
+                    || SpatialRules.IsTileInsideBuildingFootprint(building, targetX, targetY + 1)
+                    || SpatialRules.IsTileInsideBuildingFootprint(building, targetX, targetY - 1),
+                "build approach target should be adjacent to footprint");
+        }
+
+        private static void AssignBuildGivesDistinctApproachTilesForMultipleVillagers()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = GameInitializer.CreateNomadStart(142, 1);
+            int tcId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(10, 10));
+            state.EntityState.Units[0].Position = FixedVector2.FromInts(6, 9);
+            state.EntityState.Units[1].Position = FixedVector2.FromInts(6, 10);
+            state.EntityState.Units[2].Position = FixedVector2.FromInts(6, 11);
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AssignBuild), new AssignBuildCommand(tcId, new[] { 1, 2, 3 })));
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            var tiles = new HashSet<string>();
+            for (int i = 0; i < 3; i++)
+            {
+                Unit villager = state.EntityState.Units[i];
+                AssertEqual(true, villager.HasMoveTarget, "each assigned villager should get a target");
+                tiles.Add(SpatialRules.GetTileX(villager.MoveTarget) + "," + SpatialRules.GetTileY(villager.MoveTarget));
+            }
+
+            AssertEqual(3, tiles.Count, "multiple builders should reserve distinct adjacent approach tiles when available");
+        }
+
+        private static void AssignBuildRejectsWhenNoInteractionTileIsReachable()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = GameInitializer.CreateNomadStart(143, 1);
+            int tcId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(10, 10));
+            Unit villager = state.EntityState.Units[0];
+            villager.Position = FixedVector2.FromInts(0, 0);
+            AddCompletedWall(state, 0, FixedVector2.FromInts(1, 0));
+            AddCompletedWall(state, 0, FixedVector2.FromInts(0, 1));
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AssignBuild), new AssignBuildCommand(tcId, new[] { 1 })));
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(1, state.DebugCounters.RejectedCommandCount, "assign build should reject when no reachable interaction tile exists");
+            AssertEqual(0, state.EntityState.Units[0].CurrentBuildTargetId, "rejected assignment should not set build target");
+        }
+
+        private static void DryArabiaTcBuildAssignmentProgressesAndUpdatesPopulation()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = GameInitializer.CreateDryArabiaTest01(144);
+            var runner = new TickRunner();
+            var buffer = new CommandBuffer();
+            FixedVector2 tcPos = DryArabiaTest01MapDefinition.GetTownCenterZone(0);
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.PlaceTownCenter), new PlaceTownCenterCommand(tcPos)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+            runner.AdvanceOneTick(state, rules, buffer);
+            int tcId = FindUnderConstructionBuildingId(state, 0, BuildingTypeId.TownCenter);
+            buffer.Add(new CommandEnvelope(new CommandHeader(1, 0, 1, CommandType.AssignBuild), new AssignBuildCommand(tcId, new[] { 1, 2, 3, 4 })));
+            buffer.Add(new CommandEnvelope(new CommandHeader(1, 1, 1, CommandType.NoOp), new NoOpCommand()));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            int movers = 0;
+            for (int i = 0; i < 4; i++)
+            {
+                if (state.EntityState.Units[i].HasMoveTarget)
+                {
+                    movers++;
+                }
+            }
+
+            AssertEqual(true, movers > 0, "dry arabia build assignment should produce deterministic approach targets");
+
+            for (int tick = 2; tick < 10 && state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index].IsUnderConstruction; tick++)
+            {
+                buffer.Add(new CommandEnvelope(new CommandHeader(tick, 0, (uint)tick, CommandType.NoOp), new NoOpCommand()));
+                buffer.Add(new CommandEnvelope(new CommandHeader(tick, 1, (uint)tick, CommandType.NoOp), new NoOpCommand()));
+                runner.AdvanceOneTick(state, rules, buffer);
+            }
+
+            Building tc = state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index];
+            AssertEqual(false, tc.IsUnderConstruction, "town center should complete after deterministic approach/build");
+            AssertEqual(GameData.CapitalPopulationBonus, state.PlayerStates.Players[0].PopulationCap, "completed capital tc should grant population cap bonus");
+            AssertEqual(5, state.PlayerStates.Players[0].PopulationUsed, "population used should remain 5/10 after completion");
+        }
+
         private static void UnderConstructionWallCanBeDestroyed()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(2);
@@ -4680,6 +4787,23 @@ namespace RtsGame.Tests
             }
 
             return townCenterId;
+        }
+
+        private static int FindUnderConstructionBuildingId(GameState state, int ownerPlayerIndex, BuildingTypeId buildingTypeId)
+        {
+            for (int i = 0; i < state.EntityState.Buildings.Count; i++)
+            {
+                Building building = state.EntityState.Buildings[i];
+                if (building.OwnerPlayerIndex == ownerPlayerIndex
+                    && building.BuildingTypeId == buildingTypeId
+                    && building.IsUnderConstruction
+                    && !building.IsDead)
+                {
+                    return building.Id;
+                }
+            }
+
+            throw new InvalidOperationException("under-construction building not found owner=" + ownerPlayerIndex + " type=" + buildingTypeId);
         }
 
         private static void FundTradePost(GameState state, int playerIndex)
