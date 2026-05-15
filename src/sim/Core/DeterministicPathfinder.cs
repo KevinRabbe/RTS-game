@@ -25,7 +25,7 @@ namespace RtsGame.Sim.Core
                 return true;
             }
 
-            if (SpatialRules.IsTileBlockedByWall(state, targetX, targetY))
+            if (SpatialRules.IsTileBlockedForUnitMovement(state, targetX, targetY))
             {
                 return false;
             }
@@ -63,7 +63,7 @@ namespace RtsGame.Sim.Core
                 {
                     int neighborX = currentX + NeighborOffsetX[neighbor];
                     int neighborY = currentY + NeighborOffsetY[neighbor];
-                    if (!IsInBounds(neighborX, neighborY, width, height) || SpatialRules.IsTileBlockedByWall(state, neighborX, neighborY))
+                    if (!IsInBounds(neighborX, neighborY, width, height) || SpatialRules.IsTileBlockedForUnitMovement(state, neighborX, neighborY))
                     {
                         continue;
                     }

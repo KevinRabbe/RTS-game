@@ -16,6 +16,13 @@ public partial class RtsClientRoot : Node2D
 	private const int InfantryUnitTypeId = 3;
 	private const int TradeCartUnitTypeId = 5;
 	private const int InfantryAttackTechId = 1;
+	private const int TownCenterBuildingTypeId = 1;
+	private const int WallBuildingTypeId = 2;
+	private const int TradePostBuildingTypeId = 3;
+	private const int TownCenterRadiusTiles = 2;
+	private const int WallRadiusTiles = 1;
+	private const int TradePostRadiusTiles = 2;
+	private const int ResourceRadiusTiles = 1;
 
 	private readonly List<int> _selectedUnitIds = new List<int>();
 	private readonly GodotDebugEventLog _debugEventLog = new GodotDebugEventLog(10);
@@ -155,6 +162,10 @@ public partial class RtsClientRoot : Node2D
 		}
 
 		_spriteRenderer.DrawTerrain(this, _frame.MapName, _facade!.MapWidthTiles, _facade.MapHeightTiles, TilePixels);
+		if (_showDebugOverlay)
+		{
+			DrawSpatialBlockersOverlay();
+		}
 
 		for (int i = 0; i < _frame.Primitives.Length; i++)
 		{
@@ -920,6 +931,89 @@ public partial class RtsClientRoot : Node2D
 		}
 	}
 
+	private void DrawSpatialBlockersOverlay()
+	{
+		if (_frame == null || _facade == null)
+		{
+			return;
+		}
+
+		Color blockedColor = new Color(0.95f, 0.2f, 0.2f, 0.18f);
+		float tileSize = TilePixels;
+		int width = _facade.MapWidthTiles;
+		int height = _facade.MapHeightTiles;
+		for (int y = 0; y < height; y++)
+		{
+			for (int x = 0; x < width; x++)
+			{
+				if (!IsTileBlockedByVisibleSimEntity(x, y))
+				{
+					continue;
+				}
+
+				DrawRect(new Rect2(x * tileSize, y * tileSize, tileSize, tileSize), blockedColor);
+			}
+		}
+	}
+
+	private bool IsTileBlockedByVisibleSimEntity(int tileX, int tileY)
+	{
+		if (_frame == null)
+		{
+			return false;
+		}
+
+		long tileXRaw = TileToRaw(tileX);
+		long tileYRaw = TileToRaw(tileY);
+		for (int i = 0; i < _frame.Primitives.Length; i++)
+		{
+			GodotPrimitiveDto primitive = _frame.Primitives[i];
+			GodotPrimitiveDrawKind kind = GodotPrimitiveDrawKindResolver.Resolve(primitive);
+			if (kind == GodotPrimitiveDrawKind.Building)
+			{
+				int radius = ResolveBuildingRadius(primitive.TypeId);
+				if (IsWithinRadius(tileXRaw, tileYRaw, primitive.XRaw, primitive.YRaw, radius))
+				{
+					return true;
+				}
+			}
+			else if (kind == GodotPrimitiveDrawKind.Resource)
+			{
+				if (IsWithinRadius(tileXRaw, tileYRaw, primitive.XRaw, primitive.YRaw, ResourceRadiusTiles))
+				{
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	private static bool IsWithinRadius(long tileXRaw, long tileYRaw, long centerXRaw, long centerYRaw, int radiusTiles)
+	{
+		long radiusRaw = TileToRaw(radiusTiles);
+		long radiusSquared = radiusRaw * radiusRaw;
+		long dx = tileXRaw - centerXRaw;
+		long dy = tileYRaw - centerYRaw;
+		long distSquared = dx * dx + dy * dy;
+		return distSquared < radiusSquared;
+	}
+
+	private static int ResolveBuildingRadius(int buildingTypeId)
+	{
+		switch (buildingTypeId)
+		{
+			case TownCenterBuildingTypeId:
+				return TownCenterRadiusTiles;
+			case WallBuildingTypeId:
+				return WallRadiusTiles;
+			case TradePostBuildingTypeId:
+				return TradePostRadiusTiles;
+			default:
+				return WallRadiusTiles;
+		}
+	}
+
 	private void DrawHotkeyHelpPanel(Vector2 uiOrigin, Vector2 uiSize)
 	{
 		GodotHotkeyHelpEntry[] entries = GodotHotkeyHelpBuilder.Build(researchIsWired: true);
@@ -1327,4 +1421,3 @@ public partial class RtsClientRoot : Node2D
 		DrawString(ThemeDB.FallbackFont, rect.Position + new Vector2(0.0f, -4.0f), "[TC] " + _tcPreviewResult, HorizontalAlignment.Left, -1.0f, 12, ghostColor);
 	}
 }
-

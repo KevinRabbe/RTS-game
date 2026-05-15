@@ -27,10 +27,14 @@ namespace RtsGame.Sim.Systems
                     continue;
                 }
 
-                if (!IsAtPosition(cart, destination.Position))
+                if (!SpatialRules.IsUnitInBuildInteractionRange(cart, destination))
                 {
-                    cart.HasMoveTarget = true;
-                    cart.MoveTarget = destination.Position;
+                    if (TryChooseTradePostApproachTile(state, cart, destination, out int approachX, out int approachY))
+                    {
+                        cart.HasMoveTarget = true;
+                        cart.MoveTarget = RtsGame.Sim.Determinism.FixedVector2.FromInts(approachX, approachY);
+                    }
+
                     continue;
                 }
 
@@ -47,8 +51,11 @@ namespace RtsGame.Sim.Systems
                 }
 
                 cart.TradeDestinationId = nextDestinationId;
-                cart.HasMoveTarget = true;
-                cart.MoveTarget = nextDestination.Position;
+                if (TryChooseTradePostApproachTile(state, cart, nextDestination, out int nextX, out int nextY))
+                {
+                    cart.HasMoveTarget = true;
+                    cart.MoveTarget = RtsGame.Sim.Determinism.FixedVector2.FromInts(nextX, nextY);
+                }
             }
         }
 
@@ -78,9 +85,45 @@ namespace RtsGame.Sim.Systems
             cart.HasMoveTarget = false;
         }
 
-        private static bool IsAtPosition(Unit unit, RtsGame.Sim.Determinism.FixedVector2 position)
+        private static bool TryChooseTradePostApproachTile(GameState state, Unit cart, Building destination, out int selectedX, out int selectedY)
         {
-            return unit.Position.X.Raw == position.X.Raw && unit.Position.Y.Raw == position.Y.Raw;
+            selectedX = 0;
+            selectedY = 0;
+            int unitTileX = SpatialRules.GetTileX(cart.Position);
+            int unitTileY = SpatialRules.GetTileY(cart.Position);
+            var interactionTiles = SpatialRules.EnumerateBuildInteractionTiles(state, destination);
+            bool found = false;
+            int bestScore = int.MaxValue;
+
+            for (int i = 0; i < interactionTiles.Count; i++)
+            {
+                SpatialRules.TileCoord tile = interactionTiles[i];
+                if (SpatialRules.IsTileOccupiedByLiveUnit(state, tile.X, tile.Y, cart.Id))
+                {
+                    continue;
+                }
+
+                if (!DeterministicPathfinder.TryFindNextTile(state, unitTileX, unitTileY, tile.X, tile.Y, out _, out _))
+                {
+                    continue;
+                }
+
+                int score = Abs(unitTileX - tile.X) + Abs(unitTileY - tile.Y);
+                if (!found || score < bestScore || (score == bestScore && (tile.Y < selectedY || (tile.Y == selectedY && tile.X < selectedX))))
+                {
+                    selectedX = tile.X;
+                    selectedY = tile.Y;
+                    bestScore = score;
+                    found = true;
+                }
+            }
+
+            return found;
+        }
+
+        private static int Abs(int value)
+        {
+            return value < 0 ? -value : value;
         }
     }
 }

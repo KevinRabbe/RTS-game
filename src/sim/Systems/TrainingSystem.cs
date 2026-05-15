@@ -1,5 +1,6 @@
 using RtsGame.Sim.Core;
 using RtsGame.Sim.Data;
+using RtsGame.Sim.Determinism;
 
 namespace RtsGame.Sim.Systems
 {
@@ -22,9 +23,25 @@ namespace RtsGame.Sim.Systems
                     continue;
                 }
 
-                EntityFactory.CreateUnit(state, building.OwnerPlayerIndex, item.UnitTypeId, building.Position, false);
+                FixedVector2 spawnPosition = ResolveSpawnPosition(state, building);
+                EntityFactory.CreateUnit(state, building.OwnerPlayerIndex, item.UnitTypeId, spawnPosition, false);
                 building.TrainingQueue.RemoveAt(0);
             }
+        }
+
+        private static FixedVector2 ResolveSpawnPosition(GameState state, Building building)
+        {
+            var interactionTiles = SpatialRules.EnumerateBuildInteractionTiles(state, building);
+            for (int i = 0; i < interactionTiles.Count; i++)
+            {
+                SpatialRules.TileCoord tile = interactionTiles[i];
+                if (!SpatialRules.IsTileOccupiedByLiveUnit(state, tile.X, tile.Y))
+                {
+                    return FixedVector2.FromInts(tile.X, tile.Y);
+                }
+            }
+
+            return building.Position;
         }
     }
 }

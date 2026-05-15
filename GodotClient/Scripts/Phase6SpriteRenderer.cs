@@ -122,24 +122,9 @@ public sealed class Phase6SpriteRenderer
 				DrawSheetFrame(canvas, dirt, dirtMetadata, 1, new Rect2(54 * size, (midY - 5) * size, size * 20, size * 10));
 			}
 
-			// --- Decorative rock clusters ---
-			if (rock != null && GodotSpriteSheetLayout.TryGetMetadata(GodotSpriteAssetId.RockBlocker, out var rockMetadata))
-			{
-				float rockSize = size * 2.5f;
-				
-				// Center cluster (Contested identity)
-				DrawSheetFrame(canvas, rock, rockMetadata, 0, new Rect2(58 * size, 42 * size, rockSize, rockSize));
-				DrawSheetFrame(canvas, rock, rockMetadata, 1, new Rect2(66 * size, 50 * size, rockSize, rockSize));
-				DrawSheetFrame(canvas, rock, rockMetadata, 2, new Rect2(62 * size, 46 * size, rockSize * 1.5f, rockSize * 1.5f));
-				
-				// Scatter rocks near start area borders
-				DrawSheetFrame(canvas, rock, rockMetadata, 0, new Rect2(35 * size, 30 * size, rockSize, rockSize));
-				DrawSheetFrame(canvas, rock, rockMetadata, 1, new Rect2(90 * size, 65 * size, rockSize, rockSize));
-				
-				// Corner outliers
-				DrawSheetFrame(canvas, rock, rockMetadata, 0, new Rect2(10 * size, 80 * size, rockSize, rockSize));
-				DrawSheetFrame(canvas, rock, rockMetadata, 1, new Rect2(110 * size, 10 * size, rockSize, rockSize));
-			}
+			// Keep DryArabia terrain decals non-deceptive: decorative rocks are disabled
+			// until they are backed by explicit sim blockers.
+			_ = rock;
 		}
 		else
 		{
