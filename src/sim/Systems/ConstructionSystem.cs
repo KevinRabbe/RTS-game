@@ -96,6 +96,12 @@ namespace RtsGame.Sim.Systems
                     continue;
                 }
 
+                if (ShouldKeepCurrentApproachTarget(interactionTiles, unit))
+                {
+                    reserved.Add(EncodeTile(SpatialRules.GetTileX(unit.MoveTarget), SpatialRules.GetTileY(unit.MoveTarget)));
+                    continue;
+                }
+
                 if (TryChooseApproachTile(state, unit, interactionTiles, reserved, out int tileX, out int tileY))
                 {
                     unit.HasMoveTarget = true;
@@ -123,6 +129,18 @@ namespace RtsGame.Sim.Systems
             selectedX = selected.X;
             selectedY = selected.Y;
             return true;
+        }
+
+        private static bool ShouldKeepCurrentApproachTarget(System.Collections.Generic.List<SpatialRules.TileCoord> interactionTiles, Unit unit)
+        {
+            if (!unit.HasMoveTarget)
+            {
+                return false;
+            }
+
+            int targetX = SpatialRules.GetTileX(unit.MoveTarget);
+            int targetY = SpatialRules.GetTileY(unit.MoveTarget);
+            return SpatialRules.ContainsInteractionTile(interactionTiles, targetX, targetY);
         }
 
         private static int EncodeTile(int tileX, int tileY)

@@ -33,6 +33,12 @@ namespace RtsGame.Sim.Systems
                 int carryRoom = GameData.VillagerCarryCapacity - unit.CarriedAmount;
                 if (!SpatialRules.IsUnitInResourceInteractionRange(unit, node))
                 {
+                    if (ShouldKeepCurrentApproachTarget(state, unit, node))
+                    {
+                        reservedApproachTiles.Add(EncodeTile(SpatialRules.GetTileX(unit.MoveTarget), SpatialRules.GetTileY(unit.MoveTarget)));
+                        continue;
+                    }
+
                     if (TryChooseResourceApproachTile(state, unit, node, reservedApproachTiles, out int approachX, out int approachY))
                     {
                         unit.HasMoveTarget = true;
@@ -94,6 +100,24 @@ namespace RtsGame.Sim.Systems
 
             approachX = selected.X;
             approachY = selected.Y;
+            return true;
+        }
+
+        private static bool ShouldKeepCurrentApproachTarget(GameState state, Unit unit, ResourceNode node)
+        {
+            if (!unit.HasMoveTarget)
+            {
+                return false;
+            }
+
+            int targetX = SpatialRules.GetTileX(unit.MoveTarget);
+            int targetY = SpatialRules.GetTileY(unit.MoveTarget);
+            List<SpatialRules.TileCoord> interactionTiles = SpatialRules.EnumerateResourceInteractionTiles(state, node);
+            if (!SpatialRules.ContainsInteractionTile(interactionTiles, targetX, targetY))
+            {
+                return false;
+            }
+
             return true;
         }
 

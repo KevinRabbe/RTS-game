@@ -26,6 +26,12 @@ namespace RtsGame.Sim.Systems
 
                 if (!SpatialRules.IsUnitInBuildingInteractionRange(unit, dropOff))
                 {
+                    if (ShouldKeepCurrentApproachTarget(state, unit, dropOff))
+                    {
+                        reservedApproachTiles.Add(EncodeTile(SpatialRules.GetTileX(unit.MoveTarget), SpatialRules.GetTileY(unit.MoveTarget)));
+                        continue;
+                    }
+
                     if (TryChooseDropOffApproachTile(state, unit, dropOff, reservedApproachTiles, out int approachX, out int approachY))
                     {
                         unit.HasMoveTarget = true;
@@ -80,6 +86,19 @@ namespace RtsGame.Sim.Systems
             approachX = selected.X;
             approachY = selected.Y;
             return true;
+        }
+
+        private static bool ShouldKeepCurrentApproachTarget(GameState state, Unit unit, Building dropOff)
+        {
+            if (!unit.HasMoveTarget)
+            {
+                return false;
+            }
+
+            int targetX = SpatialRules.GetTileX(unit.MoveTarget);
+            int targetY = SpatialRules.GetTileY(unit.MoveTarget);
+            List<SpatialRules.TileCoord> interactionTiles = SpatialRules.EnumerateBuildingInteractionTiles(state, dropOff);
+            return SpatialRules.ContainsInteractionTile(interactionTiles, targetX, targetY);
         }
 
         private static int EncodeTile(int tileX, int tileY)

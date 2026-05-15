@@ -75,6 +75,11 @@ namespace RtsGame.Tests
                 new TestCase("villager returns to dropoff when full", VillagerReturnsToDropoffWhenFull),
                 new TestCase("dropoff move target uses town center interaction ring", DropoffMoveTargetUsesTownCenterInteractionRing),
                 new TestCase("villager resumes resource loop after deposit", VillagerResumesResourceLoopAfterDeposit),
+                new TestCase("villager returns to same food target after deposit", VillagerReturnsToSameFoodTargetAfterDeposit),
+                new TestCase("villager returns to same wood target after deposit", VillagerReturnsToSameWoodTargetAfterDeposit),
+                new TestCase("villager returns to same gold target after deposit", VillagerReturnsToSameGoldTargetAfterDeposit),
+                new TestCase("gather keeps assigned resource when nearer same type exists", GatherKeepsAssignedResourceWhenNearerSameTypeExists),
+                new TestCase("gather move target remains stable while approaching", GatherMoveTargetRemainsStableWhileApproaching),
                 new TestCase("two builders in range build faster than one", TwoBuildersInRangeBuildFasterThanOne),
                 new TestCase("build move target uses foundation interaction ring", BuildMoveTargetUsesFoundationInteractionRing),
                 new TestCase("economy replay determinism", EconomyReplayDeterminism),
@@ -1207,6 +1212,76 @@ namespace RtsGame.Tests
             Unit unit = state.EntityState.Units[0];
             AssertEqual(1, unit.CurrentResourceNodeId, "villager should keep same resource assignment after deposit");
             AssertEqual(true, unit.HasMoveTarget || unit.CarriedAmount > 0, "villager should continue looping between resource and dropoff");
+        }
+
+        private static void VillagerReturnsToSameFoodTargetAfterDeposit()
+        {
+            AssertVillagerReturnsToSameTargetAfterDeposit(ResourceType.Food, 2067);
+        }
+
+        private static void VillagerReturnsToSameWoodTargetAfterDeposit()
+        {
+            AssertVillagerReturnsToSameTargetAfterDeposit(ResourceType.Wood, 2068);
+        }
+
+        private static void VillagerReturnsToSameGoldTargetAfterDeposit()
+        {
+            AssertVillagerReturnsToSameTargetAfterDeposit(ResourceType.Gold, 2069);
+        }
+
+        private static void GatherKeepsAssignedResourceWhenNearerSameTypeExists()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            var state = GameInitializer.CreateNomadStart(2070, 1);
+            int assignedResourceId = FindFirstResourceNodeIdByType(state, ResourceType.Food);
+            ResourceNode assigned = FindResourceNodeById(state, assignedResourceId);
+            state.EconomyState.ResourceNodes.Add(new ResourceNode
+            {
+                Id = state.EconomyState.NextResourceNodeId++,
+                ResourceType = ResourceType.Food,
+                Position = state.EntityState.Units[0].Position,
+                RemainingAmount = GameData.StartingFoodAmount
+            });
+
+            int nearResourceId = state.EconomyState.ResourceNodes[state.EconomyState.ResourceNodes.Count - 1].Id;
+            AssertEqual(true, nearResourceId != assignedResourceId, "setup should create distinct near food resource");
+            state.EntityState.Units[0].Position = new FixedVector2(assigned.Position.X + Fixed.FromInt(2), assigned.Position.Y);
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(0, 0));
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(assignedResourceId, new[] { 1 })));
+            runner.AdvanceOneTick(state, rules, buffer);
+            for (int tick = 1; tick <= 100; tick++)
+            {
+                AddNoOp(buffer, tick, 0, (uint)(9000 + tick));
+                runner.AdvanceOneTick(state, rules, buffer);
+            }
+
+            AssertEqual(assignedResourceId, state.EntityState.Units[0].CurrentResourceNodeId, "worker should keep originally assigned resource id while it remains valid");
+        }
+
+        private static void GatherMoveTargetRemainsStableWhileApproaching()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            var state = GameInitializer.CreateNomadStart(2071, 1);
+            int resourceId = FindFirstResourceNodeIdByType(state, ResourceType.Food);
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(resourceId, new[] { 1 })));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            Unit unit = state.EntityState.Units[0];
+            AssertEqual(true, unit.HasMoveTarget, "gather assignment should set move target");
+            int targetX = SpatialRules.GetTileX(unit.MoveTarget);
+            int targetY = SpatialRules.GetTileY(unit.MoveTarget);
+            for (int tick = 1; tick <= 2; tick++)
+            {
+                AddNoOp(buffer, tick, 0, (uint)(9500 + tick));
+                runner.AdvanceOneTick(state, rules, buffer);
+                AssertEqual(true, unit.HasMoveTarget, "approaching worker should keep move target");
+                AssertEqual(targetX, SpatialRules.GetTileX(unit.MoveTarget), "approach tile x should remain stable while valid");
+                AssertEqual(targetY, SpatialRules.GetTileY(unit.MoveTarget), "approach tile y should remain stable while valid");
+            }
         }
 
         private static void TwoBuildersInRangeBuildFasterThanOne()
@@ -5504,6 +5579,29 @@ namespace RtsGame.Tests
             buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(resourceId, new[] { 1 })));
             new TickRunner().AdvanceOneTick(state, rules, buffer);
             AssertEqual(resourceId, state.EntityState.Units[0].CurrentResourceNodeId, "gather target should persist exact selected resource id");
+        }
+
+        private static void AssertVillagerReturnsToSameTargetAfterDeposit(ResourceType resourceType, ulong seed)
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = GameInitializer.CreateNomadStart(seed, 1);
+            int resourceId = FindFirstResourceNodeIdByType(state, resourceType);
+            ResourceNode node = FindResourceNodeById(state, resourceId);
+            state.EntityState.Units[0].Position = new FixedVector2(node.Position.X + Fixed.FromInt(1), node.Position.Y);
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(0, 0));
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(resourceId, new[] { 1 })));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            for (int tick = 1; tick <= 150; tick++)
+            {
+                AddNoOp(buffer, tick, 0, (uint)(9100 + tick));
+                runner.AdvanceOneTick(state, rules, buffer);
+            }
+
+            Unit unit = state.EntityState.Units[0];
+            AssertEqual(resourceId, unit.CurrentResourceNodeId, "worker should return to exact assigned resource id after deposit for " + resourceType);
         }
 
         private static void FundTradePost(GameState state, int playerIndex)

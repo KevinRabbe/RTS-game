@@ -264,6 +264,19 @@ namespace RtsGame.Sim.Core
             return found;
         }
 
+        public static bool ContainsInteractionTile(List<TileCoord> interactionTiles, int tileX, int tileY)
+        {
+            for (int i = 0; i < interactionTiles.Count; i++)
+            {
+                if (interactionTiles[i].X == tileX && interactionTiles[i].Y == tileY)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         public static List<TileCoord> EnumerateBuildInteractionTiles(GameState state, Building building)
         {
             return EnumerateBuildingInteractionTiles(state, building);
