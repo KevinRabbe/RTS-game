@@ -115,6 +115,11 @@ namespace RtsGame.Sim.Commands
             building.AssignedBuilderIds.Sort();
         }
 
+        private static int EncodeTile(int tileX, int tileY)
+        {
+            return (tileY << 16) ^ (tileX & 0xFFFF);
+        }
+
         private static bool TryChooseBuildApproachTile(
             GameState state,
             Unit unit,
@@ -122,40 +127,7 @@ namespace RtsGame.Sim.Commands
             HashSet<int> reservedTiles,
             out SpatialRules.TileCoord selected)
         {
-            selected = default;
-            int unitTileX = SpatialRules.GetTileX(unit.Position);
-            int unitTileY = SpatialRules.GetTileY(unit.Position);
-            bool found = false;
-            int bestScore = int.MaxValue;
-
-            for (int i = 0; i < availableTiles.Count; i++)
-            {
-                SpatialRules.TileCoord tile = availableTiles[i];
-                if (reservedTiles.Contains(EncodeTile(tile.X, tile.Y)))
-                {
-                    continue;
-                }
-
-                if (SpatialRules.IsTileOccupiedByLiveUnit(state, tile.X, tile.Y, unit.Id))
-                {
-                    continue;
-                }
-
-                if (!DeterministicPathfinder.TryFindNextTile(state, unitTileX, unitTileY, tile.X, tile.Y, out _, out _))
-                {
-                    continue;
-                }
-
-                int score = Abs(unitTileX - tile.X) + Abs(unitTileY - tile.Y);
-                if (!found || score < bestScore || (score == bestScore && CompareTiles(tile, selected) < 0))
-                {
-                    selected = tile;
-                    bestScore = score;
-                    found = true;
-                }
-            }
-
-            return found;
+            return SpatialRules.TryChooseNearestReachableInteractionTile(state, unit, availableTiles, reservedTiles, out selected);
         }
 
         private static bool CanUnitReachAnyInteractionTile(GameState state, Unit unit, List<SpatialRules.TileCoord> interactionTiles)
@@ -177,22 +149,6 @@ namespace RtsGame.Sim.Commands
             }
 
             return false;
-        }
-
-        private static int EncodeTile(int tileX, int tileY)
-        {
-            return (tileY << 16) ^ (tileX & 0xFFFF);
-        }
-
-        private static int CompareTiles(SpatialRules.TileCoord left, SpatialRules.TileCoord right)
-        {
-            int yCompare = left.Y.CompareTo(right.Y);
-            return yCompare != 0 ? yCompare : left.X.CompareTo(right.X);
-        }
-
-        private static int Abs(int value)
-        {
-            return value < 0 ? -value : value;
         }
 
         private static void ClearPreviousBuildAssignment(GameState state, Unit unit)

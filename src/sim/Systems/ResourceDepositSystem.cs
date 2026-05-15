@@ -24,7 +24,7 @@ namespace RtsGame.Sim.Systems
                     continue;
                 }
 
-                if (!IsInDropOffInteractionRange(unit, dropOff))
+                if (!SpatialRules.IsUnitInBuildingInteractionRange(unit, dropOff))
                 {
                     if (TryChooseDropOffApproachTile(state, unit, dropOff, reservedApproachTiles, out int approachX, out int approachY))
                     {
@@ -67,79 +67,19 @@ namespace RtsGame.Sim.Systems
             return best;
         }
 
-        private static bool IsInDropOffInteractionRange(Unit unit, Building dropOff)
-        {
-            int tileX = SpatialRules.GetTileX(unit.Position);
-            int tileY = SpatialRules.GetTileY(unit.Position);
-            if (SpatialRules.IsTileInsideBuildingFootprint(dropOff, tileX, tileY))
-            {
-                return false;
-            }
-
-            return SpatialRules.IsTileInsideBuildingFootprint(dropOff, tileX + 1, tileY)
-                || SpatialRules.IsTileInsideBuildingFootprint(dropOff, tileX - 1, tileY)
-                || SpatialRules.IsTileInsideBuildingFootprint(dropOff, tileX, tileY + 1)
-                || SpatialRules.IsTileInsideBuildingFootprint(dropOff, tileX, tileY - 1);
-        }
-
         private static bool TryChooseDropOffApproachTile(GameState state, Unit unit, Building dropOff, HashSet<int> reservedApproachTiles, out int approachX, out int approachY)
         {
             approachX = 0;
             approachY = 0;
-            int unitTileX = SpatialRules.GetTileX(unit.Position);
-            int unitTileY = SpatialRules.GetTileY(unit.Position);
-            int centerX = SpatialRules.GetTileX(dropOff.Position);
-            int centerY = SpatialRules.GetTileY(dropOff.Position);
-            int radius = GameData.GetBuildingPlacementRadiusTiles(dropOff.BuildingTypeId);
-            bool found = false;
-            int bestScore = int.MaxValue;
-
-            for (int y = centerY - radius - 1; y <= centerY + radius + 1; y++)
+            List<SpatialRules.TileCoord> interactionTiles = SpatialRules.EnumerateBuildingInteractionTiles(state, dropOff);
+            if (!SpatialRules.TryChooseNearestReachableInteractionTile(state, unit, interactionTiles, reservedApproachTiles, out SpatialRules.TileCoord selected))
             {
-                for (int x = centerX - radius - 1; x <= centerX + radius + 1; x++)
-                {
-                    if (!SpatialRules.IsTileInBounds(state, x, y)
-                        || SpatialRules.IsTileInsideBuildingFootprint(dropOff, x, y)
-                        || !IsAdjacentToBuildingFootprint(dropOff, x, y)
-                        || reservedApproachTiles.Contains(EncodeTile(x, y))
-                        || SpatialRules.IsTileBlockedByWall(state, x, y)
-                        || SpatialRules.IsTileBlockedByBuildingFootprint(state, x, y, dropOff.Id)
-                        || SpatialRules.IsTileBlockedByResource(state, x, y)
-                        || SpatialRules.IsTileOccupiedByLiveUnit(state, x, y, unit.Id))
-                    {
-                        continue;
-                    }
-
-                    if (!DeterministicPathfinder.TryFindNextTile(state, unitTileX, unitTileY, x, y, out _, out _))
-                    {
-                        continue;
-                    }
-
-                    int score = Abs(unitTileX - x) + Abs(unitTileY - y);
-                    if (!found || score < bestScore || (score == bestScore && (y < approachY || (y == approachY && x < approachX))))
-                    {
-                        approachX = x;
-                        approachY = y;
-                        bestScore = score;
-                        found = true;
-                    }
-                }
+                return false;
             }
 
-            return found;
-        }
-
-        private static bool IsAdjacentToBuildingFootprint(Building building, int tileX, int tileY)
-        {
-            return SpatialRules.IsTileInsideBuildingFootprint(building, tileX + 1, tileY)
-                || SpatialRules.IsTileInsideBuildingFootprint(building, tileX - 1, tileY)
-                || SpatialRules.IsTileInsideBuildingFootprint(building, tileX, tileY + 1)
-                || SpatialRules.IsTileInsideBuildingFootprint(building, tileX, tileY - 1);
-        }
-
-        private static int Abs(int value)
-        {
-            return value < 0 ? -value : value;
+            approachX = selected.X;
+            approachY = selected.Y;
+            return true;
         }
 
         private static int EncodeTile(int tileX, int tileY)

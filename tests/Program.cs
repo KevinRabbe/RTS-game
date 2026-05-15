@@ -65,12 +65,18 @@ namespace RtsGame.Tests
                 new TestCase("villagers gather and deposit food", VillagersGatherAndDepositFood),
                 new TestCase("gather rejects carried different resource", GatherRejectsCarriedDifferentResource),
                 new TestCase("depleted resource clears gather assignment", DepletedResourceClearsGatherAssignment),
+                new TestCase("gather command keeps selected food target id", GatherCommandKeepsSelectedFoodTargetId),
+                new TestCase("gather command keeps selected wood target id", GatherCommandKeepsSelectedWoodTargetId),
+                new TestCase("gather command keeps selected gold target id", GatherCommandKeepsSelectedGoldTargetId),
                 new TestCase("gather command sets movement toward resource", GatherCommandSetsMovementTowardResource),
+                new TestCase("gather move target uses resource interaction ring", GatherMoveTargetUsesResourceInteractionRing),
                 new TestCase("villager does not gather outside resource range", VillagerDoesNotGatherOutsideResourceRange),
                 new TestCase("villager gathers in resource interaction range", VillagerGathersInResourceInteractionRange),
                 new TestCase("villager returns to dropoff when full", VillagerReturnsToDropoffWhenFull),
+                new TestCase("dropoff move target uses town center interaction ring", DropoffMoveTargetUsesTownCenterInteractionRing),
                 new TestCase("villager resumes resource loop after deposit", VillagerResumesResourceLoopAfterDeposit),
                 new TestCase("two builders in range build faster than one", TwoBuildersInRangeBuildFasterThanOne),
+                new TestCase("build move target uses foundation interaction ring", BuildMoveTargetUsesFoundationInteractionRing),
                 new TestCase("economy replay determinism", EconomyReplayDeterminism),
                 new TestCase("economy lockstep", EconomyLockstep),
                 new TestCase("train villager pays cost and completes", TrainVillagerPaysCostAndCompletes),
@@ -1058,6 +1064,21 @@ namespace RtsGame.Tests
             AssertEqual(0, state.EntityState.Units[0].CurrentResourceNodeId, "depleted node should clear gather assignment");
         }
 
+        private static void GatherCommandKeepsSelectedFoodTargetId()
+        {
+            AssertGatherCommandKeepsSelectedResourceTarget(ResourceType.Food, 2061);
+        }
+
+        private static void GatherCommandKeepsSelectedWoodTargetId()
+        {
+            AssertGatherCommandKeepsSelectedResourceTarget(ResourceType.Wood, 2062);
+        }
+
+        private static void GatherCommandKeepsSelectedGoldTargetId()
+        {
+            AssertGatherCommandKeepsSelectedResourceTarget(ResourceType.Gold, 2063);
+        }
+
         private static void GatherCommandSetsMovementTowardResource()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -1069,6 +1090,24 @@ namespace RtsGame.Tests
             Unit unit = state.EntityState.Units[0];
             AssertEqual(1, unit.CurrentResourceNodeId, "gather assignment should be set");
             AssertEqual(true, unit.HasMoveTarget, "gather command should assign resource approach movement");
+        }
+
+        private static void GatherMoveTargetUsesResourceInteractionRing()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            var state = GameInitializer.CreateNomadStart(2064, 1);
+            int resourceId = FindFirstResourceNodeIdByType(state, ResourceType.Food);
+            ResourceNode node = FindResourceNodeById(state, resourceId)!;
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(resourceId, new[] { 1 })));
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            Unit unit = state.EntityState.Units[0];
+            int targetX = SpatialRules.GetTileX(unit.MoveTarget);
+            int targetY = SpatialRules.GetTileY(unit.MoveTarget);
+            AssertEqual(true, unit.HasMoveTarget, "gather assignment should set an approach tile");
+            AssertEqual(false, SpatialRules.IsTileInsideResourceFootprint(node, targetX, targetY), "resource approach tile should not be inside resource footprint");
+            AssertEqual(true, SpatialRules.IsTileAdjacentToResourceFootprint(node, targetX, targetY), "resource approach tile should be adjacent to footprint");
         }
 
         private static void VillagerDoesNotGatherOutsideResourceRange()
@@ -1117,6 +1156,30 @@ namespace RtsGame.Tests
                 || SpatialRules.IsTileInsideBuildingFootprint(tc, SpatialRules.GetTileX(unit.MoveTarget), SpatialRules.GetTileY(unit.MoveTarget) + 1)
                 || SpatialRules.IsTileInsideBuildingFootprint(tc, SpatialRules.GetTileX(unit.MoveTarget), SpatialRules.GetTileY(unit.MoveTarget) - 1),
                 "dropoff target should be adjacent to town center footprint");
+        }
+
+        private static void DropoffMoveTargetUsesTownCenterInteractionRing()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            var state = GameInitializer.CreateNomadStart(2065, 1);
+            int tcId = AddCompletedTownCenter(state, 0, FixedVector2.FromInts(0, 0));
+            state.EntityState.Units[0].Position = FixedVector2.FromInts(5, 0);
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(1, new[] { 1 })));
+            runner.AdvanceOneTick(state, rules, buffer);
+            AddNoOp(buffer, 1, 0, 1);
+            runner.AdvanceOneTick(state, rules, buffer);
+            AddNoOp(buffer, 2, 0, 2);
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            Unit unit = state.EntityState.Units[0];
+            Building tc = state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index];
+            int targetX = SpatialRules.GetTileX(unit.MoveTarget);
+            int targetY = SpatialRules.GetTileY(unit.MoveTarget);
+            AssertEqual(true, unit.HasMoveTarget, "dropoff assignment should set an approach tile");
+            AssertEqual(false, SpatialRules.IsTileInsideBuildingFootprint(tc, targetX, targetY), "dropoff approach tile should not be inside TC footprint");
+            AssertEqual(true, SpatialRules.IsUnitInBuildingInteractionRange(new Unit { Position = FixedVector2.FromInts(targetX, targetY) }, tc), "dropoff approach tile should be on TC interaction ring");
         }
 
         private static void VillagerResumesResourceLoopAfterDeposit()
@@ -1176,6 +1239,24 @@ namespace RtsGame.Tests
             Building one = oneBuilder.EntityState.Buildings[oneBuilder.EntityState.EntityLookup[tcOne].Index];
             Building two = twoBuilders.EntityState.Buildings[twoBuilders.EntityState.EntityLookup[tcTwo].Index];
             AssertEqual(true, two.BuildProgressTicks > one.BuildProgressTicks, "two builders in range should progress faster than one");
+        }
+
+        private static void BuildMoveTargetUsesFoundationInteractionRing()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = GameInitializer.CreateNomadStart(2066, 1);
+            int foundationId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(6, 2));
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AssignBuild), new AssignBuildCommand(foundationId, new[] { 1 })));
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            Unit unit = state.EntityState.Units[0];
+            Building foundation = state.EntityState.Buildings[state.EntityState.EntityLookup[foundationId].Index];
+            int targetX = SpatialRules.GetTileX(unit.MoveTarget);
+            int targetY = SpatialRules.GetTileY(unit.MoveTarget);
+            AssertEqual(true, unit.HasMoveTarget, "build assignment should set an approach tile");
+            AssertEqual(false, SpatialRules.IsTileInsideBuildingFootprint(foundation, targetX, targetY), "build approach tile should not be inside foundation footprint");
+            AssertEqual(true, SpatialRules.IsUnitInBuildingInteractionRange(new Unit { Position = FixedVector2.FromInts(targetX, targetY) }, foundation), "build approach tile should be on foundation interaction ring");
         }
 
         private static void EconomyReplayDeterminism()
@@ -5398,6 +5479,31 @@ namespace RtsGame.Tests
             }
 
             throw new InvalidOperationException("resource node not found id=" + resourceNodeId);
+        }
+
+        private static int FindFirstResourceNodeIdByType(GameState state, ResourceType resourceType)
+        {
+            for (int i = 0; i < state.EconomyState.ResourceNodes.Count; i++)
+            {
+                ResourceNode node = state.EconomyState.ResourceNodes[i];
+                if (!node.IsDepleted && node.ResourceType == resourceType)
+                {
+                    return node.Id;
+                }
+            }
+
+            throw new InvalidOperationException("resource node not found type=" + resourceType);
+        }
+
+        private static void AssertGatherCommandKeepsSelectedResourceTarget(ResourceType resourceType, ulong seed)
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = GameInitializer.CreateNomadStart(seed, 1);
+            int resourceId = FindFirstResourceNodeIdByType(state, resourceType);
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(resourceId, new[] { 1 })));
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+            AssertEqual(resourceId, state.EntityState.Units[0].CurrentResourceNodeId, "gather target should persist exact selected resource id");
         }
 
         private static void FundTradePost(GameState state, int playerIndex)

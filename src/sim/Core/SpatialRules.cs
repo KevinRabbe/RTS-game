@@ -128,7 +128,62 @@ namespace RtsGame.Sim.Core
                 || IsTileBlockedByResource(state, tileX, tileY);
         }
 
-        public static List<TileCoord> EnumerateBuildInteractionTiles(GameState state, Building building)
+        public static bool IsTileInsideResourceFootprint(ResourceNode node, int tileX, int tileY)
+        {
+            return IsInsideRadius(FixedVector2.FromInts(tileX, tileY), node.Position, GameData.ResourcePlacementRadiusTiles);
+        }
+
+        public static bool IsTileAdjacentToResourceFootprint(ResourceNode node, int tileX, int tileY)
+        {
+            return IsTileInsideResourceFootprint(node, tileX + 1, tileY)
+                || IsTileInsideResourceFootprint(node, tileX - 1, tileY)
+                || IsTileInsideResourceFootprint(node, tileX, tileY + 1)
+                || IsTileInsideResourceFootprint(node, tileX, tileY - 1);
+        }
+
+        public static List<TileCoord> EnumerateResourceInteractionTiles(GameState state, ResourceNode node)
+        {
+            int centerX = GetTileX(node.Position);
+            int centerY = GetTileY(node.Position);
+            int radius = GameData.ResourcePlacementRadiusTiles;
+            var tiles = new List<TileCoord>();
+            for (int y = centerY - radius - 1; y <= centerY + radius + 1; y++)
+            {
+                for (int x = centerX - radius - 1; x <= centerX + radius + 1; x++)
+                {
+                    if (!IsTileInBounds(state, x, y)
+                        || IsTileInsideResourceFootprint(node, x, y)
+                        || !IsTileAdjacentToResourceFootprint(node, x, y)
+                        || IsTileBlockedForUnitMovement(state, x, y))
+                    {
+                        continue;
+                    }
+
+                    tiles.Add(new TileCoord(x, y));
+                }
+            }
+
+            tiles.Sort((left, right) =>
+            {
+                int yCompare = left.Y.CompareTo(right.Y);
+                return yCompare != 0 ? yCompare : left.X.CompareTo(right.X);
+            });
+            return tiles;
+        }
+
+        public static bool IsUnitInResourceInteractionRange(Unit unit, ResourceNode node)
+        {
+            int tileX = GetTileX(unit.Position);
+            int tileY = GetTileY(unit.Position);
+            if (IsTileInsideResourceFootprint(node, tileX, tileY))
+            {
+                return false;
+            }
+
+            return IsTileAdjacentToResourceFootprint(node, tileX, tileY);
+        }
+
+        public static List<TileCoord> EnumerateBuildingInteractionTiles(GameState state, Building building)
         {
             int centerX = GetTileX(building.Position);
             int centerY = GetTileY(building.Position);
@@ -158,7 +213,7 @@ namespace RtsGame.Sim.Core
             return tiles;
         }
 
-        public static bool IsUnitInBuildInteractionRange(Unit unit, Building building)
+        public static bool IsUnitInBuildingInteractionRange(Unit unit, Building building)
         {
             int tileX = GetTileX(unit.Position);
             int tileY = GetTileY(unit.Position);
@@ -167,10 +222,56 @@ namespace RtsGame.Sim.Core
                 return false;
             }
 
-            return IsTileInsideBuildingFootprint(building, tileX + 1, tileY)
-                || IsTileInsideBuildingFootprint(building, tileX - 1, tileY)
-                || IsTileInsideBuildingFootprint(building, tileX, tileY + 1)
-                || IsTileInsideBuildingFootprint(building, tileX, tileY - 1);
+            return IsAdjacentToBuildingFootprint(building, tileX, tileY);
+        }
+
+        public static bool TryChooseNearestReachableInteractionTile(
+            GameState state,
+            Unit unit,
+            List<TileCoord> interactionTiles,
+            HashSet<int>? reservedTiles,
+            out TileCoord selected)
+        {
+            selected = default;
+            int unitTileX = GetTileX(unit.Position);
+            int unitTileY = GetTileY(unit.Position);
+            int bestScore = int.MaxValue;
+            bool found = false;
+            for (int i = 0; i < interactionTiles.Count; i++)
+            {
+                TileCoord tile = interactionTiles[i];
+                int tileKey = EncodeTile(tile.X, tile.Y);
+                if ((reservedTiles != null && reservedTiles.Contains(tileKey))
+                    || IsTileOccupiedByLiveUnit(state, tile.X, tile.Y, unit.Id))
+                {
+                    continue;
+                }
+
+                if (!DeterministicPathfinder.TryFindNextTile(state, unitTileX, unitTileY, tile.X, tile.Y, out _, out _))
+                {
+                    continue;
+                }
+
+                int score = Abs(unitTileX - tile.X) + Abs(unitTileY - tile.Y);
+                if (!found || score < bestScore || (score == bestScore && CompareTiles(tile, selected) < 0))
+                {
+                    selected = tile;
+                    bestScore = score;
+                    found = true;
+                }
+            }
+
+            return found;
+        }
+
+        public static List<TileCoord> EnumerateBuildInteractionTiles(GameState state, Building building)
+        {
+            return EnumerateBuildingInteractionTiles(state, building);
+        }
+
+        public static bool IsUnitInBuildInteractionRange(Unit unit, Building building)
+        {
+            return IsUnitInBuildingInteractionRange(unit, building);
         }
 
         private static bool IsAdjacentToBuildingFootprint(Building building, int tileX, int tileY)
@@ -186,6 +287,22 @@ namespace RtsGame.Sim.Core
             long radiusRaw = Fixed.FromInt(radiusTiles).Raw;
             long radiusSquaredRaw = checked(radiusRaw * radiusRaw);
             return (position - center).LengthSquaredRaw() < radiusSquaredRaw;
+        }
+
+        private static int Abs(int value)
+        {
+            return value < 0 ? -value : value;
+        }
+
+        private static int CompareTiles(TileCoord left, TileCoord right)
+        {
+            int yCompare = left.Y.CompareTo(right.Y);
+            return yCompare != 0 ? yCompare : left.X.CompareTo(right.X);
+        }
+
+        private static int EncodeTile(int tileX, int tileY)
+        {
+            return (tileY << 16) ^ (tileX & 0xFFFF);
         }
     }
 }

@@ -115,41 +115,14 @@ namespace RtsGame.Sim.Systems
         {
             selectedX = 0;
             selectedY = 0;
-            int unitTileX = SpatialRules.GetTileX(unit.Position);
-            int unitTileY = SpatialRules.GetTileY(unit.Position);
-            bool found = false;
-            int bestScore = int.MaxValue;
-
-            for (int i = 0; i < interactionTiles.Count; i++)
+            if (!SpatialRules.TryChooseNearestReachableInteractionTile(state, unit, interactionTiles, reserved, out SpatialRules.TileCoord selected))
             {
-                SpatialRules.TileCoord tile = interactionTiles[i];
-                int key = EncodeTile(tile.X, tile.Y);
-                if (reserved.Contains(key) || SpatialRules.IsTileOccupiedByLiveUnit(state, tile.X, tile.Y, unit.Id))
-                {
-                    continue;
-                }
-
-                if (!DeterministicPathfinder.TryFindNextTile(state, unitTileX, unitTileY, tile.X, tile.Y, out _, out _))
-                {
-                    continue;
-                }
-
-                int score = Abs(unitTileX - tile.X) + Abs(unitTileY - tile.Y);
-                if (!found || score < bestScore || (score == bestScore && (tile.Y < selectedY || (tile.Y == selectedY && tile.X < selectedX))))
-                {
-                    selectedX = tile.X;
-                    selectedY = tile.Y;
-                    bestScore = score;
-                    found = true;
-                }
+                return false;
             }
 
-            return found;
-        }
-
-        private static int Abs(int value)
-        {
-            return value < 0 ? -value : value;
+            selectedX = selected.X;
+            selectedY = selected.Y;
+            return true;
         }
 
         private static int EncodeTile(int tileX, int tileY)
