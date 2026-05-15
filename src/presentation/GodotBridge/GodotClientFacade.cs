@@ -235,6 +235,9 @@ namespace RtsGame.Presentation.GodotBridge
                 snapshot.HasCapitalBeenPlaced,
                 snapshot.IsCapitalAlive,
                 snapshot.CapitalBonusActive,
+                snapshot.IsConnected,
+                snapshot.IsDefeated,
+                snapshot.IsResigned,
                 ToCompletedTechIds(snapshot),
                 ToResearchStatusDtos(snapshot),
                 ToModifierStatusDtos(snapshot));

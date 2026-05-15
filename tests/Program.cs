@@ -202,6 +202,9 @@ namespace RtsGame.Tests
                 new TestCase("tc placement preview invalid overlapping resource", TcPlacementPreviewInvalidOverlappingResource),
                 new TestCase("tc placement preview invalid overlapping building", TcPlacementPreviewInvalidOverlappingBuilding),
                 new TestCase("tc placement preview invalid outside map", TcPlacementPreviewInvalidOutsideMap),
+                new TestCase("tc placement preview invalid missing resources", TcPlacementPreviewInvalidMissingResources),
+                new TestCase("tc placement preview invalid blocked player state", TcPlacementPreviewInvalidBlockedPlayerState),
+                new TestCase("tc placement preview command parity around player 0 zone", TcPlacementPreviewCommandParityAroundPlayer0Zone),
                 new TestCase("tc placement preview does not mutate checksum", TcPlacementPreviewDoesNotMutateChecksum),
                 new TestCase("tc placement preview unknown result does not throw", TcPlacementPreviewUnknownResultDoesNotThrow),
                 new TestCase("godot hotkey help contains edge pan entry", GodotHotkeyHelpContainsEdgePanEntry),
@@ -5353,6 +5356,7 @@ namespace RtsGame.Tests
             var result = TcPlacementPreview.Evaluate(godotFrame, p0Zone.X.FloorToInt(), p0Zone.Y.FloorToInt());
 
             AssertEqual(TcPlacementPreviewResult.Valid, result, "P0 TC zone should be a valid preview location on DryArabia");
+            AssertEqual(true, PlaceTownCenterWouldBeValidOnDryArabia(0, p0Zone.X.FloorToInt(), p0Zone.Y.FloorToInt(), 101), "valid preview should map to accepted placement command");
         }
 
         private static void TcPlacementPreviewValidAtPlayer1TcZone()
@@ -5364,6 +5368,7 @@ namespace RtsGame.Tests
             var result = TcPlacementPreview.Evaluate(godotFrame, p1Zone.X.FloorToInt(), p1Zone.Y.FloorToInt());
 
             AssertEqual(TcPlacementPreviewResult.Valid, result, "P1 TC zone should be a valid preview location on DryArabia");
+            AssertEqual(true, PlaceTownCenterWouldBeValidOnDryArabia(1, p1Zone.X.FloorToInt(), p1Zone.Y.FloorToInt(), 102), "valid preview should map to accepted placement command");
         }
 
         private static void TcPlacementPreviewInvalidOverlappingResource()
@@ -5380,11 +5385,20 @@ namespace RtsGame.Tests
                     0, 0, 0, 0, 0, false)
             };
 
-            var godotFrame = new GodotFrameDto(0, "Test", 0, null, null, fakePrimitives, null, null);
+            var godotFrame = new GodotFrameDto(
+                0,
+                "Test",
+                0,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotMatchDto(false, -1, -1, 0),
+                fakePrimitives,
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
 
             var result = TcPlacementPreview.Evaluate(godotFrame, 30, 48);
 
             AssertEqual(TcPlacementPreviewResult.OverlapsResource, result, "TC preview on top of resource should be OverlapsResource");
+            AssertEqual(false, PlaceTownCenterWouldBeValidOnDryArabia(0, 30, 48, 103), "resource-overlap preview should map to rejected placement command");
         }
 
         private static void TcPlacementPreviewInvalidOverlappingBuilding()
@@ -5401,7 +5415,8 @@ namespace RtsGame.Tests
             // Same spot should now be blocked by the building
             var result = TcPlacementPreview.Evaluate(godotFrame, p0Zone.X.FloorToInt(), p0Zone.Y.FloorToInt());
 
-            AssertEqual(TcPlacementPreviewResult.OverlapsBuilding, result, "TC preview overlapping existing TC should be OverlapsBuilding");
+            AssertEqual(TcPlacementPreviewResult.MissingResources, result, "second TC without wood should report missing resources before placement overlap");
+            AssertEqual(false, PlaceTownCenterWouldBeValidOnDryArabiaWithPlacedTownCenter(0, p0Zone.X.FloorToInt(), p0Zone.Y.FloorToInt(), 104), "building-overlap preview should map to rejected placement command");
         }
 
         private static void TcPlacementPreviewInvalidOutsideMap()
@@ -5418,6 +5433,100 @@ namespace RtsGame.Tests
             AssertEqual(TcPlacementPreviewResult.OutsideMap, resultY, "Preview outside -y map should be OutsideMap");
             AssertEqual(TcPlacementPreviewResult.OutsideMap, resultMaxX, "Preview outside +x map should be OutsideMap");
             AssertEqual(TcPlacementPreviewResult.OutsideMap, resultMaxY, "Preview outside +y map should be OutsideMap");
+            AssertEqual(false, PlaceTownCenterWouldBeValidOnDryArabia(0, -1, 50, 105), "outside-map preview should map to rejected placement command");
+            AssertEqual(false, PlaceTownCenterWouldBeValidOnDryArabia(0, 50, -1, 105), "outside-map preview should map to rejected placement command");
+            AssertEqual(false, PlaceTownCenterWouldBeValidOnDryArabia(0, 128, 50, 105), "outside-map preview should map to rejected placement command");
+            AssertEqual(false, PlaceTownCenterWouldBeValidOnDryArabia(0, 50, 96, 105), "outside-map preview should map to rejected placement command");
+        }
+
+        private static void TcPlacementPreviewCommandParityAroundPlayer0Zone()
+        {
+            var previewFacade = GodotClientFacade.CreateDryArabiaTest01(107);
+            FixedVector2 zone = DryArabiaTest01MapDefinition.GetTownCenterZone(0);
+            int centerX = zone.X.FloorToInt();
+            int centerY = zone.Y.FloorToInt();
+
+            for (int y = centerY - 2; y <= centerY + 2; y++)
+            {
+                for (int x = centerX - 2; x <= centerX + 2; x++)
+                {
+                    GodotFrameDto frame = previewFacade.GetFrame(0);
+                    TcPlacementPreviewResult preview = TcPlacementPreview.Evaluate(frame, x, y);
+                    bool accepted = PlaceTownCenterWouldBeValidOnDryArabia(0, x, y, 107);
+                    if (preview == TcPlacementPreviewResult.Valid)
+                    {
+                        AssertEqual(true, accepted, "preview valid should accept at tile (" + x + "," + y + ")");
+                    }
+                    else
+                    {
+                        AssertEqual(false, accepted, "preview invalid should reject at tile (" + x + "," + y + ") reason=" + preview);
+                    }
+                }
+            }
+        }
+
+        private static void TcPlacementPreviewInvalidMissingResources()
+        {
+            var frame = new GodotFrameDto(
+                0,
+                "Test",
+                0,
+                new GodotLocalPlayerDto(
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    true,
+                    true,
+                    true,
+                    true,
+                    false,
+                    false,
+                    new int[0],
+                    new GodotResearchStatusDto[0],
+                    new GodotModifierStatusDto[0]),
+                new GodotMatchDto(false, -1, -1, 0),
+                new GodotPrimitiveDto[0],
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+            TcPlacementPreviewResult preview = TcPlacementPreview.Evaluate(frame, 20, 20);
+            AssertEqual(TcPlacementPreviewResult.MissingResources, preview, "second-town-center preview should show missing resources");
+
+            GameState state = GameInitializer.CreateDryArabiaTest01(108);
+            state.PlayerStates.Players[0].CapitalStatus.HasCapitalBeenPlaced = true;
+            bool accepted = new PlaceTownCenterCommand(FixedVector2.FromInts(20, 20))
+                .IsValid(state, GameRules.CreatePhaseZeroDefaults(2), new CommandHeader(state.Tick, 0, 0, CommandType.PlaceTownCenter));
+            AssertEqual(false, accepted, "second-town-center missing wood should be rejected by command validation");
+        }
+
+        private static void TcPlacementPreviewInvalidBlockedPlayerState()
+        {
+            var frame = new GodotFrameDto(
+                0,
+                "Test",
+                0,
+                new GodotLocalPlayerDto(
+                    0,
+                    500,
+                    0,
+                    0,
+                    0,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    new int[0],
+                    new GodotResearchStatusDto[0],
+                    new GodotModifierStatusDto[0]),
+                new GodotMatchDto(false, -1, -1, 0),
+                new GodotPrimitiveDto[0],
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+            TcPlacementPreviewResult preview = TcPlacementPreview.Evaluate(frame, 10, 10);
+            AssertEqual(TcPlacementPreviewResult.PlayerStateBlocked, preview, "resigned or disconnected player should preview blocked");
         }
 
         private static void TcPlacementPreviewDoesNotMutateChecksum()
@@ -5443,6 +5552,26 @@ namespace RtsGame.Tests
             // Null frame would normally not be called due to null check in RtsClientRoot,
             // but the enum supports Unknown for safe defaulting. We just verify the enum exists and resolves cleanly.
             AssertEqual((int)TcPlacementPreviewResult.Unknown, 4, "Unknown result should be 4");
+        }
+
+        private static bool PlaceTownCenterWouldBeValidOnDryArabia(int playerIndex, int tileX, int tileY, ulong seed)
+        {
+            GameState state = GameInitializer.CreateDryArabiaTest01(seed);
+            var command = new PlaceTownCenterCommand(FixedVector2.FromInts(tileX, tileY));
+            return command.IsValid(state, GameRules.CreatePhaseZeroDefaults(2), new CommandHeader(state.Tick, playerIndex, 0, CommandType.PlaceTownCenter));
+        }
+
+        private static bool PlaceTownCenterWouldBeValidOnDryArabiaWithPlacedTownCenter(int playerIndex, int tileX, int tileY, ulong seed)
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = GameInitializer.CreateDryArabiaTest01(seed);
+            FixedVector2 zone = DryArabiaTest01MapDefinition.GetTownCenterZone(playerIndex);
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, playerIndex, 0, CommandType.PlaceTownCenter), new PlaceTownCenterCommand(zone)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 1 - playerIndex, 0, CommandType.NoOp), new NoOpCommand()));
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+            return new PlaceTownCenterCommand(FixedVector2.FromInts(tileX, tileY))
+                .IsValid(state, rules, new CommandHeader(state.Tick, playerIndex, 1, CommandType.PlaceTownCenter));
         }
 
         private static void GodotHotkeyHelpContainsEdgePanEntry()

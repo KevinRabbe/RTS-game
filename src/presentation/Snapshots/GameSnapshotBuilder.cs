@@ -89,6 +89,9 @@ namespace RtsGame.Presentation.Snapshots
                 player.CapitalStatus.HasCapitalBeenPlaced,
                 player.CapitalStatus.IsCapitalAlive,
                 player.CapitalStatus.CapitalBonusActive,
+                player.IsConnected,
+                player.IsDefeated,
+                player.IsResigned,
                 BuildCompletedTechs(player),
                 BuildResearchQueue(player),
                 BuildModifiers(player));

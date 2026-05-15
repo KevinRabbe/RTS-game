@@ -174,6 +174,9 @@ namespace RtsGame.Presentation.GodotBridge
         public bool HasCapitalBeenPlaced { get; }
         public bool IsCapitalAlive { get; }
         public bool CapitalBonusActive { get; }
+        public bool IsConnected { get; }
+        public bool IsDefeated { get; }
+        public bool IsResigned { get; }
         public int[] CompletedTechIds { get; }
         public GodotResearchStatusDto[] ResearchQueue { get; }
         public GodotModifierStatusDto[] Modifiers { get; }
@@ -187,7 +190,21 @@ namespace RtsGame.Presentation.GodotBridge
             bool hasCapitalBeenPlaced,
             bool isCapitalAlive,
             bool capitalBonusActive)
-            : this(food, wood, gold, populationUsed, populationCap, hasCapitalBeenPlaced, isCapitalAlive, capitalBonusActive, new int[0], new GodotResearchStatusDto[0], new GodotModifierStatusDto[0])
+            : this(
+                food,
+                wood,
+                gold,
+                populationUsed,
+                populationCap,
+                hasCapitalBeenPlaced,
+                isCapitalAlive,
+                capitalBonusActive,
+                true,
+                false,
+                false,
+                new int[0],
+                new GodotResearchStatusDto[0],
+                new GodotModifierStatusDto[0])
         {
         }
 
@@ -203,6 +220,39 @@ namespace RtsGame.Presentation.GodotBridge
             int[] completedTechIds,
             GodotResearchStatusDto[] researchQueue,
             GodotModifierStatusDto[] modifiers)
+            : this(
+                food,
+                wood,
+                gold,
+                populationUsed,
+                populationCap,
+                hasCapitalBeenPlaced,
+                isCapitalAlive,
+                capitalBonusActive,
+                true,
+                false,
+                false,
+                completedTechIds,
+                researchQueue,
+                modifiers)
+        {
+        }
+
+        public GodotLocalPlayerDto(
+            int food,
+            int wood,
+            int gold,
+            int populationUsed,
+            int populationCap,
+            bool hasCapitalBeenPlaced,
+            bool isCapitalAlive,
+            bool capitalBonusActive,
+            bool isConnected,
+            bool isDefeated,
+            bool isResigned,
+            int[] completedTechIds,
+            GodotResearchStatusDto[] researchQueue,
+            GodotModifierStatusDto[] modifiers)
         {
             Food = food;
             Wood = wood;
@@ -212,6 +262,9 @@ namespace RtsGame.Presentation.GodotBridge
             HasCapitalBeenPlaced = hasCapitalBeenPlaced;
             IsCapitalAlive = isCapitalAlive;
             CapitalBonusActive = capitalBonusActive;
+            IsConnected = isConnected;
+            IsDefeated = isDefeated;
+            IsResigned = isResigned;
             CompletedTechIds = completedTechIds;
             ResearchQueue = researchQueue;
             Modifiers = modifiers;

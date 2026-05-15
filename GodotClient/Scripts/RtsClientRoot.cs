@@ -1259,6 +1259,8 @@ public partial class RtsClientRoot : Node2D
 		}
 
 		_tcPlacementMode = false;
+		GodotFrameDto frameBefore = _frame;
+		TcPlacementPreviewResult previewBefore = _tcPreviewResult;
 
 		if (_tcPreviewResult != TcPlacementPreviewResult.Valid)
 		{
@@ -1268,17 +1270,34 @@ public partial class RtsClientRoot : Node2D
 		}
 
 		SetCommandMarker("TC", ToScreen(TileToRaw(tile.X), TileToRaw(tile.Y)), Colors.LightBlue);
+		int beforeExecuted = frameBefore.Match.ExecutedCommandCount;
+		int beforeRejected = frameBefore.Match.RejectedCommandCount;
 		QueueCommandAndConfirm(
 			"place town center p=" + LocalPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ")",
 			facade => facade.QueuePlaceTownCenter(LocalPlayerIndex, tile.X, tile.Y));
-		
-		// If preview said valid but command was rejected, log it.
-		int executed = _frame?.Match.ExecutedCommandCount ?? _facade.ExecutedCommandCount;
-		int rejected = _frame?.Match.RejectedCommandCount ?? _facade.RejectedCommandCount;
-		if (rejected > 0) // Basic heuristic, the real GodotCommandResultClassifier could be used
+
+		int afterExecuted = _frame?.Match.ExecutedCommandCount ?? _facade.ExecutedCommandCount;
+		int afterRejected = _frame?.Match.RejectedCommandCount ?? _facade.RejectedCommandCount;
+		GodotCommandResultKind result = GodotCommandResultClassifier.Classify(beforeExecuted, beforeRejected, afterExecuted, afterRejected);
+		if (previewBefore == TcPlacementPreviewResult.Valid && result == GodotCommandResultKind.Rejected)
 		{
-			_debugEventLog.Add("Preview valid but command rejected — command remains authoritative");
+			LogTcPreviewCommandMismatch(tile, previewBefore, frameBefore);
 		}
+	}
+
+	private void LogTcPreviewCommandMismatch(Vector2I tile, TcPlacementPreviewResult previewResult, GodotFrameDto frameBefore)
+	{
+		GodotLocalPlayerDto player = frameBefore.LocalPlayer;
+		_debugEventLog.Add(
+			"Preview/command mismatch tile=(" + tile.X + "," + tile.Y + ")"
+			+ " preview=" + previewResult
+			+ " command=PlaceTownCenter"
+			+ " player=" + LocalPlayerIndex
+			+ " wood=" + player.Wood
+			+ " hasCapitalPlaced=" + player.HasCapitalBeenPlaced
+			+ " connected=" + player.IsConnected
+			+ " defeated=" + player.IsDefeated
+			+ " resigned=" + player.IsResigned);
 	}
 
 	private void DrawTcPlacementGhost()
@@ -1308,3 +1327,4 @@ public partial class RtsClientRoot : Node2D
 		DrawString(ThemeDB.FallbackFont, rect.Position + new Vector2(0.0f, -4.0f), "[TC] " + _tcPreviewResult, HorizontalAlignment.Left, -1.0f, 12, ghostColor);
 	}
 }
+

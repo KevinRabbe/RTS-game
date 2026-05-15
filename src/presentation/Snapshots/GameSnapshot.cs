@@ -159,12 +159,37 @@ namespace RtsGame.Presentation.Snapshots
         public bool HasCapitalBeenPlaced { get; }
         public bool IsCapitalAlive { get; }
         public bool CapitalBonusActive { get; }
+        public bool IsConnected { get; }
+        public bool IsDefeated { get; }
+        public bool IsResigned { get; }
         public IReadOnlyList<TechId> CompletedTechs { get; }
         public IReadOnlyList<ResearchSnapshot> ResearchQueue { get; }
         public IReadOnlyList<ModifierSnapshot> Modifiers { get; }
 
-        public LocalPlayerSnapshot(int food, int wood, int gold, int populationUsed, int populationCap, bool hasCapitalBeenPlaced, bool isCapitalAlive, bool capitalBonusActive)
-            : this(food, wood, gold, populationUsed, populationCap, hasCapitalBeenPlaced, isCapitalAlive, capitalBonusActive, new TechId[0], new ResearchSnapshot[0], new ModifierSnapshot[0])
+        public LocalPlayerSnapshot(
+            int food,
+            int wood,
+            int gold,
+            int populationUsed,
+            int populationCap,
+            bool hasCapitalBeenPlaced,
+            bool isCapitalAlive,
+            bool capitalBonusActive)
+            : this(
+                food,
+                wood,
+                gold,
+                populationUsed,
+                populationCap,
+                hasCapitalBeenPlaced,
+                isCapitalAlive,
+                capitalBonusActive,
+                true,
+                false,
+                false,
+                new TechId[0],
+                new ResearchSnapshot[0],
+                new ModifierSnapshot[0])
         {
         }
 
@@ -180,6 +205,39 @@ namespace RtsGame.Presentation.Snapshots
             IReadOnlyList<TechId> completedTechs,
             IReadOnlyList<ResearchSnapshot> researchQueue,
             IReadOnlyList<ModifierSnapshot> modifiers)
+            : this(
+                food,
+                wood,
+                gold,
+                populationUsed,
+                populationCap,
+                hasCapitalBeenPlaced,
+                isCapitalAlive,
+                capitalBonusActive,
+                true,
+                false,
+                false,
+                completedTechs,
+                researchQueue,
+                modifiers)
+        {
+        }
+
+        public LocalPlayerSnapshot(
+            int food,
+            int wood,
+            int gold,
+            int populationUsed,
+            int populationCap,
+            bool hasCapitalBeenPlaced,
+            bool isCapitalAlive,
+            bool capitalBonusActive,
+            bool isConnected,
+            bool isDefeated,
+            bool isResigned,
+            IReadOnlyList<TechId> completedTechs,
+            IReadOnlyList<ResearchSnapshot> researchQueue,
+            IReadOnlyList<ModifierSnapshot> modifiers)
         {
             Food = food;
             Wood = wood;
@@ -189,6 +247,9 @@ namespace RtsGame.Presentation.Snapshots
             HasCapitalBeenPlaced = hasCapitalBeenPlaced;
             IsCapitalAlive = isCapitalAlive;
             CapitalBonusActive = capitalBonusActive;
+            IsConnected = isConnected;
+            IsDefeated = isDefeated;
+            IsResigned = isResigned;
             CompletedTechs = completedTechs;
             ResearchQueue = researchQueue;
             Modifiers = modifiers;

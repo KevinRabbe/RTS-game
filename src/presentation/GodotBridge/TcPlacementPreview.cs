@@ -4,7 +4,6 @@ namespace RtsGame.Presentation.GodotBridge
     /// Result of a read-only Town Center placement preview check.
     /// NOTE: This is client-side feedback only. The final placement authority
     /// is PlaceTownCenterCommand.IsValid() / PlacementRules.CanPlaceBuilding().
-    /// A Valid preview does not guarantee the command will be accepted.
     /// </summary>
     public enum TcPlacementPreviewResult
     {
@@ -12,7 +11,9 @@ namespace RtsGame.Presentation.GodotBridge
         OutsideMap = 1,
         OverlapsBuilding = 2,
         OverlapsResource = 3,
-        Unknown = 4
+        Unknown = 4,
+        MissingResources = 5,
+        PlayerStateBlocked = 6
     }
 
     /// <summary>
@@ -25,12 +26,13 @@ namespace RtsGame.Presentation.GodotBridge
         // Fixed-point scale: 1 tile = 65536 raw units (Fixed.OneRaw).
         private const long FixedOneRaw = 1L << 16;
 
-        // Mirror GameData constants — copied to avoid a cross-layer reference.
+        // Mirror GameData constants - copied to avoid a cross-layer reference.
         // If GameData changes these, update here too.
-        private const int TcRadiusTiles = 2;          // GameData.TownCenterPlacementRadiusTiles
-        private const int ResourceRadiusTiles = 1;    // GameData.ResourcePlacementRadiusTiles
+        private const int TcRadiusTiles = 2;           // GameData.TownCenterPlacementRadiusTiles
+        private const int ResourceRadiusTiles = 1;     // GameData.ResourcePlacementRadiusTiles
         private const int MapWidthTiles = 128;         // GameData.MapWidthTiles
         private const int MapHeightTiles = 96;         // GameData.MapHeightTiles
+        private const int TownCenterWoodCost = 275;    // GameData.TownCenterWoodCost
 
         /// <summary>
         /// Evaluates whether placing a Town Center at the given tile is likely valid.
@@ -46,6 +48,17 @@ namespace RtsGame.Presentation.GodotBridge
                 return TcPlacementPreviewResult.OutsideMap;
             }
 
+            if (!frame.LocalPlayer.IsConnected || frame.LocalPlayer.IsDefeated || frame.LocalPlayer.IsResigned)
+            {
+                return TcPlacementPreviewResult.PlayerStateBlocked;
+            }
+
+            bool isFirstTownCenter = !frame.LocalPlayer.HasCapitalBeenPlaced;
+            if (!isFirstTownCenter && frame.LocalPlayer.Wood < TownCenterWoodCost)
+            {
+                return TcPlacementPreviewResult.MissingResources;
+            }
+
             // Check against all existing buildings.
             for (int i = 0; i < frame.Primitives.Length; i++)
             {
@@ -59,7 +72,6 @@ namespace RtsGame.Presentation.GodotBridge
                 // Mirror PlacementRules: combined radius = TC radius + other building radius.
                 // We conservatively treat every existing building as having radius 2 (TC) or 1 (wall).
                 // The exact building type id is not available in the DTO; use TypeId hint if needed.
-                // For now assume all buildings use radius 2 (conservative / safe).
                 int otherRadiusTiles = ResolveOtherBuildingRadius(primitive);
                 if (IsWithinCombinedRadius(posXRaw, posYRaw, TcRadiusTiles, primitive.XRaw, primitive.YRaw, otherRadiusTiles))
                 {
