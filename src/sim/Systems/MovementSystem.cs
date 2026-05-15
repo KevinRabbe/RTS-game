@@ -9,9 +9,9 @@ namespace RtsGame.Sim.Systems
         public void Run(GameState state, GameRules rules, TickCommandContext commandContext)
         {
             MovementPlan[] plans = BuildPlans(state);
-            MarkBlockedByStationaryUnits(state, plans);
             MarkSharedDestinationConflicts(plans);
             MarkSwapConflicts(plans);
+            MarkBlockedByStationaryUnits(state, plans);
             ApplyPlans(state, plans);
         }
 
@@ -68,7 +68,9 @@ namespace RtsGame.Sim.Systems
                 Fixed distance = new Fixed(distanceRaw);
                 Fixed stepScale = speed / distance;
                 FixedVector2 nextPosition = unit.Position + FixedVector2.Multiply(delta, stepScale);
-                if (SpatialRules.IsBlockedByWall(state, nextPosition))
+                int projectedTileX = SpatialRules.GetTileX(nextPosition);
+                int projectedTileY = SpatialRules.GetTileY(nextPosition);
+                if (SpatialRules.IsTileBlockedForUnitMovement(state, projectedTileX, projectedTileY))
                 {
                     plan.ShouldClearTarget = true;
                     plans[i] = plan;
@@ -109,7 +111,6 @@ namespace RtsGame.Sim.Systems
                         && plans[i].NextTileY == SpatialRules.GetTileY(other.Position))
                     {
                         plans[i].Blocked = true;
-                        plans[i].ShouldClearTarget = true;
                         break;
                     }
                 }
@@ -125,6 +126,7 @@ namespace RtsGame.Sim.Systems
                     continue;
                 }
 
+                int winnerIndex = i;
                 int contenders = 0;
                 for (int other = 0; other < plans.Length; other++)
                 {
@@ -136,6 +138,10 @@ namespace RtsGame.Sim.Systems
                     if (plans[i].NextTileX == plans[other].NextTileX && plans[i].NextTileY == plans[other].NextTileY)
                     {
                         contenders++;
+                        if (plans[other].UnitId < plans[winnerIndex].UnitId)
+                        {
+                            winnerIndex = other;
+                        }
                     }
                 }
 
@@ -147,10 +153,10 @@ namespace RtsGame.Sim.Systems
                             && !plans[other].Blocked
                             && plans[other].EntersNewTile
                             && plans[i].NextTileX == plans[other].NextTileX
-                            && plans[i].NextTileY == plans[other].NextTileY)
+                            && plans[i].NextTileY == plans[other].NextTileY
+                            && other != winnerIndex)
                         {
                             plans[other].Blocked = true;
-                            plans[other].ShouldClearTarget = true;
                         }
                     }
                 }
@@ -193,9 +199,14 @@ namespace RtsGame.Sim.Systems
             for (int i = 0; i < plans.Length; i++)
             {
                 Unit unit = state.EntityState.Units[plans[i].UnitIndex];
-                if (plans[i].Blocked || plans[i].ShouldClearTarget)
+                if (plans[i].ShouldClearTarget)
                 {
                     unit.HasMoveTarget = false;
+                    continue;
+                }
+
+                if (plans[i].Blocked)
+                {
                     continue;
                 }
 

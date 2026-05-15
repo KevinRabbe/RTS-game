@@ -294,6 +294,9 @@ namespace RtsGame.Tests
                 new TestCase("assign build sets adjacent deterministic approach target", AssignBuildSetsAdjacentDeterministicApproachTarget),
                 new TestCase("assign build gives distinct approach tiles for multiple villagers", AssignBuildGivesDistinctApproachTilesForMultipleVillagers),
                 new TestCase("assign build rejects when no interaction tile is reachable", AssignBuildRejectsWhenNoInteractionTileIsReachable),
+                new TestCase("villager paths to tc interaction tile from left", VillagerPathsToTcInteractionTileFromLeft),
+                new TestCase("villager paths to tc interaction tile from right", VillagerPathsToTcInteractionTileFromRight),
+                new TestCase("worker loop remains unstuck over long dry arabia run", WorkerLoopRemainsUnstuckOverLongDryArabiaRun),
                 new TestCase("dry arabia tc build assignment progresses and updates population", DryArabiaTcBuildAssignmentProgressesAndUpdatesPopulation),
                 new TestCase("under construction wall can be destroyed", UnderConstructionWallCanBeDestroyed),
                 new TestCase("wall replay determinism", WallReplayDeterminism),
@@ -1515,7 +1518,7 @@ namespace RtsGame.Tests
             new TickRunner().AdvanceOneTick(state, rules, buffer);
 
             AssertEqual(Fixed.FromInt(0).Raw, state.EntityState.Units[0].Position.X.Raw, "stationary unit should hold occupied tile");
-            AssertEqual(false, state.EntityState.Units[0].HasMoveTarget, "blocked unit should clear move target");
+            AssertEqual(true, state.EntityState.Units[0].HasMoveTarget, "blocked unit should retain move target and retry deterministically");
         }
 
         private static void TwoUnitsAttemptingSameTileFail()
@@ -1528,8 +1531,8 @@ namespace RtsGame.Tests
             buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1, 2 }, FixedVector2.FromInts(1, 1))));
             new TickRunner().AdvanceOneTick(state, rules, buffer);
 
-            AssertEqual(Fixed.FromInt(0).Raw, state.EntityState.Units[0].Position.X.Raw, "first contender should not enter shared target tile");
-            AssertEqual(Fixed.FromInt(2).Raw, state.EntityState.Units[1].Position.X.Raw, "second contender should not enter shared target tile");
+            AssertEqual(Fixed.FromInt(1).Raw, state.EntityState.Units[0].Position.X.Raw, "lowest id contender should win shared destination deterministically");
+            AssertEqual(Fixed.FromInt(2).Raw, state.EntityState.Units[1].Position.X.Raw, "non-winning contender should wait");
         }
 
         private static void ThreeUnitsAttemptingSameTileFail()
@@ -1543,9 +1546,9 @@ namespace RtsGame.Tests
             buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1, 2, 3 }, FixedVector2.FromInts(1, 1))));
             new TickRunner().AdvanceOneTick(state, rules, buffer);
 
-            AssertEqual(Fixed.FromInt(0).Raw, state.EntityState.Units[0].Position.X.Raw, "first contender should fail shared target");
-            AssertEqual(Fixed.FromInt(2).Raw, state.EntityState.Units[1].Position.X.Raw, "second contender should fail shared target");
-            AssertEqual(Fixed.FromInt(2).Raw, state.EntityState.Units[2].Position.Y.Raw, "third contender should fail shared target");
+            AssertEqual(Fixed.FromInt(1).Raw, state.EntityState.Units[0].Position.X.Raw, "lowest id contender should win shared target");
+            AssertEqual(Fixed.FromInt(2).Raw, state.EntityState.Units[1].Position.X.Raw, "second contender should wait");
+            AssertEqual(Fixed.FromInt(2).Raw, state.EntityState.Units[2].Position.Y.Raw, "third contender should wait");
         }
 
         private static void TwoUnitTileSwapFails()
@@ -4667,6 +4670,109 @@ namespace RtsGame.Tests
             AssertEqual(0, state.EntityState.Units[0].CurrentBuildTargetId, "rejected assignment should not set build target");
         }
 
+        private static void VillagerPathsToTcInteractionTileFromLeft()
+        {
+            AssertVillagerPathsToTcInteractionTileFromSide(-6, 1461);
+        }
+
+        private static void VillagerPathsToTcInteractionTileFromRight()
+        {
+            AssertVillagerPathsToTcInteractionTileFromSide(6, 1462);
+        }
+
+        private static void WorkerLoopRemainsUnstuckOverLongDryArabiaRun()
+        {
+            GameRules rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = GameInitializer.CreateDryArabiaTest01(1463);
+            FixedVector2 tcPos = DryArabiaTest01MapDefinition.GetTownCenterZone(0);
+            int[] villagers = GetPlayerVillagerIds(state, 0);
+            TickRunner runner = new TickRunner();
+            CommandBuffer buffer = new CommandBuffer();
+
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.PlaceTownCenter), new PlaceTownCenterCommand(tcPos)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            int tcId = FindUnderConstructionBuildingId(state, 0, BuildingTypeId.TownCenter);
+            buffer.Add(new CommandEnvelope(new CommandHeader(1, 0, 1, CommandType.AssignBuild), new AssignBuildCommand(tcId, villagers)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(1, 1, 1, CommandType.NoOp), new NoOpCommand()));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            for (int i = 0; i < 900 && FindUnderConstructionBuildingIdOrZero(state, 0, BuildingTypeId.TownCenter) != 0; i++)
+            {
+                AddNoOp(buffer, state.Tick, 0, (uint)(1000 + i * 2));
+                AddNoOp(buffer, state.Tick, 1, (uint)(1001 + i * 2));
+                runner.AdvanceOneTick(state, rules, buffer);
+            }
+
+            int completedTcId = FindCompletedBuildingId(state, 0, BuildingTypeId.TownCenter);
+            AssertEqual(true, completedTcId != 0, "town center should complete during long worker loop");
+
+            int foodNodeId = FindNearestResourceNodeId(state, tcPos, ResourceType.Food);
+            int woodNodeId = FindNearestResourceNodeId(state, tcPos, ResourceType.Wood);
+            int goldNodeId = FindNearestResourceNodeId(state, tcPos, ResourceType.Gold);
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 2000, CommandType.GatherResource), new GatherResourceCommand(foodNodeId, new[] { villagers[0] })));
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 2001, CommandType.GatherResource), new GatherResourceCommand(woodNodeId, new[] { villagers[1] })));
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 2002, CommandType.GatherResource), new GatherResourceCommand(goldNodeId, new[] { villagers[2] })));
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 1, 2003, CommandType.NoOp), new NoOpCommand()));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            int activeWorkerTicks = 0;
+            for (int i = 0; i < 6000; i++)
+            {
+                AddNoOp(buffer, state.Tick, 0, (uint)(3000 + i * 2));
+                AddNoOp(buffer, state.Tick, 1, (uint)(3001 + i * 2));
+                runner.AdvanceOneTick(state, rules, buffer);
+
+                for (int v = 0; v < villagers.Length; v++)
+                {
+                    Unit unit = state.EntityState.Units[state.EntityState.EntityLookup[villagers[v]].Index];
+                    if (unit.CurrentResourceNodeId != 0 || unit.CarriedAmount > 0 || unit.HasMoveTarget)
+                    {
+                        activeWorkerTicks++;
+                        break;
+                    }
+                }
+            }
+
+            AssertEqual(true, activeWorkerTicks > 0, "workers should remain in active deterministic movement/gather states over long run");
+        }
+
+        private static void AssertVillagerPathsToTcInteractionTileFromSide(int xOffset, ulong seed)
+        {
+            GameRules rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = GameInitializer.CreateDryArabiaTest01(seed);
+            FixedVector2 tcPos = DryArabiaTest01MapDefinition.GetTownCenterZone(0);
+            TickRunner runner = new TickRunner();
+            CommandBuffer buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.PlaceTownCenter), new PlaceTownCenterCommand(tcPos)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            int tcId = FindUnderConstructionBuildingId(state, 0, BuildingTypeId.TownCenter);
+            Unit villager = state.EntityState.Units[0];
+            villager.Position = FixedVector2.FromInts(tcPos.X.FloorToInt() + xOffset, tcPos.Y.FloorToInt());
+            buffer.Add(new CommandEnvelope(new CommandHeader(1, 0, 1, CommandType.AssignBuild), new AssignBuildCommand(tcId, new[] { villager.Id })));
+            buffer.Add(new CommandEnvelope(new CommandHeader(1, 1, 1, CommandType.NoOp), new NoOpCommand()));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            bool inRange = false;
+            for (int i = 0; i < 120; i++)
+            {
+                AddNoOp(buffer, state.Tick, 0, (uint)(4000 + i * 2));
+                AddNoOp(buffer, state.Tick, 1, (uint)(4001 + i * 2));
+                runner.AdvanceOneTick(state, rules, buffer);
+                Building building = state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index];
+                if (SpatialRules.IsUnitInBuildInteractionRange(villager, building))
+                {
+                    inRange = true;
+                    break;
+                }
+            }
+
+            AssertEqual(true, inRange, "villager should path to valid tc interaction tile from offset=" + xOffset);
+        }
+
         private static void DryArabiaTcBuildAssignmentProgressesAndUpdatesPopulation()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(2);
@@ -5037,7 +5143,8 @@ namespace RtsGame.Tests
         private static void ChaosV2StressSmoke()
         {
             StressScenarioResult result = new StressScenarioRunner().RunChaosV2(1200, 78);
-            AssertEqual(true, result.Passed, "chaos v2 stress should pass invariants");
+            string invariantDetails = result.InvariantFailures.Count == 0 ? "none" : string.Join(" | ", result.InvariantFailures);
+            AssertEqual(true, result.Passed, "chaos v2 stress should pass invariants details=" + invariantDetails);
             AssertEqual(1200, result.FinalTick, "chaos v2 stress should reach requested tick");
             AssertEqual(1, result.ScenarioVersion, "chaos v2 version should be frozen at v1");
         }
@@ -5163,6 +5270,68 @@ namespace RtsGame.Tests
             }
 
             throw new InvalidOperationException("under-construction building not found owner=" + ownerPlayerIndex + " type=" + buildingTypeId);
+        }
+
+        private static int FindUnderConstructionBuildingIdOrZero(GameState state, int ownerPlayerIndex, BuildingTypeId buildingTypeId)
+        {
+            for (int i = 0; i < state.EntityState.Buildings.Count; i++)
+            {
+                Building building = state.EntityState.Buildings[i];
+                if (building.OwnerPlayerIndex == ownerPlayerIndex
+                    && building.BuildingTypeId == buildingTypeId
+                    && building.IsUnderConstruction
+                    && !building.IsDead)
+                {
+                    return building.Id;
+                }
+            }
+
+            return 0;
+        }
+
+        private static int FindCompletedBuildingId(GameState state, int ownerPlayerIndex, BuildingTypeId buildingTypeId)
+        {
+            for (int i = 0; i < state.EntityState.Buildings.Count; i++)
+            {
+                Building building = state.EntityState.Buildings[i];
+                if (building.OwnerPlayerIndex == ownerPlayerIndex
+                    && building.BuildingTypeId == buildingTypeId
+                    && !building.IsUnderConstruction
+                    && !building.IsDead)
+                {
+                    return building.Id;
+                }
+            }
+
+            return 0;
+        }
+
+        private static int FindNearestResourceNodeId(GameState state, FixedVector2 origin, ResourceType resourceType)
+        {
+            int id = 0;
+            long bestDistance = long.MaxValue;
+            for (int i = 0; i < state.EconomyState.ResourceNodes.Count; i++)
+            {
+                ResourceNode node = state.EconomyState.ResourceNodes[i];
+                if (node.IsDepleted || node.ResourceType != resourceType)
+                {
+                    continue;
+                }
+
+                long distance = (node.Position - origin).LengthSquaredRaw();
+                if (id == 0 || distance < bestDistance || (distance == bestDistance && node.Id < id))
+                {
+                    id = node.Id;
+                    bestDistance = distance;
+                }
+            }
+
+            if (id == 0)
+            {
+                throw new InvalidOperationException("resource node not found type=" + resourceType);
+            }
+
+            return id;
         }
 
         private static void FundTradePost(GameState state, int playerIndex)
