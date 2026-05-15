@@ -56,6 +56,7 @@ namespace RtsGame.Sim.Commands
             }
 
             var seen = new HashSet<int>();
+            bool anyUnitReachable = false;
             for (int i = 0; i < UnitIds.Count; i++)
             {
                 int unitId = UnitIds[i];
@@ -69,13 +70,13 @@ namespace RtsGame.Sim.Commands
                     return false;
                 }
 
-                if (!CanUnitReachAnyInteractionTile(state, unit, interactionTiles))
+                if (CanUnitReachAnyInteractionTile(state, unit, interactionTiles))
                 {
-                    return false;
+                    anyUnitReachable = true;
                 }
             }
 
-            return true;
+            return anyUnitReachable;
         }
 
         public void Execute(GameState state, GameRules rules, CommandHeader header)
