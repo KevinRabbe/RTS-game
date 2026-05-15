@@ -57,6 +57,8 @@ namespace RtsGame.Presentation.GodotBridge
 
         public static int FindResourceAt(GodotFrameDto frame, long xRaw, long yRaw)
         {
+            int bestId = 0;
+            long bestDistanceSquared = long.MaxValue;
             for (int i = 0; i < frame.Primitives.Length; i++)
             {
                 GodotPrimitiveDto primitive = frame.Primitives[i];
@@ -69,11 +71,20 @@ namespace RtsGame.Presentation.GodotBridge
 
                 if (GodotPrimitiveHitTest.ContainsPointForInteraction(primitive, xRaw, yRaw))
                 {
-                    return primitive.EntityId;
+                    long dx = xRaw - primitive.XRaw;
+                    long dy = yRaw - primitive.YRaw;
+                    long distanceSquared = dx * dx + dy * dy;
+                    if (bestId == 0
+                        || distanceSquared < bestDistanceSquared
+                        || (distanceSquared == bestDistanceSquared && primitive.EntityId < bestId))
+                    {
+                        bestId = primitive.EntityId;
+                        bestDistanceSquared = distanceSquared;
+                    }
                 }
             }
 
-            return 0;
+            return bestId;
         }
 
         public static int FindEnemyTargetAt(GodotFrameDto frame, int localPlayerIndex, long xRaw, long yRaw)

@@ -286,7 +286,7 @@ public sealed class Phase6SpriteRenderer
 		Vector2 center = toScreen(primitive.XRaw, primitive.YRaw);
 		float worldSize = rawToPixels(primitive.SizeRaw);
 		float size = Mathf.Max(38.0f, worldSize * 2.4f);
-		var target = new Rect2(center.X - size * 0.5f, center.Y - size * 0.70f, size, size);
+		var target = new Rect2(center.X - size * 0.5f, center.Y - size * 0.5f, size, size);
 		canvas.DrawTextureRect(sprite, target, false);
 		return true;
 	}

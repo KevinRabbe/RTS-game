@@ -143,6 +143,8 @@ namespace RtsGame.Tests
                 new TestCase("godot facade exposes unit status dto", GodotFacadeExposesUnitStatusDto),
                 new TestCase("godot facade exposes resource primitive dto", GodotFacadeExposesResourcePrimitiveDto),
                 new TestCase("godot facade routes gather command", GodotFacadeRoutesGatherCommand),
+                new TestCase("godot interaction router picks nearest overlapping resource", GodotInteractionRouterPicksNearestOverlappingResource),
+                new TestCase("dry arabia resource dto exposes stable id type tile", DryArabiaResourceDtoExposesStableIdTypeTile),
                 new TestCase("godot facade routes training command", GodotFacadeRoutesTrainingCommand),
                 new TestCase("godot facade routes attack command", GodotFacadeRoutesAttackCommand),
                 new TestCase("godot facade routes wall command", GodotFacadeRoutesWallCommand),
@@ -2688,6 +2690,20 @@ namespace RtsGame.Tests
             AssertEqual(0, intent.TargetEntityId, "gather intent should not expose an attack target id");
         }
 
+        private static void GodotInteractionRouterPicksNearestOverlappingResource()
+        {
+            long clickX = Fixed.FromInt(6).Raw;
+            long clickY = Fixed.FromInt(7).Raw;
+            GodotFrameDto frame = CreateGodotInteractionFrame(new[]
+            {
+                CreateGodotPrimitive(VisualPrimitiveKind.GoldResourceCircle, 35, GameData.NeutralOwnerPlayerIndex, 7, 7),
+                CreateGodotPrimitive(VisualPrimitiveKind.GoldResourceCircle, 34, GameData.NeutralOwnerPlayerIndex, 6, 7)
+            });
+
+            int picked = GodotInteractionRouter.FindResourceAt(frame, clickX, clickY);
+            AssertEqual(34, picked, "resource selection should prefer nearest center when hit boxes overlap");
+        }
+
         private static void GodotInteractionRouterRoutesMoveFallback()
         {
             GodotFrameDto frame = CreateGodotInteractionFrame(new[]
@@ -5133,6 +5149,35 @@ namespace RtsGame.Tests
             }
         }
 
+        private static void DryArabiaResourceDtoExposesStableIdTypeTile()
+        {
+            GameState state = GameInitializer.CreateDryArabiaTest01(1264);
+            AssertResourceNodeStable(state, 1, ResourceType.Food, 30, 48);
+            AssertResourceNodeStable(state, 3, ResourceType.Wood, 21, 54);
+            AssertResourceNodeStable(state, 5, ResourceType.Gold, 18, 47);
+
+            GodotClientFacade facade = GodotClientFacade.CreateDryArabiaTest01(1264);
+            GodotFrameDto frame = facade.GetFrame(0);
+            int visibleCount = 0;
+            for (int i = 0; i < frame.Primitives.Length; i++)
+            {
+                GodotPrimitiveDto primitive = frame.Primitives[i];
+                if (primitive.Kind != (int)VisualPrimitiveKind.FoodResourceCircle
+                    && primitive.Kind != (int)VisualPrimitiveKind.WoodResourceCircle
+                    && primitive.Kind != (int)VisualPrimitiveKind.GoldResourceCircle)
+                {
+                    continue;
+                }
+
+                ResourceNode node = FindResourceNodeById(state, primitive.EntityId);
+                AssertEqual((int)node.ResourceType, primitive.TypeId, "resource dto type should match sim resource type for id=" + primitive.EntityId);
+                AssertEqual(node.Position.X.Raw, primitive.XRaw, "resource dto x should match sim position for id=" + primitive.EntityId);
+                AssertEqual(node.Position.Y.Raw, primitive.YRaw, "resource dto y should match sim position for id=" + primitive.EntityId);
+                visibleCount++;
+            }
+
+        }
+
         private static void ChaosV1StressSmoke()
         {
             StressScenarioResult result = new StressScenarioRunner().RunChaosV1(1200, 77);
@@ -5332,6 +5377,27 @@ namespace RtsGame.Tests
             }
 
             return id;
+        }
+
+        private static void AssertResourceNodeStable(GameState state, int expectedId, ResourceType expectedType, int expectedTileX, int expectedTileY)
+        {
+            ResourceNode node = FindResourceNodeById(state, expectedId);
+            AssertEqual(expectedType, node.ResourceType, "resource id should match expected type id=" + expectedId);
+            AssertEqual(Fixed.FromInt(expectedTileX).Raw, node.Position.X.Raw, "resource id should match expected x tile id=" + expectedId);
+            AssertEqual(Fixed.FromInt(expectedTileY).Raw, node.Position.Y.Raw, "resource id should match expected y tile id=" + expectedId);
+        }
+
+        private static ResourceNode FindResourceNodeById(GameState state, int resourceNodeId)
+        {
+            for (int i = 0; i < state.EconomyState.ResourceNodes.Count; i++)
+            {
+                if (state.EconomyState.ResourceNodes[i].Id == resourceNodeId)
+                {
+                    return state.EconomyState.ResourceNodes[i];
+                }
+            }
+
+            throw new InvalidOperationException("resource node not found id=" + resourceNodeId);
         }
 
         private static void FundTradePost(GameState state, int playerIndex)
@@ -5796,6 +5862,23 @@ namespace RtsGame.Tests
             }
 
             throw new InvalidOperationException("godot primitive not found kind=" + kind + " type=" + typeId);
+        }
+
+        private static GodotPrimitiveDto FindGodotResourcePrimitive(GodotFrameDto frame, int resourceId)
+        {
+            for (int i = 0; i < frame.Primitives.Length; i++)
+            {
+                GodotPrimitiveDto primitive = frame.Primitives[i];
+                if ((primitive.Kind == (int)VisualPrimitiveKind.FoodResourceCircle
+                        || primitive.Kind == (int)VisualPrimitiveKind.WoodResourceCircle
+                        || primitive.Kind == (int)VisualPrimitiveKind.GoldResourceCircle)
+                    && primitive.EntityId == resourceId)
+                {
+                    return primitive;
+                }
+            }
+
+            throw new InvalidOperationException("godot resource primitive not found id=" + resourceId);
         }
 
         private static bool HasGodotUnitStatusWithType(GodotFrameDto frame, int unitTypeId)
