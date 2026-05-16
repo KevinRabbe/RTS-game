@@ -49,7 +49,8 @@ namespace RtsGame.Sim.Data
         None = 0,
         ResourceNode = 1,
         Dropoff = 2,
-        BuildSite = 3
+        BuildSite = 3,
+        MoveDestination = 4
     }
 
     public enum WorkerTaskPhase

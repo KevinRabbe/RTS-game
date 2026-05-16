@@ -503,6 +503,72 @@ namespace RtsGame.Sim.Core
             unit.ReservedInteractionTileY = tile.Y;
         }
 
+        public static bool TryReserveNearestReachableMoveDestinationTile(
+            GameState state,
+            Unit unit,
+            int targetTileX,
+            int targetTileY,
+            int searchRadius,
+            out TileCoord selected)
+        {
+            selected = default;
+            int unitTileX = GetTileX(unit.Position);
+            int unitTileY = GetTileY(unit.Position);
+            int bestTargetDistance = int.MaxValue;
+            int bestUnitDistance = int.MaxValue;
+            bool found = false;
+
+            for (int radius = 0; radius <= searchRadius; radius++)
+            {
+                for (int y = targetTileY - radius; y <= targetTileY + radius; y++)
+                {
+                    for (int x = targetTileX - radius; x <= targetTileX + radius; x++)
+                    {
+                        if (Max(Abs(x - targetTileX), Abs(y - targetTileY)) != radius)
+                        {
+                            continue;
+                        }
+
+                        if ((x != targetTileX || y != targetTileY) && x == unitTileX && y == unitTileY)
+                        {
+                            continue;
+                        }
+
+                        if (!IsMoveDestinationSlotAvailableForUnit(state, unit, x, y))
+                        {
+                            continue;
+                        }
+
+                        if (!DeterministicPathfinder.TryFindNextTile(state, unitTileX, unitTileY, x, y, out _, out _))
+                        {
+                            continue;
+                        }
+
+                        int targetDistance = Abs(x - targetTileX) + Abs(y - targetTileY);
+                        int unitDistance = Abs(x - unitTileX) + Abs(y - unitTileY);
+                        var candidate = new TileCoord(x, y);
+                        if (!found
+                            || targetDistance < bestTargetDistance
+                            || (targetDistance == bestTargetDistance && unitDistance < bestUnitDistance)
+                            || (targetDistance == bestTargetDistance && unitDistance == bestUnitDistance && CompareTiles(candidate, selected) < 0))
+                        {
+                            selected = candidate;
+                            bestTargetDistance = targetDistance;
+                            bestUnitDistance = unitDistance;
+                            found = true;
+                        }
+                    }
+                }
+            }
+
+            if (found)
+            {
+                ReserveInteractionSlot(unit, InteractionReservationKind.MoveDestination, EncodeTileKey(targetTileX, targetTileY), selected);
+            }
+
+            return found;
+        }
+
         public static void ClearInteractionReservation(Unit unit)
         {
             unit.ReservedInteractionKind = InteractionReservationKind.None;
@@ -576,6 +642,13 @@ namespace RtsGame.Sim.Core
             return true;
         }
 
+        private static bool IsMoveDestinationSlotAvailableForUnit(GameState state, Unit unit, int tileX, int tileY)
+        {
+            return !IsTileBlockedForUnitMovement(state, tileX, tileY)
+                && !IsTileOccupiedByLiveUnit(state, tileX, tileY, unit.Id)
+                && !IsTileReservedByLiveUnit(state, tileX, tileY, unit.Id);
+        }
+
         private static bool IsInsideRadius(FixedVector2 position, FixedVector2 center, int radiusTiles)
         {
             long radiusRaw = Fixed.FromInt(radiusTiles).Raw;
@@ -647,6 +720,11 @@ namespace RtsGame.Sim.Core
             return value < 0 ? -value : value;
         }
 
+        private static int Max(int left, int right)
+        {
+            return left > right ? left : right;
+        }
+
         private static int CompareTiles(TileCoord left, TileCoord right)
         {
             int yCompare = left.Y.CompareTo(right.Y);
@@ -671,9 +749,14 @@ namespace RtsGame.Sim.Core
             return false;
         }
 
-        private static int EncodeTile(int tileX, int tileY)
+        public static int EncodeTileKey(int tileX, int tileY)
         {
             return (tileY << 16) ^ (tileX & 0xFFFF);
+        }
+
+        private static int EncodeTile(int tileX, int tileY)
+        {
+            return EncodeTileKey(tileX, tileY);
         }
 
         private static int GetResourceFootprintRadiusTiles(ResourceNode node)

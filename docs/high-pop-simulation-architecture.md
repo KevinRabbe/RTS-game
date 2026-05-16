@@ -91,7 +91,9 @@ It owns:
 
 Movement must not decide gather continuation, deposit policy, build progress, attack targeting, or spawn logic.
 
-The current local avoidance slice is intentionally small. If a unit's next path step is occupied by another live unit, movement may choose one deterministic adjacent pass-around tile that is statically walkable, unoccupied, not reserved as a final-purpose slot, and still has a path to the original target. If no such tile exists, the unit waits cleanly and keeps its movement target and long-term task intent. This is not full group traffic or destination slot ownership; that belongs to the later group traffic phase.
+The current local avoidance slice is intentionally small. If a unit's next path step is occupied by another live unit, movement may choose one deterministic adjacent pass-around tile that is statically walkable, unoccupied, not reserved as a final-purpose slot, and still has a path to the original target. If no such tile exists, the unit waits cleanly and keeps its movement target and long-term task intent.
+
+Group move commands now own the first `MoveDestination` slot layer. A multi-unit ground command assigns deterministic final-purpose slots around the clicked tile instead of sending every selected unit to the exact same tile. Slot candidates must be statically walkable, unoccupied, unreserved by other live units, and reachable. Selection/command ordering is stable by unit id, and candidate ordering prefers proximity to the clicked tile, then proximity from the unit, then tile Y/X. This is still not advanced formation movement or path corridor reservation; those remain future work.
 
 ### Worker And Economy Task Resolution
 
@@ -193,13 +195,13 @@ Current reservation concepts:
 - `ResourceInteraction`
 - `DropoffInteraction`
 - `BuildInteraction`
+- `MoveDestination`
 
-Current implementation names may use `ResourceNode`, `Dropoff`, and `BuildSite`; those are the concrete v1 names for the concepts above.
+Current implementation names may use `ResourceNode`, `Dropoff`, `BuildSite`, and `MoveDestination`; those are the concrete v1 names for the concepts above.
 
 Future reservation concepts:
 
 - `Spawn`
-- `MoveDestination`
 - `Formation`
 - `AttackSurround`
 - `SiegeDeploy`

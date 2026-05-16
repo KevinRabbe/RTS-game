@@ -81,6 +81,7 @@ namespace RtsGame.Sim.Commands
         public void Execute(GameState state, GameRules rules, CommandHeader header)
         {
             List<int> sortedUnitIds = StableSort.Sorted(UnitIds, (left, right) => left.CompareTo(right));
+            var units = new List<Unit>();
             for (int i = 0; i < sortedUnitIds.Count; i++)
             {
                 Unit unit = GetUnit(state, sortedUnitIds[i]);
@@ -89,13 +90,38 @@ namespace RtsGame.Sim.Commands
                 unit.CurrentResourceAreaId = 0;
                 unit.CurrentResourceNodeId = 0;
                 unit.TaskPhase = WorkerTaskPhase.MovingToCommandMove;
-                unit.HasMoveTarget = true;
-                unit.MoveTarget = Target;
+                unit.HasMoveTarget = false;
                 unit.AttackTargetId = 0;
                 unit.IsSiegeDeployed = false;
                 unit.SiegeSetupTicksRemaining = 0;
                 unit.SiegeReloadTicksRemaining = 0;
+                units.Add(unit);
             }
+
+            int targetTileX = SpatialRules.GetTileX(Target);
+            int targetTileY = SpatialRules.GetTileY(Target);
+            int searchRadius = GetDestinationSearchRadius(sortedUnitIds.Count);
+            for (int i = 0; i < units.Count; i++)
+            {
+                Unit unit = units[i];
+                if (SpatialRules.TryReserveNearestReachableMoveDestinationTile(
+                    state,
+                    unit,
+                    targetTileX,
+                    targetTileY,
+                    searchRadius,
+                    out SpatialRules.TileCoord destination))
+                {
+                    unit.HasMoveTarget = true;
+                    unit.MoveTarget = FixedVector2.FromInts(destination.X, destination.Y);
+                }
+            }
+        }
+
+        private static int GetDestinationSearchRadius(int unitCount)
+        {
+            int radius = unitCount / 2 + 2;
+            return radius < 3 ? 3 : radius;
         }
 
         private static void ClearBuildAssignment(GameState state, Unit unit)

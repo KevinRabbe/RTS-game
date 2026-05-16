@@ -143,13 +143,14 @@ Temporary congestion should move a worker to `BlockedWaiting` or trigger bounded
 Current implementation notes:
 
 - Each worker stores one deterministic reservation in simulation state: kind, target id, and tile.
-- Supported reservation kinds are `ResourceNode`, `Dropoff`, and `BuildSite`.
-- These correspond to the high-pop traffic concepts `ResourceInteraction`, `DropoffInteraction`, and `BuildInteraction`.
+- Supported reservation kinds are `ResourceNode`, `Dropoff`, `BuildSite`, and `MoveDestination`.
+- These correspond to the high-pop traffic concepts `ResourceInteraction`, `DropoffInteraction`, `BuildInteraction`, and ground-move final destination slots.
 - Reservation state is included in checksums because it affects future movement and task decisions.
 - Slot selection filters out blocked footprint tiles, occupied tiles, and tiles reserved by other live workers.
 - Candidate ordering is deterministic: nearest tile from the worker's current tile first, then stable tile order by Y and X.
 - Gather, drop-off, and construction systems retain a valid reservation and only re-slot when the target changes, the slot becomes invalid/occupied/reserved by another worker, or bounded no-progress retry allows retargeting.
 - When bounded no-progress triggers, the next reservation pass excludes the stale tile first and only falls back to it if no other reachable slot exists. This prevents a worker from releasing and immediately reclaiming the same bad slot forever.
+- Ground move destination slots use a different candidate priority: closest to the clicked tile first, then closest from the moving unit, then stable tile order by Y and X. This keeps group move spread centered on the player's command target without random scatter.
 
 ## 6. Movement Contract
 
