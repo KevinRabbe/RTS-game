@@ -856,11 +856,11 @@ public partial class RtsClientRoot : Node2D
 		{
 			if (isSelected)
 			{
-				DrawSelectionRing(primitive, Colors.Gold);
+				DrawBuildingFootprintOutline(primitive, Colors.Gold);
 			}
 			else if (isHovered)
 			{
-				DrawSelectionRing(primitive, Colors.Khaki);
+				DrawBuildingFootprintOutline(primitive, Colors.Khaki);
 			}
 
 			DrawConstructionOverlayIfNeeded(primitive);
@@ -873,12 +873,11 @@ public partial class RtsClientRoot : Node2D
 		DrawRect(rect, color);
 		if (isSelected)
 		{
-			DrawSelectionRing(primitive, Colors.Gold);
-			DrawRect(rect.Grow(2.0f), Colors.White, false, 2.0f);
+			DrawBuildingFootprintOutline(primitive, Colors.Gold);
 		}
 		else if (isHovered)
 		{
-			DrawSelectionRing(primitive, Colors.Khaki);
+			DrawBuildingFootprintOutline(primitive, Colors.Khaki);
 		}
 
 		DrawConstructionOverlayIfNeeded(primitive);
@@ -1168,6 +1167,13 @@ public partial class RtsClientRoot : Node2D
 		Vector2 ringCenter = center + new Vector2(0.0f, 4.0f);
 		DrawArc(ringCenter, radius + 1.5f, 0.0f, Mathf.Tau, 36, Colors.Black, 3.0f);
 		DrawArc(ringCenter, radius, 0.0f, Mathf.Tau, 36, color, 2.4f);
+	}
+
+	private void DrawBuildingFootprintOutline(GodotPrimitiveDto primitive, Color color)
+	{
+		Rect2 rect = PrimitiveRect(primitive).Grow(2.0f);
+		DrawRect(rect, Colors.Black, false, 3.0f);
+		DrawRect(rect, color, false, 2.0f);
 	}
 
 	private void DrawSelectionDragRectangle()

@@ -241,6 +241,8 @@ Current implementation notes:
 - `SpatialRules.EnumerateResourceFootprintTiles(...)` and `SpatialRules.EnumerateBuildingFootprintTiles(...)` expose deterministic simulation footprints.
 - `SpatialRules.EnumerateResourceInteractionTiles(...)` and `SpatialRules.EnumerateBuildingInteractionTiles(...)` derive rings from simulation footprints.
 - Placement and pathfinding read the simulation footprint/blocker contract, not Godot primitive sizes or click bounds.
+- Building visual/debug footprint indicators should use the same footprint diameter as the building simulation footprint, so a TC/foundation reads as a large occupied area instead of a tiny center circle.
+- Units are intentionally different from buildings: a unit sprite may be tall, but movement/body collision should represent the feet or selection ring, not the full sprite height.
 
 This separation lets a gold sprite look large without forcing workers to path to sprite pixels, and lets a TC look like a large building while exposing stable slots around its footprint.
 

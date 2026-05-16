@@ -8,10 +8,6 @@ namespace RtsGame.Presentation.Visuals
     public static class VisualFrameBuilder
     {
         private static readonly Fixed UnitSize = Fixed.FromRatio(7, 10);
-        private static readonly Fixed BuildingSize = Fixed.FromInt(2);
-        private static readonly Fixed CapitalSize = Fixed.FromInt(3);
-        private static readonly Fixed WallSize = Fixed.FromInt(1);
-        private static readonly Fixed ResourceSize = Fixed.FromRatio(13, 10);
         private static readonly Fixed HealthBarSize = Fixed.FromRatio(9, 10);
 
         public static VisualFrame Build(GameSnapshot snapshot)
@@ -71,7 +67,7 @@ namespace RtsGame.Presentation.Visuals
         private static void AddBuilding(BuildingSnapshot building, List<VisualPrimitive> primitives)
         {
             VisualPrimitiveKind kind = building.BuildingTypeId == BuildingTypeId.Wall ? VisualPrimitiveKind.WallRectangle : VisualPrimitiveKind.BuildingRectangle;
-            Fixed size = building.BuildingTypeId == BuildingTypeId.Wall ? WallSize : (building.IsCapital ? CapitalSize : BuildingSize);
+            Fixed size = GetBuildingFootprintSize(building.BuildingTypeId);
             int maxHitPoints = GameData.GetBuildingCompletedHitPoints(building.BuildingTypeId, building.IsCapital);
             primitives.Add(new VisualPrimitive(
                 kind,
@@ -89,6 +85,7 @@ namespace RtsGame.Presentation.Visuals
 
         private static void AddResource(ResourceNodeSnapshot resource, List<VisualPrimitive> primitives)
         {
+            Fixed size = GetResourceVisualSize(resource.GatherProfileId);
             primitives.Add(new VisualPrimitive(
                 GetResourceKind(resource.ResourceType),
                 resource.Id,
@@ -96,10 +93,21 @@ namespace RtsGame.Presentation.Visuals
                 GameData.NeutralOwnerPlayerIndex,
                 resource.Position,
                 resource.Position,
-                ResourceSize,
+                size,
                 resource.RemainingAmount,
                 resource.RemainingAmount,
                 false));
+        }
+
+        private static Fixed GetBuildingFootprintSize(BuildingTypeId buildingTypeId)
+        {
+            return Fixed.FromInt(GameData.GetBuildingPlacementRadiusTiles(buildingTypeId) * 2);
+        }
+
+        private static Fixed GetResourceVisualSize(GatherProfileId gatherProfileId)
+        {
+            GatherProfile profile = GameData.GetGatherProfile(gatherProfileId);
+            return Fixed.FromInt(profile.VisualRadiusTiles * 2);
         }
 
         private static VisualPrimitiveKind GetResourceKind(ResourceType resourceType)

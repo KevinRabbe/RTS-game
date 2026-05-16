@@ -61,6 +61,7 @@ It owns:
 - Resource footprints.
 - Interaction rings.
 - Walkability helpers.
+- Presentation-facing footprint indicators should explain this simulation truth, especially for large buildings such as Town Centers and foundations.
 
 Spatial helpers should stay mostly pure geometry. They should not become the worker, combat, or traffic brain.
 

@@ -204,7 +204,7 @@ public sealed class Phase6SpriteRenderer
 			Texture2D? scaffold = GetAsset(GodotSpriteAssetId.BuildingScaffold);
 			if (scaffold != null)
 			{
-				Rect2 target = GetBuildingSpriteRect(primitive, 2.4f, toScreen, rawToPixels);
+				Rect2 target = GetBuildingSpriteRect(primitive, 1.8f, toScreen, rawToPixels);
 				canvas.DrawTextureRect(scaffold, target, false);
 				if (selectedBuildingId == primitive.EntityId)
 				{
@@ -222,7 +222,7 @@ public sealed class Phase6SpriteRenderer
 			Texture2D? wallSheet = GetAsset(wallAssetId);
 			if (wallSheet != null)
 			{
-				Rect2 target = GetBuildingSpriteRect(primitive, 2.7f, toScreen, rawToPixels);
+				Rect2 target = GetBuildingSpriteRect(primitive, 1.35f, toScreen, rawToPixels);
 				int frameIndex = wallMetadata.DefaultFrameIndex;
 				DrawSheetFrame(canvas, wallSheet, wallMetadata, frameIndex, target);
 				if (selectedBuildingId == primitive.EntityId)
@@ -235,11 +235,11 @@ public sealed class Phase6SpriteRenderer
 
 		// Priority 3: Capital vs TownCenter vs Other
 		GodotSpriteAssetId assetId;
-		float scale = 2.6f;
+		float scale = 1.6f;
 		if (primitive.TypeId == (int)BuildingTypeId.TownCenter)
 		{
 			assetId = primitive.IsCapital ? GodotSpriteAssetId.Capital : GodotSpriteAssetId.TownCenter;
-			scale = primitive.IsCapital ? 3.8f : 3.2f;
+			scale = primitive.IsCapital ? 2.0f : 1.8f;
 		}
 		else if (!GodotSpriteSheetLayout.TryResolveBuildingAsset(primitive.TypeId, out assetId))
 		{
@@ -285,7 +285,7 @@ public sealed class Phase6SpriteRenderer
 
 		Vector2 center = toScreen(primitive.XRaw, primitive.YRaw);
 		float worldSize = rawToPixels(primitive.SizeRaw);
-		float size = Mathf.Max(38.0f, worldSize * 2.4f);
+		float size = Mathf.Max(38.0f, worldSize);
 		var target = new Rect2(center.X - size * 0.5f, center.Y - size * 0.5f, size, size);
 		canvas.DrawTextureRect(sprite, target, false);
 		return true;

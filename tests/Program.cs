@@ -44,6 +44,7 @@ namespace RtsGame.Tests
                 new TestCase("resource interaction ring uses sim footprint", ResourceInteractionRingUsesSimFootprint),
                 new TestCase("large resource interaction ring uses larger sim footprint", LargeResourceInteractionRingUsesLargerSimFootprint),
                 new TestCase("building interaction ring uses sim footprint", BuildingInteractionRingUsesSimFootprint),
+                new TestCase("town center ring accepts workers on every side", TownCenterRingAcceptsWorkersOnEverySide),
                 new TestCase("dry arabia test map initializes deterministically", DryArabiaTestMapInitializesDeterministically),
                 new TestCase("dry arabia resources create typed areas", DryArabiaResourcesCreateTypedAreas),
                 new TestCase("dry arabia test map has valid tc placement zones", DryArabiaTestMapHasValidTcPlacementZones),
@@ -190,9 +191,10 @@ namespace RtsGame.Tests
                 new TestCase("godot client script does not reference simulation core", GodotClientScriptDoesNotReferenceSimulationCore),
                 new TestCase("godot client script does not switch on raw primitive kind", GodotClientScriptDoesNotSwitchOnRawPrimitiveKind),
                 new TestCase("visual frame creates ugly prototype primitives", VisualFrameCreatesUglyPrototypePrimitives),
-                new TestCase("visual frame marks capital larger than normal building", VisualFrameMarksCapitalLargerThanNormalBuilding),
+                new TestCase("visual frame uses building footprint size", VisualFrameUsesBuildingFootprintSize),
                 new TestCase("visual frame includes type ids", VisualFrameIncludesTypeIds),
                 new TestCase("visual frame includes resource primitives", VisualFrameIncludesResourcePrimitives),
+                new TestCase("visual frame uses resource profile visual size", VisualFrameUsesResourceProfileVisualSize),
                 new TestCase("visual frame includes trade route line", VisualFrameIncludesTradeRouteLine),
                 new TestCase("visual frame does not mutate checksum", VisualFrameDoesNotMutateChecksum),
                 new TestCase("client intent maps movement command", ClientIntentMapsMovementCommand),
@@ -259,6 +261,7 @@ namespace RtsGame.Tests
                 new TestCase("godot hud text includes rejected command count", GodotHudTextIncludesRejectedCommandCount),
                 new TestCase("godot hud text handles missing status", GodotHudTextHandlesMissingStatus),
                 new TestCase("godot primitive hit test includes boundary", GodotPrimitiveHitTestIncludesBoundary),
+                new TestCase("godot building hit test includes footprint boundary", GodotBuildingHitTestIncludesFootprintBoundary),
                 new TestCase("godot primitive hit test rejects outside", GodotPrimitiveHitTestRejectsOutside),
                 new TestCase("godot primitive interaction hit test expands building bounds", GodotPrimitiveInteractionHitTestExpandsBuildingBounds),
                 new TestCase("godot visual style resolves local unit types", GodotVisualStyleResolvesLocalUnitTypes),
@@ -819,6 +822,22 @@ namespace RtsGame.Tests
             AssertEqual(true, ring.Count > 8, "town center footprint should expose a larger interaction ring");
             AssertEqual(true, SpatialRules.IsTileBlockedForUnitMovement(state, 20, 20), "town center footprint should block pathing");
             AssertEqual(false, SpatialRules.ContainsInteractionTile(ring, 20, 20), "town center footprint tile should not be an interaction slot");
+        }
+
+        private static void TownCenterRingAcceptsWorkersOnEverySide()
+        {
+            GameState state = CreateOccupancyState(607, 1);
+            int tcId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(20, 20));
+            Building tc = state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index];
+            List<SpatialRules.TileCoord> ring = SpatialRules.EnumerateBuildingInteractionTiles(state, tc);
+
+            AssertEqual(true, SpatialRules.ContainsInteractionTile(ring, 20, 18), "TC ring should include north side around full footprint");
+            AssertEqual(true, SpatialRules.ContainsInteractionTile(ring, 20, 22), "TC ring should include south side around full footprint");
+            AssertEqual(true, SpatialRules.ContainsInteractionTile(ring, 18, 20), "TC ring should include west side around full footprint");
+            AssertEqual(true, SpatialRules.ContainsInteractionTile(ring, 22, 20), "TC ring should include east side around full footprint");
+            AssertEqual(true, SpatialRules.IsUnitInBuildInteractionRange(new Unit { Position = FixedVector2.FromInts(20, 18) }, tc), "north ring worker should be in build range");
+            AssertEqual(true, SpatialRules.IsUnitInBuildingInteractionRange(new Unit { Position = FixedVector2.FromInts(20, 22) }, tc), "south ring carrier should be in dropoff range");
+            AssertEqual(false, SpatialRules.IsTileInsideBuildingFootprint(tc, 20, 18), "ring tile should not be inside the TC footprint");
         }
 
         private static void DryArabiaResourcesCreateTypedAreas()
@@ -3463,24 +3482,30 @@ namespace RtsGame.Tests
             AssertEqual(true, HasPrimitive(frame, VisualPrimitiveKind.HealthBar), "visual frame should include health bar primitives");
         }
 
-        private static void VisualFrameMarksCapitalLargerThanNormalBuilding()
+        private static void VisualFrameUsesBuildingFootprintSize()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
             GameState state = GameInitializer.CreateNomadStart(67, 1);
             AddCompletedTownCenter(state, 0, FixedVector2.FromInts(0, 0));
-            int normalId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(4, 0));
+            int normalId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(8, 0));
             Building normal = state.EntityState.Buildings[state.EntityState.EntityLookup[normalId].Index];
             normal.IsUnderConstruction = false;
             normal.BuildProgressTicks = GameData.TownCenterBuildTicks;
             normal.HitPoints = GameData.TownCenterHitPoints;
+            int wallId = EntityFactory.CreateWall(state, 0, FixedVector2.FromInts(14, 0));
             new TickRunner().AdvanceOneTick(state, rules, new CommandBuffer());
 
             VisualFrame frame = VisualFrameBuilder.Build(GameSnapshotBuilder.Build(state, 0));
             VisualPrimitive capital = FindPrimitive(frame, VisualPrimitiveKind.BuildingRectangle, state.PlayerStates.Players[0].CapitalStatus.CapitalBuildingId);
             VisualPrimitive normalTownCenter = FindPrimitive(frame, VisualPrimitiveKind.BuildingRectangle, normalId);
+            VisualPrimitive wall = FindPrimitive(frame, VisualPrimitiveKind.WallRectangle, wallId);
+            long townCenterDiameterRaw = Fixed.FromInt(GameData.GetBuildingPlacementRadiusTiles(BuildingTypeId.TownCenter) * 2).Raw;
+            long wallDiameterRaw = Fixed.FromInt(GameData.GetBuildingPlacementRadiusTiles(BuildingTypeId.Wall) * 2).Raw;
 
             AssertEqual(true, capital.IsCapital, "capital primitive should be marked as capital");
-            AssertEqual(true, capital.Size.Raw > normalTownCenter.Size.Raw, "capital should render larger than normal town center");
+            AssertEqual(townCenterDiameterRaw, capital.Size.Raw, "capital primitive footprint should match TC simulation diameter");
+            AssertEqual(townCenterDiameterRaw, normalTownCenter.Size.Raw, "normal TC primitive footprint should match TC simulation diameter");
+            AssertEqual(wallDiameterRaw, wall.Size.Raw, "wall primitive footprint should match wall simulation diameter");
         }
 
         private static void VisualFrameIncludesTypeIds()
@@ -3511,6 +3536,34 @@ namespace RtsGame.Tests
             AssertEqual(true, HasPrimitive(frame, VisualPrimitiveKind.FoodResourceCircle), "visual frame should include food resource primitive");
             AssertEqual(true, HasPrimitive(frame, VisualPrimitiveKind.WoodResourceCircle), "visual frame should include wood resource primitive");
             AssertEqual(true, HasPrimitive(frame, VisualPrimitiveKind.GoldResourceCircle), "visual frame should include gold resource primitive");
+        }
+
+        private static void VisualFrameUsesResourceProfileVisualSize()
+        {
+            var resources = new List<ResourceNodeSnapshot>
+            {
+                new ResourceNodeSnapshot(1, 1, ResourceType.Wood, ResourceNodeType.Tree, GatherProfileId.Tree, FixedVector2.FromInts(10, 10), GameData.StartingWoodAmount),
+                new ResourceNodeSnapshot(2, 2, ResourceType.Gold, ResourceNodeType.GoldVeinSmall, GatherProfileId.GoldVeinSmall, FixedVector2.FromInts(20, 10), GameData.StartingGoldAmount),
+                new ResourceNodeSnapshot(3, 3, ResourceType.Gold, ResourceNodeType.GoldVeinLarge, GatherProfileId.GoldVeinLarge, FixedVector2.FromInts(30, 10), GameData.CenterGoldAmount)
+            };
+            var snapshot = new GameSnapshot(
+                0,
+                0,
+                new List<UnitSnapshot>(),
+                new List<BuildingSnapshot>(),
+                resources,
+                new LocalPlayerSnapshot(0, 0, 0, 0, 0, false, false, false),
+                new MatchSnapshot(false, -1, -1));
+
+            VisualFrame frame = VisualFrameBuilder.Build(snapshot);
+            VisualPrimitive treePrimitive = FindPrimitive(frame, VisualPrimitiveKind.WoodResourceCircle, 1);
+            VisualPrimitive smallGoldPrimitive = FindPrimitive(frame, VisualPrimitiveKind.GoldResourceCircle, 2);
+            VisualPrimitive largeGoldPrimitive = FindPrimitive(frame, VisualPrimitiveKind.GoldResourceCircle, 3);
+
+            AssertEqual(Fixed.FromInt(GameData.GetGatherProfile(GatherProfileId.Tree).VisualRadiusTiles * 2).Raw, treePrimitive.Size.Raw, "tree primitive should expose profile visual size");
+            AssertEqual(Fixed.FromInt(GameData.GetGatherProfile(GatherProfileId.GoldVeinSmall).VisualRadiusTiles * 2).Raw, smallGoldPrimitive.Size.Raw, "small gold primitive should expose profile visual size");
+            AssertEqual(Fixed.FromInt(GameData.GetGatherProfile(GatherProfileId.GoldVeinLarge).VisualRadiusTiles * 2).Raw, largeGoldPrimitive.Size.Raw, "large gold primitive should expose profile visual size");
+            AssertEqual(true, largeGoldPrimitive.Size.Raw > smallGoldPrimitive.Size.Raw, "large gold should look larger than small gold");
         }
 
         private static void VisualFrameIncludesTradeRouteLine()
@@ -4742,6 +4795,25 @@ namespace RtsGame.Tests
                 Fixed.FromInt(10).Raw);
 
             AssertEqual(true, contains, "hit test should include primitive boundary");
+        }
+
+        private static void GodotBuildingHitTestIncludesFootprintBoundary()
+        {
+            GodotPrimitiveDto primitive = CreateGodotPrimitiveWithSize(
+                VisualPrimitiveKind.BuildingRectangle,
+                103,
+                0,
+                (int)BuildingTypeId.TownCenter,
+                10,
+                10,
+                GameData.GetBuildingPlacementRadiusTiles(BuildingTypeId.TownCenter) * 2);
+
+            bool contains = GodotPrimitiveHitTest.ContainsPoint(
+                primitive,
+                Fixed.FromInt(12).Raw,
+                Fixed.FromInt(10).Raw);
+
+            AssertEqual(true, contains, "building hit test should include the full visual/sim footprint boundary");
         }
 
         private static void GodotPrimitiveHitTestRejectsOutside()
@@ -8078,6 +8150,23 @@ namespace RtsGame.Tests
         private static GodotPrimitiveDto CreateGodotPrimitiveWithType(VisualPrimitiveKind kind, int entityId, int ownerPlayerIndex, int typeId, int x, int y)
         {
             return CreateGodotPrimitive(kind, entityId, ownerPlayerIndex, typeId, x, y, false);
+        }
+
+        private static GodotPrimitiveDto CreateGodotPrimitiveWithSize(VisualPrimitiveKind kind, int entityId, int ownerPlayerIndex, int typeId, int x, int y, int sizeTiles)
+        {
+            return new GodotPrimitiveDto(
+                (int)kind,
+                entityId,
+                typeId,
+                ownerPlayerIndex,
+                Fixed.FromInt(x).Raw,
+                Fixed.FromInt(y).Raw,
+                0,
+                0,
+                Fixed.FromInt(sizeTiles).Raw,
+                10,
+                10,
+                false);
         }
 
         private static GodotPrimitiveDto CreateGodotPrimitiveWithCapital(VisualPrimitiveKind kind, int entityId, int ownerPlayerIndex, int x, int y)
