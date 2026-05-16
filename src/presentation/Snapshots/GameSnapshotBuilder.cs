@@ -42,6 +42,7 @@ namespace RtsGame.Presentation.Snapshots
                     IsInResourceInteractionRange(state, unit),
                     IsInDropoffInteractionRange(state, unit),
                     IsInBuildInteractionRange(state, unit),
+                    unit.LastMovedTick,
                     unit.CarriedResourceType,
                     unit.CarriedAmount,
                     unit.AttackTargetId,

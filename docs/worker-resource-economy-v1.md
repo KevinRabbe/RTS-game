@@ -132,6 +132,7 @@ Current implementation notes:
 - Slot selection filters out blocked footprint tiles, occupied tiles, and tiles reserved by other live workers.
 - Candidate ordering is deterministic: nearest tile from the worker's current tile first, then stable tile order by Y and X.
 - Gather, drop-off, and construction systems retain a valid reservation and only re-slot when the target changes, the slot becomes invalid/occupied/reserved by another worker, or bounded no-progress retry allows retargeting.
+- When bounded no-progress triggers, the next reservation pass excludes the stale tile first and only falls back to it if no other reachable slot exists. This prevents a worker from releasing and immediately reclaiming the same bad slot forever.
 
 ## 6. Movement Contract
 

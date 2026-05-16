@@ -109,6 +109,7 @@ namespace RtsGame.Presentation.GodotBridge
         public bool InResourceInteractionRange { get; }
         public bool InDropoffInteractionRange { get; }
         public bool InBuildInteractionRange { get; }
+        public int LastMovedTick { get; }
         public int CarriedResourceTypeId { get; }
         public int CarriedAmount { get; }
         public int AttackTargetId { get; }
@@ -146,6 +147,7 @@ namespace RtsGame.Presentation.GodotBridge
                 false,
                 false,
                 false,
+                -1,
                 carriedResourceTypeId,
                 carriedAmount,
                 attackTargetId,
@@ -173,6 +175,7 @@ namespace RtsGame.Presentation.GodotBridge
             bool inResourceInteractionRange,
             bool inDropoffInteractionRange,
             bool inBuildInteractionRange,
+            int lastMovedTick,
             int carriedResourceTypeId,
             int carriedAmount,
             int attackTargetId,
@@ -197,6 +200,7 @@ namespace RtsGame.Presentation.GodotBridge
             InResourceInteractionRange = inResourceInteractionRange;
             InDropoffInteractionRange = inDropoffInteractionRange;
             InBuildInteractionRange = inBuildInteractionRange;
+            LastMovedTick = lastMovedTick;
             CarriedResourceTypeId = carriedResourceTypeId;
             CarriedAmount = carriedAmount;
             AttackTargetId = attackTargetId;

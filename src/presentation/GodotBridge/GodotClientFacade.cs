@@ -301,6 +301,7 @@ namespace RtsGame.Presentation.GodotBridge
                 snapshot.InResourceInteractionRange,
                 snapshot.InDropoffInteractionRange,
                 snapshot.InBuildInteractionRange,
+                snapshot.LastMovedTick,
                 (int)snapshot.CarriedResourceType,
                 snapshot.CarriedAmount,
                 snapshot.AttackTargetId,

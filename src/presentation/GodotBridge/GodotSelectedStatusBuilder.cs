@@ -35,6 +35,9 @@ namespace RtsGame.Presentation.GodotBridge
                     string ranges = "Range R:" + FormatBool(unit.InResourceInteractionRange)
                         + " D:" + FormatBool(unit.InDropoffInteractionRange)
                         + " B:" + FormatBool(unit.InBuildInteractionRange);
+                    string noProgress = unit.LastMovedTick < 0
+                        ? "NoProgress -"
+                        : "NoProgress " + (frame.Tick - unit.LastMovedTick);
                     bool isFullCarry = unit.CarriedAmount >= GameData.VillagerCarryCapacity;
                     string carry = unit.CarriedAmount == 0
                         ? "Carry -"
@@ -45,7 +48,7 @@ namespace RtsGame.Presentation.GodotBridge
                         depositHint = "  DepositNeedsCompletedTC";
                     }
 
-                    return new[] { status, position + "  " + move + "  " + phase + "  " + reservation + "  " + ranges + "  " + build + "  " + resource + "  " + attack + "  " + carry + depositHint };
+                    return new[] { status, position + "  " + move + "  " + phase + "  " + reservation + "  " + ranges + "  " + noProgress + "  " + build + "  " + resource + "  " + attack + "  " + carry + depositHint };
                 }
             }
 

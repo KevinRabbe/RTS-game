@@ -126,12 +126,22 @@ namespace RtsGame.Sim.Systems
         {
             selectedX = 0;
             selectedY = 0;
+            bool hasExcludedTile = SpatialRules.IsInteractionReservationTimedOut(
+                state,
+                unit,
+                InteractionReservationKind.BuildSite,
+                targetBuildingId);
+            SpatialRules.TileCoord excludedTile = hasExcludedTile
+                ? new SpatialRules.TileCoord(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY)
+                : default;
             if (!SpatialRules.TryReserveNearestReachableInteractionTile(
                 state,
                 unit,
                 InteractionReservationKind.BuildSite,
                 targetBuildingId,
                 interactionTiles,
+                hasExcludedTile,
+                excludedTile,
                 out SpatialRules.TileCoord selected))
             {
                 return false;

@@ -52,6 +52,7 @@ namespace RtsGame.Presentation.Snapshots
         public bool InResourceInteractionRange { get; }
         public bool InDropoffInteractionRange { get; }
         public bool InBuildInteractionRange { get; }
+        public int LastMovedTick { get; }
         public ResourceType CarriedResourceType { get; }
         public int CarriedAmount { get; }
         public int AttackTargetId { get; }
@@ -77,6 +78,7 @@ namespace RtsGame.Presentation.Snapshots
             bool inResourceInteractionRange,
             bool inDropoffInteractionRange,
             bool inBuildInteractionRange,
+            int lastMovedTick,
             ResourceType carriedResourceType,
             int carriedAmount,
             int attackTargetId,
@@ -101,6 +103,7 @@ namespace RtsGame.Presentation.Snapshots
             InResourceInteractionRange = inResourceInteractionRange;
             InDropoffInteractionRange = inDropoffInteractionRange;
             InBuildInteractionRange = inBuildInteractionRange;
+            LastMovedTick = lastMovedTick;
             CarriedResourceType = carriedResourceType;
             CarriedAmount = carriedAmount;
             AttackTargetId = attackTargetId;

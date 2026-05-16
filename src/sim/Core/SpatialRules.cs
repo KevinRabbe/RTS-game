@@ -246,6 +246,88 @@ namespace RtsGame.Sim.Core
             List<TileCoord> interactionTiles,
             out TileCoord selected)
         {
+            return TryReserveNearestReachableInteractionTile(
+                state,
+                unit,
+                kind,
+                targetId,
+                interactionTiles,
+                false,
+                default,
+                out selected);
+        }
+
+        public static bool TryReserveNearestReachableInteractionTile(
+            GameState state,
+            Unit unit,
+            InteractionReservationKind kind,
+            int targetId,
+            List<TileCoord> interactionTiles,
+            bool hasExcludedTile,
+            TileCoord excludedTile,
+            out TileCoord selected)
+        {
+            if (TryReserveNearestReachableInteractionTileCore(
+                state,
+                unit,
+                kind,
+                targetId,
+                interactionTiles,
+                hasExcludedTile,
+                excludedTile,
+                out selected))
+            {
+                return true;
+            }
+
+            if (!hasExcludedTile)
+            {
+                return false;
+            }
+
+            return TryReserveNearestReachableInteractionTileCore(
+                state,
+                unit,
+                kind,
+                targetId,
+                interactionTiles,
+                false,
+                excludedTile,
+                out selected);
+        }
+
+        public static bool IsInteractionReservationTimedOut(GameState state, Unit unit, InteractionReservationKind kind, int targetId)
+        {
+            if (unit.ReservedInteractionKind != kind || unit.ReservedInteractionTargetId != targetId)
+            {
+                return false;
+            }
+
+            int blockedTicks = unit.LastMovedTick < 0 ? int.MaxValue : state.Tick - unit.LastMovedTick;
+            if (blockedTicks < GameData.InteractionTargetRetargetBlockedTicks)
+            {
+                return false;
+            }
+
+            if (!unit.HasMoveTarget)
+            {
+                return true;
+            }
+
+            return GetTileX(unit.MoveTarget) == unit.ReservedInteractionTileX
+                && GetTileY(unit.MoveTarget) == unit.ReservedInteractionTileY;
+        }
+
+        private static bool TryReserveNearestReachableInteractionTileCore(
+            GameState state,
+            Unit unit,
+            InteractionReservationKind kind,
+            int targetId,
+            List<TileCoord> interactionTiles,
+            bool hasExcludedTile,
+            TileCoord excludedTile,
+            out TileCoord selected)
+        {
             selected = default;
             int unitTileX = GetTileX(unit.Position);
             int unitTileY = GetTileY(unit.Position);
@@ -254,6 +336,11 @@ namespace RtsGame.Sim.Core
             for (int i = 0; i < interactionTiles.Count; i++)
             {
                 TileCoord tile = interactionTiles[i];
+                if (hasExcludedTile && tile.X == excludedTile.X && tile.Y == excludedTile.Y)
+                {
+                    continue;
+                }
+
                 if (!IsInteractionSlotAvailableForUnit(state, unit, kind, targetId, tile.X, tile.Y))
                 {
                     continue;

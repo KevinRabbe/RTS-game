@@ -80,6 +80,8 @@ namespace RtsGame.Tests
                 new TestCase("gather move target uses resource interaction ring", GatherMoveTargetUsesResourceInteractionRing),
                 new TestCase("multiple workers reserve distinct resource slots", MultipleWorkersReserveDistinctResourceSlots),
                 new TestCase("multiple workers on same resource do not stack", MultipleWorkersOnSameResourceDoNotStack),
+                new TestCase("stale resource slot reservation chooses alternate", StaleResourceSlotReservationChoosesAlternate),
+                new TestCase("multi worker resource traffic makes progress", MultiWorkerResourceTrafficMakesProgress),
                 new TestCase("worker in resource range gathers without move rewrite", WorkerInResourceRangeGathersWithoutMoveRewrite),
                 new TestCase("villager does not gather outside resource range", VillagerDoesNotGatherOutsideResourceRange),
                 new TestCase("villager gathers in resource interaction range", VillagerGathersInResourceInteractionRange),
@@ -1288,6 +1290,99 @@ namespace RtsGame.Tests
             AssertEqual(resourceId, state.EntityState.Units[0].CurrentResourceNodeId, "first worker should keep resource target");
             AssertEqual(resourceId, state.EntityState.Units[1].CurrentResourceNodeId, "second worker should keep resource target");
             AssertEqual(resourceId, state.EntityState.Units[2].CurrentResourceNodeId, "third worker should keep resource target");
+        }
+
+        private static void StaleResourceSlotReservationChoosesAlternate()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(2093, 1);
+            ResourceNode node = CreateTestResourceNode(state, GatherProfileId.BerryBush, FixedVector2.FromInts(10, 10), GameData.StartingFoodAmount);
+            int workerId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(10, 7));
+            Unit worker = FindUnitById(state, workerId);
+            SpatialRules.TileCoord staleTile = new SpatialRules.TileCoord(10, 9);
+            worker.CurrentResourceNodeId = node.Id;
+            worker.TaskPhase = WorkerTaskPhase.MovingToResourceSlot;
+            worker.HasMoveTarget = true;
+            worker.MoveTarget = FixedVector2.FromInts(staleTile.X, staleTile.Y);
+            worker.LastMovedTick = 0;
+            SpatialRules.ReserveInteractionSlot(worker, InteractionReservationKind.ResourceNode, node.Id, staleTile);
+            state.Tick = GameData.InteractionTargetRetargetBlockedTicks;
+
+            new ResourceGatherSystem().Run(state, rules, new TickCommandContext(new List<CommandEnvelope>()));
+
+            AssertEqual(node.Id, worker.CurrentResourceNodeId, "stale slot retarget should preserve exact resource target");
+            AssertEqual(InteractionReservationKind.ResourceNode, worker.ReservedInteractionKind, "worker should keep a resource reservation");
+            AssertEqual(node.Id, worker.ReservedInteractionTargetId, "worker should keep reservation on the same node");
+            AssertEqual(true, worker.HasMoveTarget, "worker should keep movement intent after stale resource slot retarget");
+            bool changedSlot = worker.ReservedInteractionTileX != staleTile.X || worker.ReservedInteractionTileY != staleTile.Y;
+            AssertEqual(true, changedSlot, "timed-out resource reservation should prefer another valid slot before reusing stale tile");
+            AssertEqual(true, SpatialRules.IsTileAdjacentToResourceFootprint(node, worker.ReservedInteractionTileX, worker.ReservedInteractionTileY), "alternate resource slot should be adjacent to the resource footprint");
+        }
+
+        private static void MultiWorkerResourceTrafficMakesProgress()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(2094, 1);
+            ResourceNode node = CreateTestResourceNode(state, GatherProfileId.Tree, FixedVector2.FromInts(12, 10), GameData.StartingWoodAmount);
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(6, 10));
+            int first = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(8, 8));
+            int second = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(8, 9));
+            int third = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(8, 10));
+
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            int woodBefore = state.PlayerStates.Players[0].Resources.Wood;
+            buffer.Add(new CommandEnvelope(
+                new CommandHeader(0, 0, 0, CommandType.GatherResource),
+                new GatherResourceCommand(node.Id, new[] { first, second, third })));
+
+            int duplicateReservationTicks = 0;
+            int movingForeverTicks = 0;
+            int progressTicks = 0;
+            for (int tick = 0; tick < 420; tick++)
+            {
+                if (tick > 0)
+                {
+                    AddNoOp(buffer, tick, 0, (uint)(20940 + tick));
+                }
+
+                runner.AdvanceOneTick(state, rules, buffer);
+                AssertNoLiveUnitStacking(state, "multi-worker resource traffic should not stack");
+
+                if (!TryReservationsAreDistinct(state, new[] { first, second, third }, InteractionReservationKind.ResourceNode, node.Id))
+                {
+                    duplicateReservationTicks++;
+                }
+
+                bool anyMovingToResource = false;
+                bool anyGathering = false;
+                for (int i = 0; i < state.EntityState.Units.Count; i++)
+                {
+                    Unit unit = state.EntityState.Units[i];
+                    if (unit.CurrentResourceNodeId != node.Id)
+                    {
+                        continue;
+                    }
+
+                    anyMovingToResource = anyMovingToResource || unit.TaskPhase == WorkerTaskPhase.MovingToResourceSlot;
+                    anyGathering = anyGathering || unit.TaskPhase == WorkerTaskPhase.Gathering;
+                    AssertEqual(node.Id, unit.CurrentResourceNodeId, "resource traffic should preserve selected node target");
+                }
+
+                if (anyGathering || state.PlayerStates.Players[0].Resources.Wood > woodBefore)
+                {
+                    progressTicks++;
+                }
+
+                if (tick > 120 && anyMovingToResource && progressTicks == 0)
+                {
+                    movingForeverTicks++;
+                }
+            }
+
+            AssertEqual(0, duplicateReservationTicks, "workers should not reserve duplicate resource slots during traffic");
+            AssertEqual(0, movingForeverTicks, "workers should not stay MovingToResourceSlot forever while no gather/deposit progress happens");
+            AssertEqual(true, state.PlayerStates.Players[0].Resources.Wood > woodBefore, "multi-worker resource traffic should eventually deposit wood");
         }
 
         private static void WorkerInResourceRangeGathersWithoutMoveRewrite()
@@ -6143,6 +6238,27 @@ namespace RtsGame.Tests
                 int key = (unit.ReservedInteractionTileY << 16) ^ (unit.ReservedInteractionTileX & 0xFFFF);
                 AssertEqual(true, seen.Add(key), message + " should not duplicate tile " + unit.ReservedInteractionTileX + "," + unit.ReservedInteractionTileY);
             }
+        }
+
+        private static bool TryReservationsAreDistinct(GameState state, int[] unitIds, InteractionReservationKind kind, int targetId)
+        {
+            var seen = new HashSet<int>();
+            for (int i = 0; i < unitIds.Length; i++)
+            {
+                Unit unit = FindUnitById(state, unitIds[i]);
+                if (unit.ReservedInteractionKind != kind || unit.ReservedInteractionTargetId != targetId)
+                {
+                    continue;
+                }
+
+                int key = (unit.ReservedInteractionTileY << 16) ^ (unit.ReservedInteractionTileX & 0xFFFF);
+                if (!seen.Add(key))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static void AssertNoLiveUnitStacking(GameState state, string message)
