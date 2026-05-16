@@ -152,12 +152,15 @@ namespace RtsGame.Tests
                 new TestCase("temporary live unit blockage preserves move target", TemporaryLiveUnitBlockagePreservesMoveTarget),
                 new TestCase("tc front blocker allows pass around progress", TcFrontBlockerAllowsPassAroundProgress),
                 new TestCase("resource dropoff blocker preserves worker intent", ResourceDropoffBlockerPreservesWorkerIntent),
+                new TestCase("moving unit can enter vacated tile without stacking", MovingUnitCanEnterVacatedTileWithoutStacking),
                 new TestCase("group move assigns distinct destination slots", GroupMoveAssignsDistinctDestinationSlots),
                 new TestCase("ten unit group move does not stack", TenUnitGroupMoveDoesNotStack),
+                new TestCase("twenty unit group move settles or waits without stacking", TwentyUnitGroupMoveSettlesOrWaitsWithoutStacking),
                 new TestCase("group move avoids reserved final destination slots", GroupMoveAvoidsReservedFinalDestinationSlots),
                 new TestCase("group move does not cause endless jitter", GroupMoveDoesNotCauseEndlessJitter),
                 new TestCase("group gather does not collapse onto one interaction slot", GroupGatherDoesNotCollapseOntoOneInteractionSlot),
                 new TestCase("group gather workers make progress or wait cleanly", GroupGatherWorkersMakeProgressOrWaitCleanly),
+                new TestCase("thirty workers across resources keep progress or intent", ThirtyWorkersAcrossResourcesKeepProgressOrIntent),
                 new TestCase("two units attempting same tile receive slots", TwoUnitsAttemptingSameTileReceiveSlots),
                 new TestCase("three units attempting same tile receive slots", ThreeUnitsAttemptingSameTileReceiveSlots),
                 new TestCase("two unit tile swap fails", TwoUnitTileSwapFails),
@@ -2738,6 +2741,28 @@ namespace RtsGame.Tests
             AssertEqual(true, worker.HasMoveTarget, "local traffic avoidance should keep dropoff move target");
         }
 
+        private static void MovingUnitCanEnterVacatedTileWithoutStacking()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(3040);
+            int followerId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(0, 0));
+            int leaderId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(1, 0));
+            Unit follower = FindUnitById(state, followerId);
+            Unit leader = FindUnitById(state, leaderId);
+            follower.HasMoveTarget = true;
+            follower.MoveTarget = FixedVector2.FromInts(2, 0);
+            follower.TaskPhase = WorkerTaskPhase.MovingToCommandMove;
+            leader.HasMoveTarget = true;
+            leader.MoveTarget = FixedVector2.FromInts(3, 0);
+            leader.TaskPhase = WorkerTaskPhase.MovingToCommandMove;
+
+            new MovementSystem().Run(state, rules, new TickCommandContext(new List<CommandEnvelope>()));
+
+            AssertEqual(1, SpatialRules.GetTileX(follower.Position), "follower should be allowed to enter a tile vacated by a moving leader");
+            AssertEqual(2, SpatialRules.GetTileX(leader.Position), "leader should move forward first in the traffic chain");
+            AssertNoLiveUnitStacking(state, "vacated-tile follow-through should not stack units");
+        }
+
         private static void GroupMoveAssignsDistinctDestinationSlots()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -2770,6 +2795,46 @@ namespace RtsGame.Tests
                 runner.AdvanceOneTick(state, rules, buffer);
                 AssertNoLiveUnitStacking(state, "ten unit group move should not stack");
             }
+        }
+
+        private static void TwentyUnitGroupMoveSettlesOrWaitsWithoutStacking()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState first = CreateOccupancyState(3041);
+            GameState second = CreateOccupancyState(3041);
+            int[] firstUnitIds = CreateLineOfUnits(first, 20, 0, 0, 4, 0, 1);
+            int[] secondUnitIds = CreateLineOfUnits(second, 20, 0, 0, 4, 0, 1);
+            var firstBuffer = new CommandBuffer();
+            var secondBuffer = new CommandBuffer();
+            firstBuffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(firstUnitIds, FixedVector2.FromInts(24, 12))));
+            secondBuffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(secondUnitIds, FixedVector2.FromInts(24, 12))));
+
+            var runner = new TickRunner();
+            for (int tick = 0; tick < 90; tick++)
+            {
+                runner.AdvanceOneTick(first, rules, firstBuffer);
+                AssertNoLiveUnitStacking(first, "twenty unit group move should not stack under pressure");
+                AssertNoDuplicateFinalPurposeReservations(first, "twenty unit group move should not duplicate final destination reservations");
+            }
+
+            runner = new TickRunner();
+            for (int tick = 0; tick < 90; tick++)
+            {
+                runner.AdvanceOneTick(second, rules, secondBuffer);
+            }
+
+            AssertEqual(first.LastChecksum, second.LastChecksum, "twenty unit group move should remain deterministic");
+            int activeOrArrived = 0;
+            for (int i = 0; i < firstUnitIds.Length; i++)
+            {
+                Unit unit = FindUnitById(first, firstUnitIds[i]);
+                if (!unit.HasMoveTarget || unit.ReservedInteractionKind == InteractionReservationKind.MoveDestination)
+                {
+                    activeOrArrived++;
+                }
+            }
+
+            AssertEqual(firstUnitIds.Length, activeOrArrived, "twenty unit group move units should arrive or wait with stable destination slots");
         }
 
         private static void GroupMoveAvoidsReservedFinalDestinationSlots()
@@ -2866,6 +2931,41 @@ namespace RtsGame.Tests
             }
 
             AssertEqual(true, anyProgress, "group gather workers should gather/deposit or wait cleanly without losing intent");
+        }
+
+        private static void ThirtyWorkersAcrossResourcesKeepProgressOrIntent()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(3042);
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(20, 20));
+            int foodAreaId = AddTestResourceArea(state, GatherProfileId.BerryBush, FixedVector2.FromInts(12, 15));
+            int woodAreaId = AddTestResourceArea(state, GatherProfileId.Tree, FixedVector2.FromInts(30, 15));
+            int goldAreaId = AddTestResourceArea(state, GatherProfileId.GoldVeinSmall, FixedVector2.FromInts(21, 31));
+            int foodNodeId = AddTestResourceNodeToArea(state, foodAreaId, GatherProfileId.BerryBush, FixedVector2.FromInts(12, 15), 500);
+            int woodNodeId = AddTestResourceNodeToArea(state, woodAreaId, GatherProfileId.Tree, FixedVector2.FromInts(30, 15), 500);
+            int goldNodeId = AddTestResourceNodeToArea(state, goldAreaId, GatherProfileId.GoldVeinSmall, FixedVector2.FromInts(21, 31), 500);
+            int[] foodWorkers = CreateGridOfVillagers(state, 10, 15, 21, 5);
+            int[] woodWorkers = CreateGridOfVillagers(state, 10, 23, 21, 5);
+            int[] goldWorkers = CreateGridOfVillagers(state, 10, 19, 25, 5);
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(foodNodeId, foodWorkers)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 1, CommandType.GatherResource), new GatherResourceCommand(woodNodeId, woodWorkers)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 2, CommandType.GatherResource), new GatherResourceCommand(goldNodeId, goldWorkers)));
+
+            int initialFood = state.PlayerStates.Players[0].Resources.Food;
+            int initialWood = state.PlayerStates.Players[0].Resources.Wood;
+            int initialGold = state.PlayerStates.Players[0].Resources.Gold;
+            var runner = new TickRunner();
+            for (int tick = 0; tick < 240; tick++)
+            {
+                runner.AdvanceOneTick(state, rules, buffer);
+                AssertNoLiveUnitStacking(state, "thirty workers across resources should not stack");
+                AssertNoDuplicateFinalPurposeReservations(state, "thirty workers across resources should not duplicate final-purpose reservations");
+            }
+
+            AssertEqual(true, state.PlayerStates.Players[0].Resources.Food > initialFood || AnyWorkerHasResourceIntent(state, foodWorkers), "food workers should make progress or keep gather intent");
+            AssertEqual(true, state.PlayerStates.Players[0].Resources.Wood > initialWood || AnyWorkerHasResourceIntent(state, woodWorkers), "wood workers should make progress or keep gather intent");
+            AssertEqual(true, state.PlayerStates.Players[0].Resources.Gold > initialGold || AnyWorkerHasResourceIntent(state, goldWorkers), "gold workers should make progress or keep gather intent");
         }
 
         private static void TwoUnitsAttemptingSameTileReceiveSlots()
@@ -7037,6 +7137,35 @@ namespace RtsGame.Tests
             return unitIds;
         }
 
+        private static int[] CreateGridOfVillagers(GameState state, int count, int startX, int startY, int columns)
+        {
+            var unitIds = new int[count];
+            for (int i = 0; i < count; i++)
+            {
+                unitIds[i] = EntityFactory.CreateUnit(
+                    state,
+                    0,
+                    UnitTypeId.Villager,
+                    FixedVector2.FromInts(startX + i % columns, startY + i / columns));
+            }
+
+            return unitIds;
+        }
+
+        private static bool AnyWorkerHasResourceIntent(GameState state, int[] unitIds)
+        {
+            for (int i = 0; i < unitIds.Length; i++)
+            {
+                Unit unit = FindUnitById(state, unitIds[i]);
+                if (unit.CurrentResourceAreaId != 0 || unit.CurrentResourceNodeId != 0 || unit.CarriedAmount > 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static void SetFullCarrier(GameState state, int unitId, ResourceType resourceType)
         {
             Unit unit = FindUnitById(state, unitId);
@@ -7108,6 +7237,22 @@ namespace RtsGame.Tests
             }
 
             return true;
+        }
+
+        private static void AssertNoDuplicateFinalPurposeReservations(GameState state, string message)
+        {
+            var seen = new HashSet<int>();
+            for (int i = 0; i < state.EntityState.Units.Count; i++)
+            {
+                Unit unit = state.EntityState.Units[i];
+                if (unit.IsDead || unit.ReservedInteractionKind == InteractionReservationKind.None)
+                {
+                    continue;
+                }
+
+                int key = (unit.ReservedInteractionTileY << 16) ^ (unit.ReservedInteractionTileX & 0xFFFF);
+                AssertEqual(true, seen.Add(key), message + " duplicate reserved tile " + unit.ReservedInteractionTileX + "," + unit.ReservedInteractionTileY);
+            }
         }
 
         private static long EncodeReservationKey(Unit unit)

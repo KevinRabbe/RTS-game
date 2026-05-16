@@ -174,6 +174,7 @@ Current implementation notes:
 - Task systems own interaction actions: being in valid resource, drop-off, or build range clears movement and performs the task instead of chasing exact raw coordinates.
 - Reaching a command-move target returns the unit to `Idle`; reaching a task slot leaves the task phase for the gather/deposit/build system to resolve.
 - Local pass-around checks deterministic adjacent alternatives when the next path step is occupied by a live unit. Cardinal sidesteps are preferred before diagonal sidesteps, and all alternatives must remain statically walkable, unoccupied, unreserved, and pathable to the original target.
+- Movement uses a per-tick occupancy/reservation snapshot for dynamic unit traffic. A unit may follow into a tile that another unit successfully vacates in the same movement step, but swap conflicts and failed movers still block, so no unit stacking is allowed.
 
 The desired no-jiggle contract:
 

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using RtsGame.Sim.Core;
 using RtsGame.Sim.Data;
 using RtsGame.Sim.Determinism;
@@ -11,14 +12,15 @@ namespace RtsGame.Sim.Systems
 
         public void Run(GameState state, GameRules rules, TickCommandContext commandContext)
         {
-            MovementPlan[] plans = BuildPlans(state);
+            MovementContext context = MovementContext.Create(state);
+            MovementPlan[] plans = BuildPlans(state, context);
             MarkSharedDestinationConflicts(plans);
             MarkSwapConflicts(plans);
-            MarkBlockedByStationaryUnits(state, plans);
+            MarkBlockedByStationaryUnits(context, plans);
             ApplyPlans(state, plans);
         }
 
-        private static MovementPlan[] BuildPlans(GameState state)
+        private static MovementPlan[] BuildPlans(GameState state, MovementContext context)
         {
             var plans = new MovementPlan[state.EntityState.Units.Count];
             for (int i = 0; i < state.EntityState.Units.Count; i++)
@@ -87,10 +89,12 @@ namespace RtsGame.Sim.Systems
                 if (projectedTileX != currentTileX
                     || projectedTileY != currentTileY)
                 {
-                    if (SpatialRules.IsTileOccupiedByLiveUnit(state, projectedTileX, projectedTileY, unit.Id)
+                    if (context.IsTileOccupied(projectedTileX, projectedTileY, unit.Id)
+                        && !context.IsOccupyingUnitMoving(projectedTileX, projectedTileY, unit.Id)
                         && !nextPathTileIsTarget
                         && TryBuildAlternateStepPlan(
                             state,
+                            context,
                             unit,
                             currentTileX,
                             currentTileY,
@@ -115,6 +119,7 @@ namespace RtsGame.Sim.Systems
 
         private static bool TryBuildAlternateStepPlan(
             GameState state,
+            MovementContext context,
             Unit unit,
             int currentTileX,
             int currentTileY,
@@ -130,6 +135,7 @@ namespace RtsGame.Sim.Systems
             int bestY = 0;
             int bestDistance = int.MaxValue;
             int bestStepClass = int.MaxValue;
+            int bestCongestion = int.MaxValue;
             int bestTurnCost = int.MaxValue;
             bool found = false;
 
@@ -137,7 +143,7 @@ namespace RtsGame.Sim.Systems
             {
                 int candidateX = currentTileX + AlternateOffsetX[i];
                 int candidateY = currentTileY + AlternateOffsetY[i];
-                if (!IsValidAlternateTile(state, unit, candidateX, candidateY))
+                if (!IsValidAlternateTile(state, context, unit, candidateX, candidateY))
                 {
                     continue;
                 }
@@ -149,17 +155,20 @@ namespace RtsGame.Sim.Systems
 
                 int distance = Abs(candidateX - targetTileX) + Abs(candidateY - targetTileY);
                 int stepClass = i < 4 ? 0 : 1;
+                int congestion = context.CountNearbyTraffic(candidateX, candidateY, unit.Id);
                 int turnCost = Abs(candidateX - intendedNextTileX) + Abs(candidateY - intendedNextTileY);
                 if (!found
                     || stepClass < bestStepClass
                     || (stepClass == bestStepClass && distance < bestDistance)
-                    || (stepClass == bestStepClass && distance == bestDistance && turnCost < bestTurnCost)
-                    || (stepClass == bestStepClass && distance == bestDistance && turnCost == bestTurnCost && CompareTile(candidateX, candidateY, bestX, bestY) < 0))
+                    || (stepClass == bestStepClass && distance == bestDistance && congestion < bestCongestion)
+                    || (stepClass == bestStepClass && distance == bestDistance && congestion == bestCongestion && turnCost < bestTurnCost)
+                    || (stepClass == bestStepClass && distance == bestDistance && congestion == bestCongestion && turnCost == bestTurnCost && CompareTile(candidateX, candidateY, bestX, bestY) < 0))
                 {
                     bestX = candidateX;
                     bestY = candidateY;
                     bestDistance = distance;
                     bestStepClass = stepClass;
+                    bestCongestion = congestion;
                     bestTurnCost = turnCost;
                     found = true;
                 }
@@ -184,47 +193,75 @@ namespace RtsGame.Sim.Systems
             return true;
         }
 
-        private static bool IsValidAlternateTile(GameState state, Unit unit, int tileX, int tileY)
+        private static bool IsValidAlternateTile(GameState state, MovementContext context, Unit unit, int tileX, int tileY)
         {
             return !SpatialRules.IsTileBlockedForUnitMovement(state, tileX, tileY)
-                && !SpatialRules.IsTileOccupiedByLiveUnit(state, tileX, tileY, unit.Id)
-                && !SpatialRules.IsTileReservedByLiveUnit(state, tileX, tileY, unit.Id);
+                && !context.IsTileOccupied(tileX, tileY, unit.Id)
+                && !context.IsTileReserved(tileX, tileY, unit.Id);
         }
 
-        private static void MarkBlockedByStationaryUnits(GameState state, MovementPlan[] plans)
+        private static void MarkBlockedByStationaryUnits(MovementContext context, MovementPlan[] plans)
         {
+            var memo = new int[plans.Length];
             for (int i = 0; i < plans.Length; i++)
             {
-                if (!plans[i].AttemptsMove || !plans[i].EntersNewTile)
+                if (plans[i].Blocked || !plans[i].AttemptsMove || !plans[i].EntersNewTile)
                 {
                     continue;
                 }
 
-                for (int otherIndex = 0; otherIndex < state.EntityState.Units.Count; otherIndex++)
+                if (!CanPlanEnterNextTile(context, plans, i, memo))
                 {
-                    if (otherIndex == plans[i].UnitIndex)
-                    {
-                        continue;
-                    }
-
-                    Unit other = state.EntityState.Units[otherIndex];
-                    if (other.IsDead)
-                    {
-                        continue;
-                    }
-
-                    if (plans[i].NextTileX == SpatialRules.GetTileX(other.Position)
-                        && plans[i].NextTileY == SpatialRules.GetTileY(other.Position))
-                    {
-                        plans[i].Blocked = true;
-                        break;
-                    }
+                    plans[i].Blocked = true;
                 }
             }
         }
 
+        private static bool CanPlanEnterNextTile(MovementContext context, MovementPlan[] plans, int planIndex, int[] memo)
+        {
+            if (planIndex < 0 || planIndex >= plans.Length)
+            {
+                return false;
+            }
+
+            MovementPlan plan = plans[planIndex];
+            if (plan.Blocked || !plan.AttemptsMove || !plan.EntersNewTile)
+            {
+                return false;
+            }
+
+            if (memo[planIndex] == 1)
+            {
+                return true;
+            }
+
+            if (memo[planIndex] == 2 || memo[planIndex] == 3)
+            {
+                return false;
+            }
+
+            memo[planIndex] = 3;
+            if (!context.TryGetOccupyingUnitId(plan.NextTileX, plan.NextTileY, plan.UnitId, out int occupantUnitId))
+            {
+                memo[planIndex] = 1;
+                return true;
+            }
+
+            if (!context.TryGetPlanIndex(occupantUnitId, out int occupantPlanIndex)
+                || !CanPlanEnterNextTile(context, plans, occupantPlanIndex, memo))
+            {
+                memo[planIndex] = 2;
+                return false;
+            }
+
+            memo[planIndex] = 1;
+            return true;
+        }
+
         private static void MarkSharedDestinationConflicts(MovementPlan[] plans)
         {
+            var contenderCounts = new Dictionary<int, int>();
+            var winnerIndices = new Dictionary<int, int>();
             for (int i = 0; i < plans.Length; i++)
             {
                 if (!plans[i].AttemptsMove || plans[i].Blocked || !plans[i].EntersNewTile)
@@ -232,45 +269,41 @@ namespace RtsGame.Sim.Systems
                     continue;
                 }
 
-                int winnerIndex = i;
-                int contenders = 0;
-                for (int other = 0; other < plans.Length; other++)
+                int key = EncodeTileKey(plans[i].NextTileX, plans[i].NextTileY);
+                contenderCounts.TryGetValue(key, out int count);
+                contenderCounts[key] = count + 1;
+                if (!winnerIndices.TryGetValue(key, out int winnerIndex) || plans[i].UnitId < plans[winnerIndex].UnitId)
                 {
-                    if (!plans[other].AttemptsMove || plans[other].Blocked || !plans[other].EntersNewTile)
-                    {
-                        continue;
-                    }
+                    winnerIndices[key] = i;
+                }
+            }
 
-                    if (plans[i].NextTileX == plans[other].NextTileX && plans[i].NextTileY == plans[other].NextTileY)
-                    {
-                        contenders++;
-                        if (plans[other].UnitId < plans[winnerIndex].UnitId)
-                        {
-                            winnerIndex = other;
-                        }
-                    }
+            for (int i = 0; i < plans.Length; i++)
+            {
+                if (!plans[i].AttemptsMove || plans[i].Blocked || !plans[i].EntersNewTile)
+                {
+                    continue;
                 }
 
-                if (contenders > 1)
+                int key = EncodeTileKey(plans[i].NextTileX, plans[i].NextTileY);
+                if (contenderCounts[key] > 1 && winnerIndices[key] != i)
                 {
-                    for (int other = 0; other < plans.Length; other++)
-                    {
-                        if (plans[other].AttemptsMove
-                            && !plans[other].Blocked
-                            && plans[other].EntersNewTile
-                            && plans[i].NextTileX == plans[other].NextTileX
-                            && plans[i].NextTileY == plans[other].NextTileY
-                            && other != winnerIndex)
-                        {
-                            plans[other].Blocked = true;
-                        }
-                    }
+                    plans[i].Blocked = true;
                 }
             }
         }
 
         private static void MarkSwapConflicts(MovementPlan[] plans)
         {
+            var planByCurrentTile = new Dictionary<int, int>();
+            for (int i = 0; i < plans.Length; i++)
+            {
+                if (plans[i].AttemptsMove && !plans[i].Blocked && plans[i].EntersNewTile)
+                {
+                    planByCurrentTile[EncodeTileKey(plans[i].CurrentTileX, plans[i].CurrentTileY)] = i;
+                }
+            }
+
             for (int i = 0; i < plans.Length; i++)
             {
                 if (!plans[i].AttemptsMove || plans[i].Blocked || !plans[i].EntersNewTile)
@@ -278,22 +311,18 @@ namespace RtsGame.Sim.Systems
                     continue;
                 }
 
-                for (int other = i + 1; other < plans.Length; other++)
+                int nextKey = EncodeTileKey(plans[i].NextTileX, plans[i].NextTileY);
+                if (!planByCurrentTile.TryGetValue(nextKey, out int other) || other <= i)
                 {
-                    if (!plans[other].AttemptsMove || plans[other].Blocked || !plans[other].EntersNewTile)
-                    {
-                        continue;
-                    }
+                    continue;
+                }
 
-                    bool swaps = plans[i].CurrentTileX == plans[other].NextTileX
-                        && plans[i].CurrentTileY == plans[other].NextTileY
-                        && plans[other].CurrentTileX == plans[i].NextTileX
-                        && plans[other].CurrentTileY == plans[i].NextTileY;
-                    if (swaps)
-                    {
-                        plans[i].Blocked = true;
-                        plans[other].Blocked = true;
-                    }
+                bool swaps = plans[i].CurrentTileX == plans[other].NextTileX
+                    && plans[i].CurrentTileY == plans[other].NextTileY;
+                if (swaps)
+                {
+                    plans[i].Blocked = true;
+                    plans[other].Blocked = true;
                 }
             }
         }
@@ -379,6 +408,119 @@ namespace RtsGame.Sim.Systems
         {
             int yCompare = leftY.CompareTo(rightY);
             return yCompare != 0 ? yCompare : leftX.CompareTo(rightX);
+        }
+
+        private static int EncodeTileKey(int tileX, int tileY)
+        {
+            return (tileY << 16) ^ (tileX & 0xFFFF);
+        }
+
+        private sealed class MovementContext
+        {
+            private readonly Dictionary<int, int> occupiedTileToUnitId = new Dictionary<int, int>();
+            private readonly Dictionary<int, int> reservedTileToUnitId = new Dictionary<int, int>();
+            private readonly Dictionary<int, int> unitIdToPlanIndex = new Dictionary<int, int>();
+            private readonly HashSet<int> movingUnitIds = new HashSet<int>();
+
+            private MovementContext()
+            {
+            }
+
+            public static MovementContext Create(GameState state)
+            {
+                var context = new MovementContext();
+                for (int i = 0; i < state.EntityState.Units.Count; i++)
+                {
+                    Unit unit = state.EntityState.Units[i];
+                    context.unitIdToPlanIndex[unit.Id] = i;
+                    if (unit.IsDead)
+                    {
+                        continue;
+                    }
+
+                    if (unit.HasMoveTarget && unit.TaskPhase == WorkerTaskPhase.MovingToCommandMove)
+                    {
+                        context.movingUnitIds.Add(unit.Id);
+                    }
+
+                    int occupiedKey = EncodeTileKey(SpatialRules.GetTileX(unit.Position), SpatialRules.GetTileY(unit.Position));
+                    if (!context.occupiedTileToUnitId.ContainsKey(occupiedKey) || unit.Id < context.occupiedTileToUnitId[occupiedKey])
+                    {
+                        context.occupiedTileToUnitId[occupiedKey] = unit.Id;
+                    }
+
+                    if (unit.ReservedInteractionKind != InteractionReservationKind.None)
+                    {
+                        int reservedKey = EncodeTileKey(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
+                        if (!context.reservedTileToUnitId.ContainsKey(reservedKey) || unit.Id < context.reservedTileToUnitId[reservedKey])
+                        {
+                            context.reservedTileToUnitId[reservedKey] = unit.Id;
+                        }
+                    }
+                }
+
+                return context;
+            }
+
+            public bool IsTileOccupied(int tileX, int tileY, int ignoredUnitId)
+            {
+                return TryGetOccupyingUnitId(tileX, tileY, ignoredUnitId, out _);
+            }
+
+            public bool TryGetOccupyingUnitId(int tileX, int tileY, int ignoredUnitId, out int unitId)
+            {
+                unitId = 0;
+                if (!occupiedTileToUnitId.TryGetValue(EncodeTileKey(tileX, tileY), out int occupyingUnitId) || occupyingUnitId == ignoredUnitId)
+                {
+                    return false;
+                }
+
+                unitId = occupyingUnitId;
+                return true;
+            }
+
+            public bool IsTileReserved(int tileX, int tileY, int ignoredUnitId)
+            {
+                if (!reservedTileToUnitId.TryGetValue(EncodeTileKey(tileX, tileY), out int reservingUnitId))
+                {
+                    return false;
+                }
+
+                return reservingUnitId != ignoredUnitId;
+            }
+
+            public bool TryGetPlanIndex(int unitId, out int planIndex)
+            {
+                return unitIdToPlanIndex.TryGetValue(unitId, out planIndex);
+            }
+
+            public bool IsOccupyingUnitMoving(int tileX, int tileY, int ignoredUnitId)
+            {
+                return TryGetOccupyingUnitId(tileX, tileY, ignoredUnitId, out int unitId)
+                    && movingUnitIds.Contains(unitId);
+            }
+
+            public int CountNearbyTraffic(int tileX, int tileY, int ignoredUnitId)
+            {
+                int count = 0;
+                for (int y = tileY - 1; y <= tileY + 1; y++)
+                {
+                    for (int x = tileX - 1; x <= tileX + 1; x++)
+                    {
+                        if (x == tileX && y == tileY)
+                        {
+                            continue;
+                        }
+
+                        if (IsTileOccupied(x, y, ignoredUnitId) || IsTileReserved(x, y, ignoredUnitId))
+                        {
+                            count++;
+                        }
+                    }
+                }
+
+                return count;
+            }
         }
 
         private struct MovementPlan
