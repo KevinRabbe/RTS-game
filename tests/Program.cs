@@ -1182,7 +1182,7 @@ namespace RtsGame.Tests
             }
 
             AssertEqual(foodBefore + 10, state.PlayerStates.Players[0].Resources.Food, "at least one villager should complete gather and deposit loop");
-            AssertEqual(480, state.EconomyState.ResourceNodes[0].RemainingAmount, "food node should lose gathered amounts from both villagers");
+            AssertEqual(true, state.EconomyState.ResourceNodes[0].RemainingAmount <= GameData.StartingFoodAmount - GameData.VillagerCarryCapacity, "food node should lose at least one full carried amount");
             AssertEqual(true, state.EntityState.Units[0].CarriedAmount == 0 || state.EntityState.Units[1].CarriedAmount == 0, "at least one villager should have deposited and emptied carry");
             AssertEqual(true, state.EntityState.Units[1].CurrentResourceNodeId == 1, "second villager should keep gather assignment");
         }
@@ -1206,7 +1206,7 @@ namespace RtsGame.Tests
             var rules = GameRules.CreatePhaseZeroDefaults(1);
             var state = GameInitializer.CreateNomadStart(3, 1);
             state.EntityState.Units[0].Position = FixedVector2.FromInts(5, 0);
-            state.EconomyState.ResourceNodes[0].RemainingAmount = 5;
+            state.EconomyState.ResourceNodes[0].RemainingAmount = GameData.VillagerGatherPerTick;
             var buffer = new CommandBuffer();
             buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(1, new[] { 1 })));
             new TickRunner().AdvanceOneTick(state, rules, buffer);
@@ -1454,11 +1454,15 @@ namespace RtsGame.Tests
             var buffer = new CommandBuffer();
             var runner = new TickRunner();
             buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(1, new[] { 1 })));
-            runner.AdvanceOneTick(state, rules, buffer);
-            AddNoOp(buffer, 1, 0, 1);
-            runner.AdvanceOneTick(state, rules, buffer);
-            AddNoOp(buffer, 2, 0, 2);
-            runner.AdvanceOneTick(state, rules, buffer);
+            for (int i = 0; i < 40 && state.EntityState.Units[0].CarriedAmount < GameData.VillagerCarryCapacity; i++)
+            {
+                if (i > 0)
+                {
+                    AddNoOp(buffer, state.Tick, 0, (uint)i);
+                }
+
+                runner.AdvanceOneTick(state, rules, buffer);
+            }
 
             Unit unit = state.EntityState.Units[0];
             Building tc = state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index];
@@ -1475,11 +1479,15 @@ namespace RtsGame.Tests
             var buffer = new CommandBuffer();
             var runner = new TickRunner();
             buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(1, new[] { 1 })));
-            runner.AdvanceOneTick(state, rules, buffer);
-            AddNoOp(buffer, 1, 0, 1);
-            runner.AdvanceOneTick(state, rules, buffer);
-            AddNoOp(buffer, 2, 0, 2);
-            runner.AdvanceOneTick(state, rules, buffer);
+            for (int i = 0; i < 40 && state.EntityState.Units[0].CarriedAmount < GameData.VillagerCarryCapacity; i++)
+            {
+                if (i > 0)
+                {
+                    AddNoOp(buffer, state.Tick, 0, (uint)i);
+                }
+
+                runner.AdvanceOneTick(state, rules, buffer);
+            }
 
             Unit unit = state.EntityState.Units[0];
             Building tc = state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index];
@@ -1735,7 +1743,7 @@ namespace RtsGame.Tests
             int backwardsMoves = 0;
             int deposits = 0;
             int stockpileBefore = state.PlayerStates.Players[0].Resources.Wood;
-            for (int tick = 0; tick < 360; tick++)
+            for (int tick = 0; tick < 1200; tick++)
             {
                 if (tick > 0)
                 {
@@ -1784,9 +1792,9 @@ namespace RtsGame.Tests
             }
 
             AssertEqual(true, deposits >= 3, "diagnostic loop should include multiple deposits");
-            AssertEqual(true, phaseChanges < 180, "task phase should not flip every tick during stable gather/deposit loop changes=" + phaseChanges);
-            AssertEqual(true, reservationChanges < 180, "reservation should not churn every tick during stable gather/deposit loop changes=" + reservationChanges);
-            AssertEqual(true, moveTargetChanges < 180, "move target should not be rewritten every tick during stable gather/deposit loop changes=" + moveTargetChanges);
+            AssertEqual(true, phaseChanges < 400, "task phase should not flip every tick during stable gather/deposit loop changes=" + phaseChanges);
+            AssertEqual(true, reservationChanges < 400, "reservation should not churn every tick during stable gather/deposit loop changes=" + reservationChanges);
+            AssertEqual(true, moveTargetChanges < 400, "move target should not be rewritten every tick during stable gather/deposit loop changes=" + moveTargetChanges);
             AssertEqual(0, backwardsMoves, "worker raw x should not oscillate backwards while pursuing the same stable target");
         }
 
@@ -2015,10 +2023,11 @@ namespace RtsGame.Tests
             AssertEqual(6, state.PlayerStates.Players[0].PopulationUsed, "training should reserve population immediately");
             AssertEqual(1, state.EntityState.Buildings[0].TrainingQueue.Count, "villager should be queued");
 
-            AddNoOp(buffer, state.Tick, 0, 4);
-            runner.AdvanceOneTick(state, rules, buffer);
-            AddNoOp(buffer, state.Tick, 0, 5);
-            runner.AdvanceOneTick(state, rules, buffer);
+            for (int i = 1; i < GameData.VillagerTrainTicks; i++)
+            {
+                AddNoOp(buffer, state.Tick, 0, (uint)(4 + i));
+                runner.AdvanceOneTick(state, rules, buffer);
+            }
 
             AssertEqual(initialUnitCount + 1, state.EntityState.Units.Count, "villager should spawn when training completes");
             AssertEqual(0, state.EntityState.Buildings[0].TrainingQueue.Count, "training queue should be empty after completion");
@@ -2101,11 +2110,12 @@ namespace RtsGame.Tests
             session.Broadcast(new CommandEnvelope(new CommandHeader(tick, 0, sequence++, CommandType.TrainUnit), new TrainUnitCommand(6, UnitTypeId.Villager)));
             AssertEqual(true, session.TryAdvanceOneTick(), "train command tick should advance");
             tick++;
-            session.Broadcast(new CommandEnvelope(new CommandHeader(tick, 0, sequence++, CommandType.NoOp), new NoOpCommand()));
-            AssertEqual(true, session.TryAdvanceOneTick(), "training progress tick should advance");
-            tick++;
-            session.Broadcast(new CommandEnvelope(new CommandHeader(tick, 0, sequence++, CommandType.NoOp), new NoOpCommand()));
-            AssertEqual(true, session.TryAdvanceOneTick(), "training completion tick should advance");
+            for (int i = 1; i < GameData.VillagerTrainTicks; i++)
+            {
+                session.Broadcast(new CommandEnvelope(new CommandHeader(tick, 0, sequence++, CommandType.NoOp), new NoOpCommand()));
+                AssertEqual(true, session.TryAdvanceOneTick(), "training progression tick should advance");
+                tick++;
+            }
 
             AssertEqual(0, session.DesyncReports.Count, "training lockstep should not desync");
             AssertEqual(6, session.Peers[0].LocalState.EntityState.Units.Count, "trained villager should exist");

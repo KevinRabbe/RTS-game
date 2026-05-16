@@ -72,6 +72,13 @@ Example profiles:
 - `GoldVeinSmallProfile`: gold, small/medium node, blocks movement, continues within gold deposit.
 - `GoldVeinLargeProfile`: gold, larger amount or larger footprint, same stockpile kind.
 
+Current placeholder pacing:
+
+- Villager carry capacity is 10.
+- Villager gather amount is 1 per gather tick through `GatherProfile`.
+- Villager train time is 40 ticks.
+- These values are intentionally slow enough for manual smoke observation and are not final balance.
+
 ## 4. Worker Task Phases
 
 Workers need explicit task phases so movement, gather, deposit, and build systems do not fight each other.

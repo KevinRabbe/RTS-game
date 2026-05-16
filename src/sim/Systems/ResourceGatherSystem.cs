@@ -62,7 +62,8 @@ namespace RtsGame.Sim.Systems
 
                 unit.TaskPhase = WorkerTaskPhase.Gathering;
                 unit.HasMoveTarget = false;
-                int gathered = Min(GameData.VillagerGatherPerTick, carryRoom, node.RemainingAmount);
+                GatherProfile profile = GameData.GetGatherProfile(node.GatherProfileId);
+                int gathered = Min(profile.GatherAmountPerTick, carryRoom, node.RemainingAmount);
                 if (gathered <= 0)
                 {
                     continue;

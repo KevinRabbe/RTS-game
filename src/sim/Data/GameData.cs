@@ -19,9 +19,9 @@ namespace RtsGame.Sim.Data
         public const int TownCenterBuildTicks = 5;
         public const int WallBuildTicks = 4;
         public const int TradePostBuildTicks = 6;
-        public const int VillagerGatherPerTick = 5;
+        public const int VillagerGatherPerTick = 1;
         public const int VillagerCarryCapacity = 10;
-        public const int VillagerTrainTicks = 3;
+        public const int VillagerTrainTicks = 40;
         public const int VillagerFoodCost = 50;
         public const int InfantryTrainTicks = 4;
         public const int InfantryFoodCost = 60;
