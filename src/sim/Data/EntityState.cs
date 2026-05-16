@@ -23,6 +23,7 @@ namespace RtsGame.Sim.Data
         public int HitPoints { get; set; }
         public int CurrentBuildTargetId { get; set; }
         public int CurrentResourceNodeId { get; set; }
+        public WorkerTaskPhase TaskPhase { get; set; }
         public InteractionReservationKind ReservedInteractionKind { get; set; }
         public int ReservedInteractionTargetId { get; set; }
         public int ReservedInteractionTileX { get; set; }
@@ -48,6 +49,19 @@ namespace RtsGame.Sim.Data
         ResourceNode = 1,
         Dropoff = 2,
         BuildSite = 3
+    }
+
+    public enum WorkerTaskPhase
+    {
+        Idle = 0,
+        MovingToResourceSlot = 1,
+        Gathering = 2,
+        MovingToDropoffSlot = 3,
+        Depositing = 4,
+        MovingToBuildSlot = 5,
+        Building = 6,
+        MovingToCommandMove = 7,
+        BlockedWaiting = 8
     }
 
     public sealed class Building

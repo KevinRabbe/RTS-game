@@ -93,6 +93,13 @@ Each phase owns a narrow responsibility:
 - Gather/deposit/build systems perform work only when the worker is in a valid interaction slot/range.
 - A worker in a valid interaction range should stop movement and perform the task.
 
+Current implementation notes:
+
+- `Unit.TaskPhase` stores the deterministic worker phase and is included in checksums.
+- Gather, deposit, and construction systems set action phases when the unit is already in the matching interaction range.
+- Command movement uses `MovingToCommandMove`; task slot movement uses the matching `MovingTo*Slot` phase.
+- Temporary movement blockage can set `BlockedWaiting` without clearing the worker's resource or build intent.
+
 ## 5. Interaction Slot Reservations
 
 Resource nodes, drop-off buildings, and foundations expose deterministic interaction slots or rings.
@@ -141,6 +148,12 @@ Rules:
 - Pathfinding uses shared blocker truth from map bounds, building footprints, resource footprints, walls, and live units.
 - No stacking.
 - Blocked/no-progress handling is bounded and deterministic.
+
+Current implementation notes:
+
+- Movement snaps to the exact `MoveTarget` when the remaining deterministic fixed-point distance is within the unit's per-tick movement step.
+- Task systems own interaction actions: being in valid resource, drop-off, or build range clears movement and performs the task instead of chasing exact raw coordinates.
+- Reaching a command-move target returns the unit to `Idle`; reaching a task slot leaves the task phase for the gather/deposit/build system to resolve.
 
 The desired no-jiggle contract:
 

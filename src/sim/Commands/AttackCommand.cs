@@ -77,6 +77,7 @@ namespace RtsGame.Sim.Commands
                 ClearBuildAssignment(state, unit);
                 SpatialRules.ClearInteractionReservation(unit);
                 unit.CurrentResourceNodeId = 0;
+                unit.TaskPhase = WorkerTaskPhase.Idle;
                 unit.HasMoveTarget = false;
                 unit.AttackTargetId = TargetEntityId;
                 if (!GameData.IsSiege(unit.UnitTypeId))

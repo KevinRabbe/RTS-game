@@ -10,6 +10,7 @@ using RtsGame.Sim.Core;
 using RtsGame.Sim.Data;
 using RtsGame.Sim.Determinism;
 using RtsGame.Sim.Replay;
+using RtsGame.Sim.Systems;
 using RtsGame.Stress;
 
 namespace RtsGame.Tests
@@ -79,6 +80,7 @@ namespace RtsGame.Tests
                 new TestCase("gather move target uses resource interaction ring", GatherMoveTargetUsesResourceInteractionRing),
                 new TestCase("multiple workers reserve distinct resource slots", MultipleWorkersReserveDistinctResourceSlots),
                 new TestCase("multiple workers on same resource do not stack", MultipleWorkersOnSameResourceDoNotStack),
+                new TestCase("worker in resource range gathers without move rewrite", WorkerInResourceRangeGathersWithoutMoveRewrite),
                 new TestCase("villager does not gather outside resource range", VillagerDoesNotGatherOutsideResourceRange),
                 new TestCase("villager gathers in resource interaction range", VillagerGathersInResourceInteractionRange),
                 new TestCase("villager gathers from diagonal resource interaction tile", VillagerGathersFromDiagonalResourceInteractionTile),
@@ -88,6 +90,7 @@ namespace RtsGame.Tests
                 new TestCase("multiple full wood carriers reserve distinct dropoff slots", MultipleFullWoodCarriersReserveDistinctDropoffSlots),
                 new TestCase("multiple full gold carriers reserve distinct dropoff slots", MultipleFullGoldCarriersReserveDistinctDropoffSlots),
                 new TestCase("multiple full carriers dropping at same tc do not stack", MultipleFullCarriersDroppingAtSameTcDoNotStack),
+                new TestCase("worker in dropoff range deposits without move rewrite", WorkerInDropoffRangeDepositsWithoutMoveRewrite),
                 new TestCase("villager deposits from diagonal town center interaction tile", VillagerDepositsFromDiagonalTownCenterInteractionTile),
                 new TestCase("villager resumes resource loop after deposit", VillagerResumesResourceLoopAfterDeposit),
                 new TestCase("villager returns to same food target after deposit", VillagerReturnsToSameFoodTargetAfterDeposit),
@@ -101,7 +104,9 @@ namespace RtsGame.Tests
                 new TestCase("two builders in range build faster than one", TwoBuildersInRangeBuildFasterThanOne),
                 new TestCase("build move target uses foundation interaction ring", BuildMoveTargetUsesFoundationInteractionRing),
                 new TestCase("multiple builders reserve distinct build slots", MultipleBuildersReserveDistinctBuildSlots),
+                new TestCase("builder in build range builds without micro movement", BuilderInBuildRangeBuildsWithoutMicroMovement),
                 new TestCase("builder blocked approach retargets deterministically", BuilderBlockedApproachRetargetsDeterministically),
+                new TestCase("movement arrival snaps without raw oscillation", MovementArrivalSnapsWithoutRawOscillation),
                 new TestCase("economy replay determinism", EconomyReplayDeterminism),
                 new TestCase("economy lockstep", EconomyLockstep),
                 new TestCase("train villager pays cost and completes", TrainVillagerPaysCostAndCompletes),
@@ -1282,6 +1287,28 @@ namespace RtsGame.Tests
             AssertEqual(resourceId, state.EntityState.Units[2].CurrentResourceNodeId, "third worker should keep resource target");
         }
 
+        private static void WorkerInResourceRangeGathersWithoutMoveRewrite()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            var state = GameInitializer.CreateNomadStart(2088, 1);
+            ResourceNode node = FindResourceNodeById(state, 1);
+            Unit unit = state.EntityState.Units[0];
+            unit.Position = new FixedVector2(node.Position.X + Fixed.FromInt(1), node.Position.Y);
+            unit.CurrentResourceNodeId = node.Id;
+            unit.TaskPhase = WorkerTaskPhase.MovingToResourceSlot;
+            unit.HasMoveTarget = true;
+            unit.MoveTarget = FixedVector2.FromInts(40, 40);
+            FixedVector2 originalMoveTarget = unit.MoveTarget;
+
+            new ResourceGatherSystem().Run(state, rules, new TickCommandContext(new List<CommandEnvelope>()));
+
+            AssertEqual(WorkerTaskPhase.Gathering, unit.TaskPhase, "worker in resource range should enter gathering phase");
+            AssertEqual(false, unit.HasMoveTarget, "worker in resource range should stop movement before gathering");
+            AssertEqual(originalMoveTarget.X.Raw, unit.MoveTarget.X.Raw, "gather action should not rewrite move target raw x while already in range");
+            AssertEqual(originalMoveTarget.Y.Raw, unit.MoveTarget.Y.Raw, "gather action should not rewrite move target raw y while already in range");
+            AssertEqual(GameData.VillagerGatherPerTick, unit.CarriedAmount, "worker should gather immediately from valid interaction range");
+        }
+
         private static void VillagerDoesNotGatherOutsideResourceRange()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -1390,6 +1417,30 @@ namespace RtsGame.Tests
                 runner.AdvanceOneTick(state, rules, buffer);
                 AssertNoLiveUnitStacking(state, "full carriers should not stack while dropping at same TC");
             }
+        }
+
+        private static void WorkerInDropoffRangeDepositsWithoutMoveRewrite()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            var state = CreateOccupancyState(2089, 1);
+            int unitId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(12, 10));
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(10, 10));
+            Unit unit = FindUnitById(state, unitId);
+            unit.CarriedResourceType = ResourceType.Wood;
+            unit.CarriedAmount = GameData.VillagerCarryCapacity;
+            unit.TaskPhase = WorkerTaskPhase.MovingToDropoffSlot;
+            unit.HasMoveTarget = true;
+            unit.MoveTarget = FixedVector2.FromInts(35, 35);
+            FixedVector2 originalMoveTarget = unit.MoveTarget;
+
+            new ResourceDepositSystem().Run(state, rules, new TickCommandContext(new List<CommandEnvelope>()));
+
+            AssertEqual(WorkerTaskPhase.Idle, unit.TaskPhase, "worker without resource target should become idle after depositing");
+            AssertEqual(false, unit.HasMoveTarget, "worker in dropoff range should stop movement before depositing");
+            AssertEqual(originalMoveTarget.X.Raw, unit.MoveTarget.X.Raw, "deposit action should not rewrite move target raw x while already in range");
+            AssertEqual(originalMoveTarget.Y.Raw, unit.MoveTarget.Y.Raw, "deposit action should not rewrite move target raw y while already in range");
+            AssertEqual(0, unit.CarriedAmount, "worker should deposit carried resources");
+            AssertEqual(GameData.VillagerCarryCapacity, state.PlayerStates.Players[0].Resources.Wood, "deposit should update stockpile");
         }
 
         private static void VillagerDepositsFromDiagonalTownCenterInteractionTile()
@@ -1584,6 +1635,30 @@ namespace RtsGame.Tests
             AssertDistinctReservations(state, new[] { 1, 2, 3 }, InteractionReservationKind.BuildSite, foundationId, "builders should reserve different build slots");
         }
 
+        private static void BuilderInBuildRangeBuildsWithoutMicroMovement()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(2090, 1);
+            int builderId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(12, 10));
+            int foundationId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(10, 10));
+            Building foundation = state.EntityState.Buildings[state.EntityState.EntityLookup[foundationId].Index];
+            foundation.AssignedBuilderIds.Add(builderId);
+            Unit builder = FindUnitById(state, builderId);
+            builder.CurrentBuildTargetId = foundationId;
+            builder.TaskPhase = WorkerTaskPhase.MovingToBuildSlot;
+            builder.HasMoveTarget = true;
+            builder.MoveTarget = FixedVector2.FromInts(32, 32);
+            FixedVector2 originalMoveTarget = builder.MoveTarget;
+
+            new ConstructionSystem().Run(state, rules, new TickCommandContext(new List<CommandEnvelope>()));
+
+            AssertEqual(WorkerTaskPhase.Building, builder.TaskPhase, "builder in range should enter building phase");
+            AssertEqual(false, builder.HasMoveTarget, "builder in build range should stop movement before building");
+            AssertEqual(originalMoveTarget.X.Raw, builder.MoveTarget.X.Raw, "build action should not rewrite move target raw x while already in range");
+            AssertEqual(originalMoveTarget.Y.Raw, builder.MoveTarget.Y.Raw, "build action should not rewrite move target raw y while already in range");
+            AssertEqual(1, foundation.BuildProgressTicks, "builder in range should progress construction");
+        }
+
         private static void BuilderBlockedApproachRetargetsDeterministically()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -1611,6 +1686,35 @@ namespace RtsGame.Tests
             AssertEqual(true, builder.HasMoveTarget, "builder should keep build intent and retarget");
             AssertEqual(false, SpatialRules.GetTileX(builder.MoveTarget) == blockedTile.X && SpatialRules.GetTileY(builder.MoveTarget) == blockedTile.Y, "builder should retarget away from stale blocked tile");
             AssertEqual(foundationId, builder.CurrentBuildTargetId, "builder should keep build target during congestion recovery");
+        }
+
+        private static void MovementArrivalSnapsWithoutRawOscillation()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(2091, 1);
+            int unitId = EntityFactory.CreateUnit(
+                state,
+                0,
+                UnitTypeId.Villager,
+                new FixedVector2(Fixed.FromRatio(19, 20), Fixed.FromInt(0)));
+            Unit unit = FindUnitById(state, unitId);
+            unit.HasMoveTarget = true;
+            unit.MoveTarget = FixedVector2.FromInts(1, 0);
+            unit.TaskPhase = WorkerTaskPhase.MovingToCommandMove;
+            var context = new TickCommandContext(new List<CommandEnvelope>());
+
+            new MovementSystem().Run(state, rules, context);
+            long snappedX = unit.Position.X.Raw;
+            long snappedY = unit.Position.Y.Raw;
+
+            AssertEqual(Fixed.FromInt(1).Raw, snappedX, "movement should snap to target when within one deterministic step");
+            AssertEqual(Fixed.FromInt(0).Raw, snappedY, "movement snap should keep y stable");
+            AssertEqual(false, unit.HasMoveTarget, "movement should clear target after snap arrival");
+            AssertEqual(WorkerTaskPhase.Idle, unit.TaskPhase, "command move should return to idle after arrival");
+
+            new MovementSystem().Run(state, rules, context);
+            AssertEqual(snappedX, unit.Position.X.Raw, "arrived unit should not oscillate raw x after snap");
+            AssertEqual(snappedY, unit.Position.Y.Raw, "arrived unit should not oscillate raw y after snap");
         }
 
         private static void EconomyReplayDeterminism()

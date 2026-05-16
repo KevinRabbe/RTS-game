@@ -78,6 +78,7 @@ namespace RtsGame.Sim.Commands
                 ClearBuildAssignment(state, unit);
                 SpatialRules.ClearInteractionReservation(unit);
                 unit.CurrentResourceNodeId = 0;
+                unit.TaskPhase = WorkerTaskPhase.MovingToCommandMove;
                 unit.HasMoveTarget = true;
                 unit.MoveTarget = Target;
                 unit.AttackTargetId = 0;

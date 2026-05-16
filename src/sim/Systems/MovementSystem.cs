@@ -202,11 +202,13 @@ namespace RtsGame.Sim.Systems
                 if (plans[i].ShouldClearTarget)
                 {
                     unit.HasMoveTarget = false;
+                    unit.TaskPhase = GetPhaseAfterClearedMove(unit.TaskPhase);
                     continue;
                 }
 
                 if (plans[i].Blocked)
                 {
+                    unit.TaskPhase = GetPhaseAfterBlockedMove(unit.TaskPhase);
                     continue;
                 }
 
@@ -220,8 +222,42 @@ namespace RtsGame.Sim.Systems
                 if (plans[i].WillReachTarget)
                 {
                     unit.HasMoveTarget = false;
+                    unit.TaskPhase = GetPhaseAfterArrivedMove(unit.TaskPhase);
                 }
             }
+        }
+
+        private static WorkerTaskPhase GetPhaseAfterClearedMove(WorkerTaskPhase phase)
+        {
+            if (phase == WorkerTaskPhase.MovingToCommandMove)
+            {
+                return WorkerTaskPhase.Idle;
+            }
+
+            if (IsWorkerTaskMovementPhase(phase))
+            {
+                return WorkerTaskPhase.BlockedWaiting;
+            }
+
+            return phase;
+        }
+
+        private static WorkerTaskPhase GetPhaseAfterBlockedMove(WorkerTaskPhase phase)
+        {
+            return IsWorkerTaskMovementPhase(phase) ? WorkerTaskPhase.BlockedWaiting : phase;
+        }
+
+        private static WorkerTaskPhase GetPhaseAfterArrivedMove(WorkerTaskPhase phase)
+        {
+            return phase == WorkerTaskPhase.MovingToCommandMove ? WorkerTaskPhase.Idle : phase;
+        }
+
+        private static bool IsWorkerTaskMovementPhase(WorkerTaskPhase phase)
+        {
+            return phase == WorkerTaskPhase.MovingToResourceSlot
+                || phase == WorkerTaskPhase.MovingToDropoffSlot
+                || phase == WorkerTaskPhase.MovingToBuildSlot
+                || phase == WorkerTaskPhase.BlockedWaiting;
         }
 
         private struct MovementPlan

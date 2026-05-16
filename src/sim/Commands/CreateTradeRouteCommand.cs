@@ -63,6 +63,7 @@ namespace RtsGame.Sim.Commands
             cart.CurrentBuildTargetId = 0;
             cart.CurrentResourceNodeId = 0;
             SpatialRules.ClearInteractionReservation(cart);
+            cart.TaskPhase = WorkerTaskPhase.MovingToCommandMove;
             cart.AttackTargetId = 0;
             cart.HasMoveTarget = true;
             cart.MoveTarget = postB.Position;

@@ -92,6 +92,7 @@ namespace RtsGame.Sim.Commands
                 ClearPreviousBuildAssignment(state, unit);
                 SpatialRules.ClearInteractionReservation(unit);
                 unit.CurrentBuildTargetId = TargetBuildingId;
+                unit.TaskPhase = WorkerTaskPhase.MovingToBuildSlot;
 
                 if (!building.AssignedBuilderIds.Contains(unitId))
                 {

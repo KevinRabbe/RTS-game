@@ -91,12 +91,14 @@ namespace RtsGame.Sim.Systems
                 Unit unit = state.EntityState.Units[builderIndexes[i]];
                 if (SpatialRules.IsUnitInBuildInteractionRange(unit, building))
                 {
+                    unit.TaskPhase = WorkerTaskPhase.Building;
                     unit.HasMoveTarget = false;
                     continue;
                 }
 
                 if (ShouldKeepCurrentApproachTarget(state, interactionTiles, unit))
                 {
+                    unit.TaskPhase = WorkerTaskPhase.MovingToBuildSlot;
                     unit.HasMoveTarget = true;
                     unit.MoveTarget = FixedVector2.FromInts(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
                     continue;
@@ -104,9 +106,13 @@ namespace RtsGame.Sim.Systems
 
                 if (TryChooseApproachTile(state, unit, interactionTiles, building.Id, out int tileX, out int tileY))
                 {
+                    unit.TaskPhase = WorkerTaskPhase.MovingToBuildSlot;
                     unit.HasMoveTarget = true;
                     unit.MoveTarget = FixedVector2.FromInts(tileX, tileY);
+                    continue;
                 }
+
+                unit.TaskPhase = WorkerTaskPhase.BlockedWaiting;
             }
         }
 
@@ -160,6 +166,7 @@ namespace RtsGame.Sim.Systems
                 {
                     state.EntityState.Units[entityRef.Index].CurrentBuildTargetId = 0;
                     SpatialRules.ClearInteractionReservation(state.EntityState.Units[entityRef.Index]);
+                    state.EntityState.Units[entityRef.Index].TaskPhase = WorkerTaskPhase.Idle;
                 }
             }
         }

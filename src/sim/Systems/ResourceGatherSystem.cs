@@ -22,6 +22,7 @@ namespace RtsGame.Sim.Systems
                 {
                     unit.CurrentResourceNodeId = 0;
                     SpatialRules.ClearInteractionReservation(unit);
+                    unit.TaskPhase = WorkerTaskPhase.Idle;
                     continue;
                 }
 
@@ -32,6 +33,7 @@ namespace RtsGame.Sim.Systems
                         SpatialRules.ClearInteractionReservation(unit);
                     }
 
+                    unit.TaskPhase = WorkerTaskPhase.MovingToDropoffSlot;
                     continue;
                 }
 
@@ -40,6 +42,7 @@ namespace RtsGame.Sim.Systems
                 {
                     if (ShouldKeepCurrentApproachTarget(state, unit, node))
                     {
+                        unit.TaskPhase = WorkerTaskPhase.MovingToResourceSlot;
                         unit.HasMoveTarget = true;
                         unit.MoveTarget = FixedVector2.FromInts(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
                         continue;
@@ -47,13 +50,17 @@ namespace RtsGame.Sim.Systems
 
                     if (TryChooseResourceApproachTile(state, unit, node, out int approachX, out int approachY))
                     {
+                        unit.TaskPhase = WorkerTaskPhase.MovingToResourceSlot;
                         unit.HasMoveTarget = true;
                         unit.MoveTarget = FixedVector2.FromInts(approachX, approachY);
+                        continue;
                     }
 
+                    unit.TaskPhase = WorkerTaskPhase.BlockedWaiting;
                     continue;
                 }
 
+                unit.TaskPhase = WorkerTaskPhase.Gathering;
                 unit.HasMoveTarget = false;
                 int gathered = Min(GameData.VillagerGatherPerTick, carryRoom, node.RemainingAmount);
                 if (gathered <= 0)
@@ -77,6 +84,7 @@ namespace RtsGame.Sim.Systems
                 {
                     unit.CurrentResourceNodeId = 0;
                     SpatialRules.ClearInteractionReservation(unit);
+                    unit.TaskPhase = WorkerTaskPhase.Idle;
                 }
             }
         }

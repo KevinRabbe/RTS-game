@@ -20,6 +20,7 @@ namespace RtsGame.Sim.Systems
                 Building? dropOff = FindNearestCompletedTownCenter(state, unit.OwnerPlayerIndex, unit.Position);
                 if (dropOff == null)
                 {
+                    unit.TaskPhase = WorkerTaskPhase.BlockedWaiting;
                     continue;
                 }
 
@@ -27,6 +28,7 @@ namespace RtsGame.Sim.Systems
                 {
                     if (ShouldKeepCurrentApproachTarget(state, unit, dropOff))
                     {
+                        unit.TaskPhase = WorkerTaskPhase.MovingToDropoffSlot;
                         unit.HasMoveTarget = true;
                         unit.MoveTarget = FixedVector2.FromInts(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
                         continue;
@@ -34,18 +36,23 @@ namespace RtsGame.Sim.Systems
 
                     if (TryChooseDropOffApproachTile(state, unit, dropOff, out int approachX, out int approachY))
                     {
+                        unit.TaskPhase = WorkerTaskPhase.MovingToDropoffSlot;
                         unit.HasMoveTarget = true;
                         unit.MoveTarget = FixedVector2.FromInts(approachX, approachY);
+                        continue;
                     }
 
+                    unit.TaskPhase = WorkerTaskPhase.BlockedWaiting;
                     continue;
                 }
 
+                unit.TaskPhase = WorkerTaskPhase.Depositing;
                 unit.HasMoveTarget = false;
                 SpatialRules.ClearInteractionReservation(unit);
                 state.PlayerStates.Players[unit.OwnerPlayerIndex].Resources.Add(unit.CarriedResourceType, unit.CarriedAmount);
                 unit.CarriedAmount = 0;
                 unit.CarriedResourceType = ResourceType.None;
+                unit.TaskPhase = unit.CurrentResourceNodeId == 0 ? WorkerTaskPhase.Idle : WorkerTaskPhase.MovingToResourceSlot;
             }
         }
 
