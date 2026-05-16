@@ -117,6 +117,15 @@ Slot release reasons:
 
 Temporary congestion should move a worker to `BlockedWaiting` or trigger bounded deterministic retargeting. It should not erase the worker's resource/build intent.
 
+Current implementation notes:
+
+- Each worker stores one deterministic reservation in simulation state: kind, target id, and tile.
+- Supported reservation kinds are `ResourceNode`, `Dropoff`, and `BuildSite`.
+- Reservation state is included in checksums because it affects future movement and task decisions.
+- Slot selection filters out blocked footprint tiles, occupied tiles, and tiles reserved by other live workers.
+- Candidate ordering is deterministic: nearest tile from the worker's current tile first, then stable tile order by Y and X.
+- Gather, drop-off, and construction systems retain a valid reservation and only re-slot when the target changes, the slot becomes invalid/occupied/reserved by another worker, or bounded no-progress retry allows retargeting.
+
 ## 6. Movement Contract
 
 Movement executes movement only.

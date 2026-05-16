@@ -43,6 +43,10 @@ namespace RtsGame.Sim.Checksums
                 writer.WriteInt32(unit.HitPoints);
                 writer.WriteInt32(unit.CurrentBuildTargetId);
                 writer.WriteInt32(unit.CurrentResourceNodeId);
+                writer.WriteUInt16((ushort)unit.ReservedInteractionKind);
+                writer.WriteInt32(unit.ReservedInteractionTargetId);
+                writer.WriteInt32(unit.ReservedInteractionTileX);
+                writer.WriteInt32(unit.ReservedInteractionTileY);
                 writer.WriteUInt16((ushort)unit.CarriedResourceType);
                 writer.WriteInt32(unit.CarriedAmount);
                 writer.WriteInt32(unit.AttackTargetId);

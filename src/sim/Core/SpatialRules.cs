@@ -238,6 +238,52 @@ namespace RtsGame.Sim.Core
             return found;
         }
 
+        public static bool TryReserveNearestReachableInteractionTile(
+            GameState state,
+            Unit unit,
+            InteractionReservationKind kind,
+            int targetId,
+            List<TileCoord> interactionTiles,
+            out TileCoord selected)
+        {
+            selected = default;
+            int unitTileX = GetTileX(unit.Position);
+            int unitTileY = GetTileY(unit.Position);
+            int bestScore = int.MaxValue;
+            bool found = false;
+            for (int i = 0; i < interactionTiles.Count; i++)
+            {
+                TileCoord tile = interactionTiles[i];
+                if (!IsInteractionSlotAvailableForUnit(state, unit, kind, targetId, tile.X, tile.Y))
+                {
+                    continue;
+                }
+
+                if (!DeterministicPathfinder.TryFindNextTile(state, unitTileX, unitTileY, tile.X, tile.Y, out _, out _))
+                {
+                    continue;
+                }
+
+                int score = Abs(unitTileX - tile.X) + Abs(unitTileY - tile.Y);
+                if (!found
+                    || score < bestScore
+                    || (score == bestScore && CompareTiles(tile, selected) < 0)
+                    || (score == bestScore && CompareTiles(tile, selected) == 0 && targetId < unit.ReservedInteractionTargetId))
+                {
+                    selected = tile;
+                    bestScore = score;
+                    found = true;
+                }
+            }
+
+            if (found)
+            {
+                ReserveInteractionSlot(unit, kind, targetId, selected);
+            }
+
+            return found;
+        }
+
         public static bool ContainsInteractionTile(List<TileCoord> interactionTiles, int tileX, int tileY)
         {
             for (int i = 0; i < interactionTiles.Count; i++)
@@ -279,6 +325,82 @@ namespace RtsGame.Sim.Core
             return true;
         }
 
+        public static bool ShouldRetainInteractionReservation(
+            GameState state,
+            Unit unit,
+            InteractionReservationKind kind,
+            int targetId,
+            List<TileCoord> interactionTiles)
+        {
+            if (unit.ReservedInteractionKind != kind
+                || unit.ReservedInteractionTargetId != targetId
+                || !ContainsInteractionTile(interactionTiles, unit.ReservedInteractionTileX, unit.ReservedInteractionTileY))
+            {
+                return false;
+            }
+
+            if (!IsInteractionSlotAvailableForUnit(
+                state,
+                unit,
+                kind,
+                targetId,
+                unit.ReservedInteractionTileX,
+                unit.ReservedInteractionTileY))
+            {
+                return false;
+            }
+
+            int unitTileX = GetTileX(unit.Position);
+            int unitTileY = GetTileY(unit.Position);
+            bool alreadyAtSlot = unitTileX == unit.ReservedInteractionTileX && unitTileY == unit.ReservedInteractionTileY;
+            if (!alreadyAtSlot
+                && !DeterministicPathfinder.TryFindNextTile(
+                    state,
+                    unitTileX,
+                    unitTileY,
+                    unit.ReservedInteractionTileX,
+                    unit.ReservedInteractionTileY,
+                    out _,
+                    out _))
+            {
+                return false;
+            }
+
+            if (unit.HasMoveTarget
+                && GetTileX(unit.MoveTarget) == unit.ReservedInteractionTileX
+                && GetTileY(unit.MoveTarget) == unit.ReservedInteractionTileY)
+            {
+                int blockedTicks = unit.LastMovedTick < 0 ? int.MaxValue : state.Tick - unit.LastMovedTick;
+                if (blockedTicks >= GameData.InteractionTargetRetargetBlockedTicks)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public static void ReserveInteractionSlot(Unit unit, InteractionReservationKind kind, int targetId, TileCoord tile)
+        {
+            unit.ReservedInteractionKind = kind;
+            unit.ReservedInteractionTargetId = targetId;
+            unit.ReservedInteractionTileX = tile.X;
+            unit.ReservedInteractionTileY = tile.Y;
+        }
+
+        public static void ClearInteractionReservation(Unit unit)
+        {
+            unit.ReservedInteractionKind = InteractionReservationKind.None;
+            unit.ReservedInteractionTargetId = 0;
+            unit.ReservedInteractionTileX = 0;
+            unit.ReservedInteractionTileY = 0;
+        }
+
+        public static bool HasReservedInteractionSlot(Unit unit, InteractionReservationKind kind, int targetId)
+        {
+            return unit.ReservedInteractionKind == kind && unit.ReservedInteractionTargetId == targetId;
+        }
+
         public static List<TileCoord> EnumerateBuildInteractionTiles(GameState state, Building building)
         {
             return EnumerateBuildingInteractionTiles(state, building);
@@ -304,6 +426,39 @@ namespace RtsGame.Sim.Core
             }
 
             return false;
+        }
+
+        private static bool IsInteractionSlotAvailableForUnit(
+            GameState state,
+            Unit unit,
+            InteractionReservationKind kind,
+            int targetId,
+            int tileX,
+            int tileY)
+        {
+            if (IsTileBlockedForUnitMovement(state, tileX, tileY)
+                || IsTileOccupiedByLiveUnit(state, tileX, tileY, unit.Id))
+            {
+                return false;
+            }
+
+            for (int i = 0; i < state.EntityState.Units.Count; i++)
+            {
+                Unit other = state.EntityState.Units[i];
+                if (other.IsDead
+                    || other.Id == unit.Id
+                    || other.ReservedInteractionKind == InteractionReservationKind.None)
+                {
+                    continue;
+                }
+
+                if (other.ReservedInteractionTileX == tileX && other.ReservedInteractionTileY == tileY)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static bool IsInsideRadius(FixedVector2 position, FixedVector2 center, int radiusTiles)

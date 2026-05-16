@@ -23,6 +23,10 @@ namespace RtsGame.Sim.Data
         public int HitPoints { get; set; }
         public int CurrentBuildTargetId { get; set; }
         public int CurrentResourceNodeId { get; set; }
+        public InteractionReservationKind ReservedInteractionKind { get; set; }
+        public int ReservedInteractionTargetId { get; set; }
+        public int ReservedInteractionTileX { get; set; }
+        public int ReservedInteractionTileY { get; set; }
         public ResourceType CarriedResourceType { get; set; }
         public int CarriedAmount { get; set; }
         public int AttackTargetId { get; set; }
@@ -36,6 +40,14 @@ namespace RtsGame.Sim.Data
         public int TradeIncomePerTrip { get; set; }
         public int DespawnTicksRemaining { get; set; }
         public bool IsDead { get; set; }
+    }
+
+    public enum InteractionReservationKind
+    {
+        None = 0,
+        ResourceNode = 1,
+        Dropoff = 2,
+        BuildSite = 3
     }
 
     public sealed class Building

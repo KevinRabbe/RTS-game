@@ -77,11 +77,17 @@ namespace RtsGame.Tests
                 new TestCase("gather command keeps selected gold target id", GatherCommandKeepsSelectedGoldTargetId),
                 new TestCase("gather command sets movement toward resource", GatherCommandSetsMovementTowardResource),
                 new TestCase("gather move target uses resource interaction ring", GatherMoveTargetUsesResourceInteractionRing),
+                new TestCase("multiple workers reserve distinct resource slots", MultipleWorkersReserveDistinctResourceSlots),
+                new TestCase("multiple workers on same resource do not stack", MultipleWorkersOnSameResourceDoNotStack),
                 new TestCase("villager does not gather outside resource range", VillagerDoesNotGatherOutsideResourceRange),
                 new TestCase("villager gathers in resource interaction range", VillagerGathersInResourceInteractionRange),
                 new TestCase("villager gathers from diagonal resource interaction tile", VillagerGathersFromDiagonalResourceInteractionTile),
                 new TestCase("villager returns to dropoff when full", VillagerReturnsToDropoffWhenFull),
                 new TestCase("dropoff move target uses town center interaction ring", DropoffMoveTargetUsesTownCenterInteractionRing),
+                new TestCase("multiple full food carriers reserve distinct dropoff slots", MultipleFullFoodCarriersReserveDistinctDropoffSlots),
+                new TestCase("multiple full wood carriers reserve distinct dropoff slots", MultipleFullWoodCarriersReserveDistinctDropoffSlots),
+                new TestCase("multiple full gold carriers reserve distinct dropoff slots", MultipleFullGoldCarriersReserveDistinctDropoffSlots),
+                new TestCase("multiple full carriers dropping at same tc do not stack", MultipleFullCarriersDroppingAtSameTcDoNotStack),
                 new TestCase("villager deposits from diagonal town center interaction tile", VillagerDepositsFromDiagonalTownCenterInteractionTile),
                 new TestCase("villager resumes resource loop after deposit", VillagerResumesResourceLoopAfterDeposit),
                 new TestCase("villager returns to same food target after deposit", VillagerReturnsToSameFoodTargetAfterDeposit),
@@ -94,6 +100,7 @@ namespace RtsGame.Tests
                 new TestCase("full wood carrier blocked dropoff target retargets and deposits", FullWoodCarrierBlockedDropoffTargetRetargetsAndDeposits),
                 new TestCase("two builders in range build faster than one", TwoBuildersInRangeBuildFasterThanOne),
                 new TestCase("build move target uses foundation interaction ring", BuildMoveTargetUsesFoundationInteractionRing),
+                new TestCase("multiple builders reserve distinct build slots", MultipleBuildersReserveDistinctBuildSlots),
                 new TestCase("builder blocked approach retargets deterministically", BuilderBlockedApproachRetargetsDeterministically),
                 new TestCase("economy replay determinism", EconomyReplayDeterminism),
                 new TestCase("economy lockstep", EconomyLockstep),
@@ -1242,6 +1249,39 @@ namespace RtsGame.Tests
             AssertEqual(true, SpatialRules.IsTileAdjacentToResourceFootprint(node, targetX, targetY), "resource approach tile should be adjacent to footprint");
         }
 
+        private static void MultipleWorkersReserveDistinctResourceSlots()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            var state = GameInitializer.CreateNomadStart(2081, 1);
+            int resourceId = FindFirstResourceNodeIdByType(state, ResourceType.Food);
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(resourceId, new[] { 1, 2, 3 })));
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertDistinctReservations(state, new[] { 1, 2, 3 }, InteractionReservationKind.ResourceNode, resourceId, "resource gatherers should reserve different slots");
+        }
+
+        private static void MultipleWorkersOnSameResourceDoNotStack()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            var state = GameInitializer.CreateNomadStart(2082, 1);
+            int resourceId = FindFirstResourceNodeIdByType(state, ResourceType.Food);
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(resourceId, new[] { 1, 2, 3 })));
+            runner.AdvanceOneTick(state, rules, buffer);
+            for (int tick = 1; tick <= 80; tick++)
+            {
+                AddNoOp(buffer, tick, 0, (uint)(20820 + tick));
+                runner.AdvanceOneTick(state, rules, buffer);
+                AssertNoLiveUnitStacking(state, "workers on same resource should not stack while moving/gathering");
+            }
+
+            AssertEqual(resourceId, state.EntityState.Units[0].CurrentResourceNodeId, "first worker should keep resource target");
+            AssertEqual(resourceId, state.EntityState.Units[1].CurrentResourceNodeId, "second worker should keep resource target");
+            AssertEqual(resourceId, state.EntityState.Units[2].CurrentResourceNodeId, "third worker should keep resource target");
+        }
+
         private static void VillagerDoesNotGatherOutsideResourceRange()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -1321,6 +1361,35 @@ namespace RtsGame.Tests
             AssertEqual(true, unit.HasMoveTarget, "dropoff assignment should set an approach tile");
             AssertEqual(false, SpatialRules.IsTileInsideBuildingFootprint(tc, targetX, targetY), "dropoff approach tile should not be inside TC footprint");
             AssertEqual(true, SpatialRules.IsUnitInBuildingInteractionRange(new Unit { Position = FixedVector2.FromInts(targetX, targetY) }, tc), "dropoff approach tile should be on TC interaction ring");
+        }
+
+        private static void MultipleFullFoodCarriersReserveDistinctDropoffSlots()
+        {
+            AssertMultipleFullCarriersReserveDistinctDropoffSlots(ResourceType.Food, 2083);
+        }
+
+        private static void MultipleFullWoodCarriersReserveDistinctDropoffSlots()
+        {
+            AssertMultipleFullCarriersReserveDistinctDropoffSlots(ResourceType.Wood, 2084);
+        }
+
+        private static void MultipleFullGoldCarriersReserveDistinctDropoffSlots()
+        {
+            AssertMultipleFullCarriersReserveDistinctDropoffSlots(ResourceType.Gold, 2085);
+        }
+
+        private static void MultipleFullCarriersDroppingAtSameTcDoNotStack()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateDropoffReservationState(2086, ResourceType.Gold, out _);
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            for (int tick = 0; tick <= 80; tick++)
+            {
+                AddNoOp(buffer, tick, 0, (uint)(20860 + tick));
+                runner.AdvanceOneTick(state, rules, buffer);
+                AssertNoLiveUnitStacking(state, "full carriers should not stack while dropping at same TC");
+            }
         }
 
         private static void VillagerDepositsFromDiagonalTownCenterInteractionTile()
@@ -1501,6 +1570,18 @@ namespace RtsGame.Tests
             AssertEqual(true, unit.HasMoveTarget, "build assignment should set an approach tile");
             AssertEqual(false, SpatialRules.IsTileInsideBuildingFootprint(foundation, targetX, targetY), "build approach tile should not be inside foundation footprint");
             AssertEqual(true, SpatialRules.IsUnitInBuildingInteractionRange(new Unit { Position = FixedVector2.FromInts(targetX, targetY) }, foundation), "build approach tile should be on foundation interaction ring");
+        }
+
+        private static void MultipleBuildersReserveDistinctBuildSlots()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = GameInitializer.CreateNomadStart(2087, 1);
+            int foundationId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(6, 2));
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AssignBuild), new AssignBuildCommand(foundationId, new[] { 1, 2, 3 })));
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertDistinctReservations(state, new[] { 1, 2, 3 }, InteractionReservationKind.BuildSite, foundationId, "builders should reserve different build slots");
         }
 
         private static void BuilderBlockedApproachRetargetsDeterministically()
@@ -5783,6 +5864,89 @@ namespace RtsGame.Tests
             };
             state.EconomyState.ResourceNodes.Add(node);
             return node;
+        }
+
+        private static GameState CreateDropoffReservationState(ulong seed, ResourceType resourceType, out int townCenterId)
+        {
+            GameState state = CreateOccupancyState(seed, 1);
+            townCenterId = AddCompletedTownCenter(state, 0, FixedVector2.FromInts(10, 10));
+            int first = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(20, 10));
+            int second = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(20, 11));
+            int third = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(20, 12));
+            SetFullCarrier(state, first, resourceType);
+            SetFullCarrier(state, second, resourceType);
+            SetFullCarrier(state, third, resourceType);
+            return state;
+        }
+
+        private static void SetFullCarrier(GameState state, int unitId, ResourceType resourceType)
+        {
+            Unit unit = FindUnitById(state, unitId);
+            unit.CarriedResourceType = resourceType;
+            unit.CarriedAmount = GameData.VillagerCarryCapacity;
+        }
+
+        private static Unit FindUnitById(GameState state, int unitId)
+        {
+            if (!state.EntityState.EntityLookup.TryGetValue(unitId, out EntityRef entityRef)
+                || entityRef.Kind != EntityKind.Unit
+                || entityRef.Index < 0
+                || entityRef.Index >= state.EntityState.Units.Count)
+            {
+                throw new InvalidOperationException("unit not found id=" + unitId);
+            }
+
+            return state.EntityState.Units[entityRef.Index];
+        }
+
+        private static void AssertMultipleFullCarriersReserveDistinctDropoffSlots(ResourceType resourceType, ulong seed)
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateDropoffReservationState(seed, resourceType, out int townCenterId);
+            var buffer = new CommandBuffer();
+            AddNoOp(buffer, 0, 0, (uint)seed);
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            int firstId = state.EntityState.Units[0].Id;
+            int secondId = state.EntityState.Units[1].Id;
+            int thirdId = state.EntityState.Units[2].Id;
+            AssertDistinctReservations(
+                state,
+                new[] { firstId, secondId, thirdId },
+                InteractionReservationKind.Dropoff,
+                townCenterId,
+                "full " + resourceType + " carriers should reserve different dropoff slots");
+        }
+
+        private static void AssertDistinctReservations(GameState state, int[] unitIds, InteractionReservationKind kind, int targetId, string message)
+        {
+            var seen = new HashSet<int>();
+            for (int i = 0; i < unitIds.Length; i++)
+            {
+                Unit unit = FindUnitById(state, unitIds[i]);
+                AssertEqual(kind, unit.ReservedInteractionKind, message + " kind for unit " + unit.Id);
+                AssertEqual(targetId, unit.ReservedInteractionTargetId, message + " target for unit " + unit.Id);
+                int key = (unit.ReservedInteractionTileY << 16) ^ (unit.ReservedInteractionTileX & 0xFFFF);
+                AssertEqual(true, seen.Add(key), message + " should not duplicate tile " + unit.ReservedInteractionTileX + "," + unit.ReservedInteractionTileY);
+            }
+        }
+
+        private static void AssertNoLiveUnitStacking(GameState state, string message)
+        {
+            var occupied = new HashSet<int>();
+            for (int i = 0; i < state.EntityState.Units.Count; i++)
+            {
+                Unit unit = state.EntityState.Units[i];
+                if (unit.IsDead)
+                {
+                    continue;
+                }
+
+                int tileX = SpatialRules.GetTileX(unit.Position);
+                int tileY = SpatialRules.GetTileY(unit.Position);
+                int key = (tileY << 16) ^ (tileX & 0xFFFF);
+                AssertEqual(true, occupied.Add(key), message + " at " + tileX + "," + tileY);
+            }
         }
 
         private static ResourceAreaType ResolveTestAreaType(ResourceType resourceType)

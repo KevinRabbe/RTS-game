@@ -9,7 +9,6 @@ namespace RtsGame.Sim.Systems
     {
         public void Run(GameState state, GameRules rules, TickCommandContext commandContext)
         {
-            var reservedApproachTiles = new HashSet<int>();
             for (int i = 0; i < state.EntityState.Units.Count; i++)
             {
                 Unit unit = state.EntityState.Units[i];
@@ -28,21 +27,22 @@ namespace RtsGame.Sim.Systems
                 {
                     if (ShouldKeepCurrentApproachTarget(state, unit, dropOff))
                     {
-                        reservedApproachTiles.Add(EncodeTile(SpatialRules.GetTileX(unit.MoveTarget), SpatialRules.GetTileY(unit.MoveTarget)));
+                        unit.HasMoveTarget = true;
+                        unit.MoveTarget = FixedVector2.FromInts(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
                         continue;
                     }
 
-                    if (TryChooseDropOffApproachTile(state, unit, dropOff, reservedApproachTiles, out int approachX, out int approachY))
+                    if (TryChooseDropOffApproachTile(state, unit, dropOff, out int approachX, out int approachY))
                     {
                         unit.HasMoveTarget = true;
                         unit.MoveTarget = FixedVector2.FromInts(approachX, approachY);
-                        reservedApproachTiles.Add(EncodeTile(approachX, approachY));
                     }
 
                     continue;
                 }
 
                 unit.HasMoveTarget = false;
+                SpatialRules.ClearInteractionReservation(unit);
                 state.PlayerStates.Players[unit.OwnerPlayerIndex].Resources.Add(unit.CarriedResourceType, unit.CarriedAmount);
                 unit.CarriedAmount = 0;
                 unit.CarriedResourceType = ResourceType.None;
@@ -73,12 +73,18 @@ namespace RtsGame.Sim.Systems
             return best;
         }
 
-        private static bool TryChooseDropOffApproachTile(GameState state, Unit unit, Building dropOff, HashSet<int> reservedApproachTiles, out int approachX, out int approachY)
+        private static bool TryChooseDropOffApproachTile(GameState state, Unit unit, Building dropOff, out int approachX, out int approachY)
         {
             approachX = 0;
             approachY = 0;
             List<SpatialRules.TileCoord> interactionTiles = SpatialRules.EnumerateBuildingInteractionTiles(state, dropOff);
-            if (!SpatialRules.TryChooseNearestReachableInteractionTile(state, unit, interactionTiles, reservedApproachTiles, out SpatialRules.TileCoord selected))
+            if (!SpatialRules.TryReserveNearestReachableInteractionTile(
+                state,
+                unit,
+                InteractionReservationKind.Dropoff,
+                dropOff.Id,
+                interactionTiles,
+                out SpatialRules.TileCoord selected))
             {
                 return false;
             }
@@ -91,12 +97,13 @@ namespace RtsGame.Sim.Systems
         private static bool ShouldKeepCurrentApproachTarget(GameState state, Unit unit, Building dropOff)
         {
             List<SpatialRules.TileCoord> interactionTiles = SpatialRules.EnumerateBuildingInteractionTiles(state, dropOff);
-            return SpatialRules.ShouldRetainInteractionMoveTarget(state, unit, interactionTiles);
+            return SpatialRules.ShouldRetainInteractionReservation(
+                state,
+                unit,
+                InteractionReservationKind.Dropoff,
+                dropOff.Id,
+                interactionTiles);
         }
 
-        private static int EncodeTile(int tileX, int tileY)
-        {
-            return (tileY << 16) ^ (tileX & 0xFFFF);
-        }
     }
 }

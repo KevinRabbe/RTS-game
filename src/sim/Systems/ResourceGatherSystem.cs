@@ -9,7 +9,6 @@ namespace RtsGame.Sim.Systems
     {
         public void Run(GameState state, GameRules rules, TickCommandContext commandContext)
         {
-            var reservedApproachTiles = new HashSet<int>();
             for (int i = 0; i < state.EntityState.Units.Count; i++)
             {
                 Unit unit = state.EntityState.Units[i];
@@ -22,11 +21,17 @@ namespace RtsGame.Sim.Systems
                 if (node == null || node.IsDepleted)
                 {
                     unit.CurrentResourceNodeId = 0;
+                    SpatialRules.ClearInteractionReservation(unit);
                     continue;
                 }
 
                 if (unit.CarriedAmount >= GameData.VillagerCarryCapacity)
                 {
+                    if (unit.ReservedInteractionKind == InteractionReservationKind.ResourceNode)
+                    {
+                        SpatialRules.ClearInteractionReservation(unit);
+                    }
+
                     continue;
                 }
 
@@ -35,15 +40,15 @@ namespace RtsGame.Sim.Systems
                 {
                     if (ShouldKeepCurrentApproachTarget(state, unit, node))
                     {
-                        reservedApproachTiles.Add(EncodeTile(SpatialRules.GetTileX(unit.MoveTarget), SpatialRules.GetTileY(unit.MoveTarget)));
+                        unit.HasMoveTarget = true;
+                        unit.MoveTarget = FixedVector2.FromInts(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
                         continue;
                     }
 
-                    if (TryChooseResourceApproachTile(state, unit, node, reservedApproachTiles, out int approachX, out int approachY))
+                    if (TryChooseResourceApproachTile(state, unit, node, out int approachX, out int approachY))
                     {
                         unit.HasMoveTarget = true;
                         unit.MoveTarget = FixedVector2.FromInts(approachX, approachY);
-                        reservedApproachTiles.Add(EncodeTile(approachX, approachY));
                     }
 
                     continue;
@@ -71,6 +76,7 @@ namespace RtsGame.Sim.Systems
                 if (node.IsDepleted)
                 {
                     unit.CurrentResourceNodeId = 0;
+                    SpatialRules.ClearInteractionReservation(unit);
                 }
             }
         }
@@ -88,12 +94,18 @@ namespace RtsGame.Sim.Systems
             return null;
         }
 
-        private static bool TryChooseResourceApproachTile(GameState state, Unit unit, ResourceNode node, HashSet<int> reservedApproachTiles, out int approachX, out int approachY)
+        private static bool TryChooseResourceApproachTile(GameState state, Unit unit, ResourceNode node, out int approachX, out int approachY)
         {
             approachX = 0;
             approachY = 0;
             List<SpatialRules.TileCoord> interactionTiles = SpatialRules.EnumerateResourceInteractionTiles(state, node);
-            if (!SpatialRules.TryChooseNearestReachableInteractionTile(state, unit, interactionTiles, reservedApproachTiles, out SpatialRules.TileCoord selected))
+            if (!SpatialRules.TryReserveNearestReachableInteractionTile(
+                state,
+                unit,
+                InteractionReservationKind.ResourceNode,
+                node.Id,
+                interactionTiles,
+                out SpatialRules.TileCoord selected))
             {
                 return false;
             }
@@ -106,12 +118,12 @@ namespace RtsGame.Sim.Systems
         private static bool ShouldKeepCurrentApproachTarget(GameState state, Unit unit, ResourceNode node)
         {
             List<SpatialRules.TileCoord> interactionTiles = SpatialRules.EnumerateResourceInteractionTiles(state, node);
-            return SpatialRules.ShouldRetainInteractionMoveTarget(state, unit, interactionTiles);
-        }
-
-        private static int EncodeTile(int tileX, int tileY)
-        {
-            return (tileY << 16) ^ (tileX & 0xFFFF);
+            return SpatialRules.ShouldRetainInteractionReservation(
+                state,
+                unit,
+                InteractionReservationKind.ResourceNode,
+                node.Id,
+                interactionTiles);
         }
 
         private static int Min(int a, int b, int c)

@@ -75,6 +75,7 @@ namespace RtsGame.Sim.Commands
             {
                 Unit unit = GetUnit(state, sortedUnitIds[i]);
                 ClearBuildAssignment(state, unit);
+                SpatialRules.ClearInteractionReservation(unit);
                 unit.CurrentResourceNodeId = 0;
                 unit.HasMoveTarget = false;
                 unit.AttackTargetId = TargetEntityId;

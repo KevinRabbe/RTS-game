@@ -86,7 +86,6 @@ namespace RtsGame.Sim.Systems
         private static void AssignBuilderApproachTargets(GameState state, Building building, int[] builderIndexes)
         {
             var interactionTiles = SpatialRules.EnumerateBuildInteractionTiles(state, building);
-            var reserved = new System.Collections.Generic.HashSet<int>();
             for (int i = 0; i < builderIndexes.Length; i++)
             {
                 Unit unit = state.EntityState.Units[builderIndexes[i]];
@@ -98,15 +97,15 @@ namespace RtsGame.Sim.Systems
 
                 if (ShouldKeepCurrentApproachTarget(state, interactionTiles, unit))
                 {
-                    reserved.Add(EncodeTile(SpatialRules.GetTileX(unit.MoveTarget), SpatialRules.GetTileY(unit.MoveTarget)));
+                    unit.HasMoveTarget = true;
+                    unit.MoveTarget = FixedVector2.FromInts(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
                     continue;
                 }
 
-                if (TryChooseApproachTile(state, unit, interactionTiles, reserved, out int tileX, out int tileY))
+                if (TryChooseApproachTile(state, unit, interactionTiles, building.Id, out int tileX, out int tileY))
                 {
                     unit.HasMoveTarget = true;
                     unit.MoveTarget = FixedVector2.FromInts(tileX, tileY);
-                    reserved.Add(EncodeTile(tileX, tileY));
                 }
             }
         }
@@ -115,13 +114,19 @@ namespace RtsGame.Sim.Systems
             GameState state,
             Unit unit,
             System.Collections.Generic.List<SpatialRules.TileCoord> interactionTiles,
-            System.Collections.Generic.HashSet<int> reserved,
+            int targetBuildingId,
             out int selectedX,
             out int selectedY)
         {
             selectedX = 0;
             selectedY = 0;
-            if (!SpatialRules.TryChooseNearestReachableInteractionTile(state, unit, interactionTiles, reserved, out SpatialRules.TileCoord selected))
+            if (!SpatialRules.TryReserveNearestReachableInteractionTile(
+                state,
+                unit,
+                InteractionReservationKind.BuildSite,
+                targetBuildingId,
+                interactionTiles,
+                out SpatialRules.TileCoord selected))
             {
                 return false;
             }
@@ -133,12 +138,12 @@ namespace RtsGame.Sim.Systems
 
         private static bool ShouldKeepCurrentApproachTarget(GameState state, System.Collections.Generic.List<SpatialRules.TileCoord> interactionTiles, Unit unit)
         {
-            return SpatialRules.ShouldRetainInteractionMoveTarget(state, unit, interactionTiles);
-        }
-
-        private static int EncodeTile(int tileX, int tileY)
-        {
-            return (tileY << 16) ^ (tileX & 0xFFFF);
+            return SpatialRules.ShouldRetainInteractionReservation(
+                state,
+                unit,
+                InteractionReservationKind.BuildSite,
+                unit.CurrentBuildTargetId,
+                interactionTiles);
         }
 
         private static void ClearBuilderOrders(GameState state, Building building)
@@ -154,6 +159,7 @@ namespace RtsGame.Sim.Systems
                 if (entityRef.Index >= 0 && entityRef.Index < state.EntityState.Units.Count)
                 {
                     state.EntityState.Units[entityRef.Index].CurrentBuildTargetId = 0;
+                    SpatialRules.ClearInteractionReservation(state.EntityState.Units[entityRef.Index]);
                 }
             }
         }

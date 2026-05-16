@@ -71,32 +71,37 @@ namespace RtsGame.Sim.Commands
         {
             ResourceNode node = GetResourceNode(state, ResourceNodeId);
             List<int> sortedUnitIds = StableSort.Sorted(UnitIds, (left, right) => left.CompareTo(right));
-            var reservedApproachTiles = new HashSet<int>();
             for (int i = 0; i < sortedUnitIds.Count; i++)
             {
                 Unit unit = GetUnit(state, sortedUnitIds[i]);
                 ClearBuildAssignment(state, unit);
+                SpatialRules.ClearInteractionReservation(unit);
                 unit.CurrentResourceNodeId = ResourceNodeId;
                 unit.AttackTargetId = 0;
                 unit.IsSiegeDeployed = false;
                 unit.SiegeSetupTicksRemaining = 0;
                 unit.SiegeReloadTicksRemaining = 0;
 
-                if (TryChooseResourceApproachTile(state, unit, node, reservedApproachTiles, out int approachX, out int approachY))
+                if (TryChooseResourceApproachTile(state, unit, node, out int approachX, out int approachY))
                 {
                     unit.HasMoveTarget = true;
                     unit.MoveTarget = FixedVector2.FromInts(approachX, approachY);
-                    reservedApproachTiles.Add(EncodeTile(approachX, approachY));
                 }
             }
         }
 
-        private static bool TryChooseResourceApproachTile(GameState state, Unit unit, ResourceNode node, HashSet<int> reservedApproachTiles, out int approachX, out int approachY)
+        private static bool TryChooseResourceApproachTile(GameState state, Unit unit, ResourceNode node, out int approachX, out int approachY)
         {
             approachX = 0;
             approachY = 0;
             List<SpatialRules.TileCoord> interactionTiles = SpatialRules.EnumerateResourceInteractionTiles(state, node);
-            if (!SpatialRules.TryChooseNearestReachableInteractionTile(state, unit, interactionTiles, reservedApproachTiles, out SpatialRules.TileCoord selected))
+            if (!SpatialRules.TryReserveNearestReachableInteractionTile(
+                state,
+                unit,
+                InteractionReservationKind.ResourceNode,
+                node.Id,
+                interactionTiles,
+                out SpatialRules.TileCoord selected))
             {
                 return false;
             }
@@ -104,11 +109,6 @@ namespace RtsGame.Sim.Commands
             approachX = selected.X;
             approachY = selected.Y;
             return true;
-        }
-
-        private static int EncodeTile(int tileX, int tileY)
-        {
-            return (tileY << 16) ^ (tileX & 0xFFFF);
         }
 
         private static void ClearBuildAssignment(GameState state, Unit unit)

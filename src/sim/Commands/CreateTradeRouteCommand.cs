@@ -62,6 +62,7 @@ namespace RtsGame.Sim.Commands
             cart.TradeIncomePerTrip = CalculateIncome(postA, postB);
             cart.CurrentBuildTargetId = 0;
             cart.CurrentResourceNodeId = 0;
+            SpatialRules.ClearInteractionReservation(cart);
             cart.AttackTargetId = 0;
             cart.HasMoveTarget = true;
             cart.MoveTarget = postB.Position;

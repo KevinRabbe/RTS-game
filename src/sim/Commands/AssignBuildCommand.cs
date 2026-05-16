@@ -84,13 +84,13 @@ namespace RtsGame.Sim.Commands
             Building building = GetBuilding(state, TargetBuildingId);
             List<int> sortedUnitIds = StableSort.Sorted(UnitIds, (left, right) => left.CompareTo(right));
             List<SpatialRules.TileCoord> availableTiles = SpatialRules.EnumerateBuildInteractionTiles(state, building);
-            var reservedTiles = new HashSet<int>();
 
             for (int i = 0; i < sortedUnitIds.Count; i++)
             {
                 int unitId = sortedUnitIds[i];
                 Unit unit = GetUnit(state, unitId);
                 ClearPreviousBuildAssignment(state, unit);
+                SpatialRules.ClearInteractionReservation(unit);
                 unit.CurrentBuildTargetId = TargetBuildingId;
 
                 if (!building.AssignedBuilderIds.Contains(unitId))
@@ -104,30 +104,29 @@ namespace RtsGame.Sim.Commands
                 unit.SiegeSetupTicksRemaining = 0;
                 unit.SiegeReloadTicksRemaining = 0;
 
-                if (TryChooseBuildApproachTile(state, unit, availableTiles, reservedTiles, out SpatialRules.TileCoord approachTile))
+                if (TryChooseBuildApproachTile(state, unit, availableTiles, out SpatialRules.TileCoord approachTile))
                 {
                     unit.HasMoveTarget = true;
                     unit.MoveTarget = FixedVector2.FromInts(approachTile.X, approachTile.Y);
-                    reservedTiles.Add(EncodeTile(approachTile.X, approachTile.Y));
                 }
             }
 
             building.AssignedBuilderIds.Sort();
         }
 
-        private static int EncodeTile(int tileX, int tileY)
-        {
-            return (tileY << 16) ^ (tileX & 0xFFFF);
-        }
-
         private static bool TryChooseBuildApproachTile(
             GameState state,
             Unit unit,
             List<SpatialRules.TileCoord> availableTiles,
-            HashSet<int> reservedTiles,
             out SpatialRules.TileCoord selected)
         {
-            return SpatialRules.TryChooseNearestReachableInteractionTile(state, unit, availableTiles, reservedTiles, out selected);
+            return SpatialRules.TryReserveNearestReachableInteractionTile(
+                state,
+                unit,
+                InteractionReservationKind.BuildSite,
+                unit.CurrentBuildTargetId,
+                availableTiles,
+                out selected);
         }
 
         private static bool CanUnitReachAnyInteractionTile(GameState state, Unit unit, List<SpatialRules.TileCoord> interactionTiles)

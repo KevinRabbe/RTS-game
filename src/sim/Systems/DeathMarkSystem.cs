@@ -17,6 +17,7 @@ namespace RtsGame.Sim.Systems
                     unit.HasMoveTarget = false;
                     unit.CurrentBuildTargetId = 0;
                     unit.CurrentResourceNodeId = 0;
+                    SpatialRules.ClearInteractionReservation(unit);
                     unit.AttackTargetId = 0;
                 }
             }
