@@ -186,9 +186,7 @@ namespace RtsGame.Sim.Systems
                     if (swaps)
                     {
                         plans[i].Blocked = true;
-                        plans[i].ShouldClearTarget = true;
                         plans[other].Blocked = true;
-                        plans[other].ShouldClearTarget = true;
                     }
                 }
             }

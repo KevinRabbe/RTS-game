@@ -159,6 +159,10 @@ A tile claimed by a unit for a task endpoint, such as a resource interaction slo
 
 A tile used while traveling. It is not a final-purpose reservation unless a future traffic layer explicitly reserves corridors. Pass-through conflicts are resolved by movement rules.
 
+`Swap conflict`
+
+Two units attempting to step into each other's current tiles during the same tick. This is temporary traffic, not a reason to clear long-term intent or task-owned movement targets.
+
 `Static blockers`
 
 Map bounds, walls, building footprints, resource footprints, and any explicit sim blocker objects.

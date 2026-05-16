@@ -92,6 +92,7 @@ namespace RtsGame.Tests
                 new TestCase("multiple full wood carriers reserve distinct dropoff slots", MultipleFullWoodCarriersReserveDistinctDropoffSlots),
                 new TestCase("multiple full gold carriers reserve distinct dropoff slots", MultipleFullGoldCarriersReserveDistinctDropoffSlots),
                 new TestCase("multiple full carriers dropping at same tc do not stack", MultipleFullCarriersDroppingAtSameTcDoNotStack),
+                new TestCase("multiple full carriers dropping at same tc deposit cleanly", MultipleFullCarriersDroppingAtSameTcDepositCleanly),
                 new TestCase("worker in dropoff range deposits without move rewrite", WorkerInDropoffRangeDepositsWithoutMoveRewrite),
                 new TestCase("villager deposits from diagonal town center interaction tile", VillagerDepositsFromDiagonalTownCenterInteractionTile),
                 new TestCase("villager resumes resource loop after deposit", VillagerResumesResourceLoopAfterDeposit),
@@ -133,6 +134,7 @@ namespace RtsGame.Tests
                 new TestCase("two units attempting same tile fail", TwoUnitsAttemptingSameTileFail),
                 new TestCase("three units attempting same tile fail", ThreeUnitsAttemptingSameTileFail),
                 new TestCase("two unit tile swap fails", TwoUnitTileSwapFails),
+                new TestCase("worker task tile swap keeps movement intent", WorkerTaskTileSwapKeepsMovementIntent),
                 new TestCase("unit death same tick still blocks movement", UnitDeathSameTickStillBlocksMovement),
                 new TestCase("wall destruction same tick still blocks movement", WallDestructionSameTickStillBlocksMovement),
                 new TestCase("wall blocking replay determinism", WallBlockingReplayDeterminism),
@@ -1517,6 +1519,62 @@ namespace RtsGame.Tests
             }
         }
 
+        private static void MultipleFullCarriersDroppingAtSameTcDepositCleanly()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateDropoffReservationState(2095, ResourceType.Wood, out int townCenterId);
+            int[] unitIds = new[] { state.EntityState.Units[0].Id, state.EntityState.Units[1].Id, state.EntityState.Units[2].Id };
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            int woodBefore = state.PlayerStates.Players[0].Resources.Wood;
+            int duplicateReservationTicks = 0;
+            int churnTicks = 0;
+            long[] previousReservationKeys = new long[unitIds.Length];
+            long[] previousMoveKeys = new long[unitIds.Length];
+            for (int i = 0; i < unitIds.Length; i++)
+            {
+                previousReservationKeys[i] = long.MinValue;
+                previousMoveKeys[i] = long.MinValue;
+            }
+
+            for (int tick = 0; tick < 240; tick++)
+            {
+                AddNoOp(buffer, tick, 0, (uint)(20950 + tick));
+                runner.AdvanceOneTick(state, rules, buffer);
+                AssertNoLiveUnitStacking(state, "full carriers should not stack while depositing cleanly");
+
+                if (!TryReservationsAreDistinct(state, unitIds, InteractionReservationKind.Dropoff, townCenterId))
+                {
+                    duplicateReservationTicks++;
+                }
+
+                for (int i = 0; i < unitIds.Length; i++)
+                {
+                    Unit unit = FindUnitById(state, unitIds[i]);
+                    long reservationKey = EncodeReservationKey(unit);
+                    long moveKey = EncodeMoveTargetKey(unit);
+                    if (previousReservationKeys[i] != long.MinValue
+                        && unit.CarriedAmount > 0
+                        && (reservationKey != previousReservationKeys[i] || moveKey != previousMoveKeys[i]))
+                    {
+                        churnTicks++;
+                    }
+
+                    previousReservationKeys[i] = reservationKey;
+                    previousMoveKeys[i] = moveKey;
+                }
+            }
+
+            AssertEqual(0, duplicateReservationTicks, "full carriers should not duplicate final dropoff reservations");
+            AssertEqual(true, churnTicks < 20, "dropoff reservations and move targets should not churn under normal 3-carrier traffic churn=" + churnTicks);
+            AssertEqual(woodBefore + GameData.VillagerCarryCapacity * 3, state.PlayerStates.Players[0].Resources.Wood, "all full carriers should deposit cleanly at same TC");
+            for (int i = 0; i < unitIds.Length; i++)
+            {
+                Unit unit = FindUnitById(state, unitIds[i]);
+                AssertEqual(0, unit.CarriedAmount, "carrier should be empty after clean deposit unit=" + unit.Id);
+            }
+        }
+
         private static void WorkerInDropoffRangeDepositsWithoutMoveRewrite()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -2312,6 +2370,39 @@ namespace RtsGame.Tests
 
             AssertEqual(Fixed.FromInt(0).Raw, state.EntityState.Units[0].Position.X.Raw, "first unit should not swap tiles");
             AssertEqual(Fixed.FromInt(1).Raw, state.EntityState.Units[1].Position.X.Raw, "second unit should not swap tiles");
+        }
+
+        private static void WorkerTaskTileSwapKeepsMovementIntent()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(2096, 1);
+            int firstId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(0, 0));
+            int secondId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(1, 0));
+            Unit first = FindUnitById(state, firstId);
+            Unit second = FindUnitById(state, secondId);
+            first.TaskPhase = WorkerTaskPhase.MovingToResourceSlot;
+            first.HasMoveTarget = true;
+            first.MoveTarget = FixedVector2.FromInts(1, 0);
+            first.CurrentResourceNodeId = 10;
+            first.LastMovedTick = state.Tick;
+            second.TaskPhase = WorkerTaskPhase.MovingToDropoffSlot;
+            second.HasMoveTarget = true;
+            second.MoveTarget = FixedVector2.FromInts(0, 0);
+            second.CarriedResourceType = ResourceType.Wood;
+            second.CarriedAmount = GameData.VillagerCarryCapacity;
+            second.LastMovedTick = state.Tick;
+
+            new MovementSystem().Run(state, rules, new TickCommandContext(new List<CommandEnvelope>()));
+
+            AssertEqual(0, SpatialRules.GetTileX(first.Position), "first worker should not swap into occupied tile");
+            AssertEqual(1, SpatialRules.GetTileX(second.Position), "second worker should not swap into occupied tile");
+            AssertNoLiveUnitStacking(state, "worker task swap conflict should not stack units");
+            AssertEqual(true, first.HasMoveTarget, "worker task swap conflict should keep first movement target");
+            AssertEqual(true, second.HasMoveTarget, "worker task swap conflict should keep second movement target");
+            AssertEqual(10, first.CurrentResourceNodeId, "temporary swap congestion should not clear resource intent");
+            AssertEqual(GameData.VillagerCarryCapacity, second.CarriedAmount, "temporary swap congestion should not clear carried resources");
+            AssertEqual(WorkerTaskPhase.MovingToResourceSlot, first.TaskPhase, "brief swap congestion should not reset first worker phase");
+            AssertEqual(WorkerTaskPhase.MovingToDropoffSlot, second.TaskPhase, "brief swap congestion should not reset second worker phase");
         }
 
         private static void UnitDeathSameTickStillBlocksMovement()
@@ -6259,6 +6350,36 @@ namespace RtsGame.Tests
             }
 
             return true;
+        }
+
+        private static long EncodeReservationKey(Unit unit)
+        {
+            if (unit.ReservedInteractionKind == InteractionReservationKind.None)
+            {
+                return -1L;
+            }
+
+            unchecked
+            {
+                long result = (int)unit.ReservedInteractionKind;
+                result = (result * 397L) ^ unit.ReservedInteractionTargetId;
+                result = (result * 397L) ^ unit.ReservedInteractionTileX;
+                result = (result * 397L) ^ unit.ReservedInteractionTileY;
+                return result;
+            }
+        }
+
+        private static long EncodeMoveTargetKey(Unit unit)
+        {
+            if (!unit.HasMoveTarget)
+            {
+                return -1L;
+            }
+
+            unchecked
+            {
+                return (unit.MoveTarget.X.Raw * 397L) ^ unit.MoveTarget.Y.Raw;
+            }
         }
 
         private static void AssertNoLiveUnitStacking(GameState state, string message)
