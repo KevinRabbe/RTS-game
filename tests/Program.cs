@@ -118,6 +118,8 @@ namespace RtsGame.Tests
                 new TestCase("move unit snaps to target", MoveUnitSnapsToTarget),
                 new TestCase("move command clears work assignments", MoveCommandClearsWorkAssignments),
                 new TestCase("move rejects wall-blocked target", MoveRejectsWallBlockedTarget),
+                new TestCase("move rejects resource-blocked target", MoveRejectsResourceBlockedTarget),
+                new TestCase("move rejects unreachable open target", MoveRejectsUnreachableOpenTarget),
                 new TestCase("movement pathfinds around wall", MovementPathfindsAroundWall),
                 new TestCase("pathfinder returns same first step", PathfinderReturnsSameFirstStep),
                 new TestCase("pathfinder wall blocks path", PathfinderWallBlocksPath),
@@ -1939,6 +1941,37 @@ namespace RtsGame.Tests
 
             AssertEqual(false, state.EntityState.Units[0].HasMoveTarget, "move target inside wall should reject");
             AssertEqual(1, state.DebugCounters.RejectedCommandCount, "blocked move target should count as rejected");
+        }
+
+        private static void MoveRejectsResourceBlockedTarget()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            var state = GameInitializer.CreateNomadStart(151, 1);
+            ResourceNode node = FindResourceNodeById(state, 1);
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1 }, node.Position)));
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(false, state.EntityState.Units[0].HasMoveTarget, "move target inside resource footprint should reject");
+            AssertEqual(1, state.DebugCounters.RejectedCommandCount, "resource-blocked move target should count as rejected");
+        }
+
+        private static void MoveRejectsUnreachableOpenTarget()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(152);
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(0, 0));
+            for (int y = 0; y < state.MapState.HeightTiles; y++)
+            {
+                AddCompletedWall(state, 0, FixedVector2.FromInts(1, y));
+            }
+
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1 }, FixedVector2.FromInts(3, 0))));
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(false, state.EntityState.Units[0].HasMoveTarget, "move target behind sealed blocker should reject");
+            AssertEqual(1, state.DebugCounters.RejectedCommandCount, "unreachable move target should count as rejected");
         }
 
         private static void MovementPathfindsAroundWall()

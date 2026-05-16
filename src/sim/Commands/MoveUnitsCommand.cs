@@ -46,7 +46,9 @@ namespace RtsGame.Sim.Commands
                 return false;
             }
 
-            if (SpatialRules.IsBlockedByWall(state, Target))
+            int targetTileX = SpatialRules.GetTileX(Target);
+            int targetTileY = SpatialRules.GetTileY(Target);
+            if (SpatialRules.IsTileBlockedForUnitMovement(state, targetTileX, targetTileY))
             {
                 return false;
             }
@@ -61,6 +63,13 @@ namespace RtsGame.Sim.Commands
                 }
 
                 if (unit.OwnerPlayerIndex != header.PlayerIndex || unit.IsDead)
+                {
+                    return false;
+                }
+
+                int unitTileX = SpatialRules.GetTileX(unit.Position);
+                int unitTileY = SpatialRules.GetTileY(unit.Position);
+                if (!DeterministicPathfinder.TryFindNextTile(state, unitTileX, unitTileY, targetTileX, targetTileY, out _, out _))
                 {
                     return false;
                 }
