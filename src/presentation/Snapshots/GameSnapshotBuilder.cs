@@ -34,6 +34,14 @@ namespace RtsGame.Presentation.Snapshots
                     unit.MoveTarget,
                     unit.CurrentBuildTargetId,
                     unit.CurrentResourceNodeId,
+                    unit.TaskPhase,
+                    unit.ReservedInteractionKind,
+                    unit.ReservedInteractionTargetId,
+                    unit.ReservedInteractionTileX,
+                    unit.ReservedInteractionTileY,
+                    IsInResourceInteractionRange(state, unit),
+                    IsInDropoffInteractionRange(state, unit),
+                    IsInBuildInteractionRange(state, unit),
                     unit.CarriedResourceType,
                     unit.CarriedAmount,
                     unit.AttackTargetId,
@@ -157,6 +165,69 @@ namespace RtsGame.Presentation.Snapshots
             }
 
             return visibility.VisibleTiles[state.VisibilityState.GetIndex(tileX, tileY)];
+        }
+
+        private static bool IsInResourceInteractionRange(GameState state, Unit unit)
+        {
+            if (unit.CurrentResourceNodeId == 0)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < state.EconomyState.ResourceNodes.Count; i++)
+            {
+                ResourceNode node = state.EconomyState.ResourceNodes[i];
+                if (node.Id == unit.CurrentResourceNodeId && !node.IsDepleted)
+                {
+                    return SpatialRules.IsUnitInResourceInteractionRange(unit, node);
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsInDropoffInteractionRange(GameState state, Unit unit)
+        {
+            if (unit.CarriedAmount <= 0 || unit.CarriedResourceType == ResourceType.None)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < state.EntityState.Buildings.Count; i++)
+            {
+                Building building = state.EntityState.Buildings[i];
+                if (!building.IsDead
+                    && !building.IsUnderConstruction
+                    && building.OwnerPlayerIndex == unit.OwnerPlayerIndex
+                    && building.BuildingTypeId == BuildingTypeId.TownCenter
+                    && SpatialRules.IsUnitInBuildingInteractionRange(unit, building))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsInBuildInteractionRange(GameState state, Unit unit)
+        {
+            if (unit.CurrentBuildTargetId == 0)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < state.EntityState.Buildings.Count; i++)
+            {
+                Building building = state.EntityState.Buildings[i];
+                if (building.Id == unit.CurrentBuildTargetId
+                    && !building.IsDead
+                    && building.IsUnderConstruction)
+                {
+                    return SpatialRules.IsUnitInBuildInteractionRange(unit, building);
+                }
+            }
+
+            return false;
         }
 
         private static int GetRequiredBuildTicks(BuildingTypeId buildingTypeId)

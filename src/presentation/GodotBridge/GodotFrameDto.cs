@@ -97,6 +97,18 @@ namespace RtsGame.Presentation.GodotBridge
         public long MoveTargetYRaw { get; }
         public int CurrentBuildTargetId { get; }
         public int CurrentResourceNodeId { get; }
+        public int PositionTileX { get; }
+        public int PositionTileY { get; }
+        public long PositionXRaw { get; }
+        public long PositionYRaw { get; }
+        public int TaskPhaseId { get; }
+        public int ReservedInteractionKindId { get; }
+        public int ReservedInteractionTargetId { get; }
+        public int ReservedInteractionTileX { get; }
+        public int ReservedInteractionTileY { get; }
+        public bool InResourceInteractionRange { get; }
+        public bool InDropoffInteractionRange { get; }
+        public bool InBuildInteractionRange { get; }
         public int CarriedResourceTypeId { get; }
         public int CarriedAmount { get; }
         public int AttackTargetId { get; }
@@ -114,6 +126,57 @@ namespace RtsGame.Presentation.GodotBridge
             int carriedAmount,
             int attackTargetId,
             int attackCooldownTicksRemaining)
+            : this(
+                unitId,
+                unitTypeId,
+                hasMoveTarget,
+                moveTargetXRaw,
+                moveTargetYRaw,
+                currentBuildTargetId,
+                currentResourceNodeId,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                false,
+                false,
+                false,
+                carriedResourceTypeId,
+                carriedAmount,
+                attackTargetId,
+                attackCooldownTicksRemaining)
+        {
+        }
+
+        public GodotUnitStatusDto(
+            int unitId,
+            int unitTypeId,
+            bool hasMoveTarget,
+            long moveTargetXRaw,
+            long moveTargetYRaw,
+            int currentBuildTargetId,
+            int currentResourceNodeId,
+            int positionTileX,
+            int positionTileY,
+            long positionXRaw,
+            long positionYRaw,
+            int taskPhaseId,
+            int reservedInteractionKindId,
+            int reservedInteractionTargetId,
+            int reservedInteractionTileX,
+            int reservedInteractionTileY,
+            bool inResourceInteractionRange,
+            bool inDropoffInteractionRange,
+            bool inBuildInteractionRange,
+            int carriedResourceTypeId,
+            int carriedAmount,
+            int attackTargetId,
+            int attackCooldownTicksRemaining)
         {
             UnitId = unitId;
             UnitTypeId = unitTypeId;
@@ -122,6 +185,18 @@ namespace RtsGame.Presentation.GodotBridge
             MoveTargetYRaw = moveTargetYRaw;
             CurrentBuildTargetId = currentBuildTargetId;
             CurrentResourceNodeId = currentResourceNodeId;
+            PositionTileX = positionTileX;
+            PositionTileY = positionTileY;
+            PositionXRaw = positionXRaw;
+            PositionYRaw = positionYRaw;
+            TaskPhaseId = taskPhaseId;
+            ReservedInteractionKindId = reservedInteractionKindId;
+            ReservedInteractionTargetId = reservedInteractionTargetId;
+            ReservedInteractionTileX = reservedInteractionTileX;
+            ReservedInteractionTileY = reservedInteractionTileY;
+            InResourceInteractionRange = inResourceInteractionRange;
+            InDropoffInteractionRange = inDropoffInteractionRange;
+            InBuildInteractionRange = inBuildInteractionRange;
             CarriedResourceTypeId = carriedResourceTypeId;
             CarriedAmount = carriedAmount;
             AttackTargetId = attackTargetId;

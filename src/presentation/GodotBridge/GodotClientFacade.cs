@@ -3,6 +3,7 @@ using RtsGame.Presentation.ClientInput;
 using RtsGame.Presentation.LocalPlay;
 using RtsGame.Presentation.Snapshots;
 using RtsGame.Presentation.Visuals;
+using RtsGame.Sim.Core;
 using RtsGame.Sim.Data;
 using RtsGame.Sim.Determinism;
 
@@ -288,6 +289,18 @@ namespace RtsGame.Presentation.GodotBridge
                 snapshot.MoveTarget.Y.Raw,
                 snapshot.CurrentBuildTargetId,
                 snapshot.CurrentResourceNodeId,
+                SpatialRules.GetTileX(snapshot.Position),
+                SpatialRules.GetTileY(snapshot.Position),
+                snapshot.Position.X.Raw,
+                snapshot.Position.Y.Raw,
+                (int)snapshot.TaskPhase,
+                (int)snapshot.ReservedInteractionKind,
+                snapshot.ReservedInteractionTargetId,
+                snapshot.ReservedInteractionTileX,
+                snapshot.ReservedInteractionTileY,
+                snapshot.InResourceInteractionRange,
+                snapshot.InDropoffInteractionRange,
+                snapshot.InBuildInteractionRange,
                 (int)snapshot.CarriedResourceType,
                 snapshot.CarriedAmount,
                 snapshot.AttackTargetId,

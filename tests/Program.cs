@@ -98,6 +98,7 @@ namespace RtsGame.Tests
                 new TestCase("villager returns to same gold target after deposit", VillagerReturnsToSameGoldTargetAfterDeposit),
                 new TestCase("gather keeps assigned resource when nearer same type exists", GatherKeepsAssignedResourceWhenNearerSameTypeExists),
                 new TestCase("gather move target remains stable while approaching", GatherMoveTargetRemainsStableWhileApproaching),
+                new TestCase("worker gather loop diagnostics stay stable", WorkerGatherLoopDiagnosticsStayStable),
                 new TestCase("full gold carrier blocked dropoff target retargets and deposits", FullGoldCarrierBlockedDropoffTargetRetargetsAndDeposits),
                 new TestCase("full food carrier blocked dropoff target retargets and deposits", FullFoodCarrierBlockedDropoffTargetRetargetsAndDeposits),
                 new TestCase("full wood carrier blocked dropoff target retargets and deposits", FullWoodCarrierBlockedDropoffTargetRetargetsAndDeposits),
@@ -1558,6 +1559,82 @@ namespace RtsGame.Tests
                 AssertEqual(targetX, SpatialRules.GetTileX(unit.MoveTarget), "approach tile x should remain stable while valid");
                 AssertEqual(targetY, SpatialRules.GetTileY(unit.MoveTarget), "approach tile y should remain stable while valid");
             }
+        }
+
+        private static void WorkerGatherLoopDiagnosticsStayStable()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            var state = GameInitializer.CreateNomadStart(2092, 1);
+            int resourceId = FindFirstResourceNodeIdByType(state, ResourceType.Wood);
+            ResourceNode wood = FindResourceNodeById(state, resourceId);
+            state.EntityState.Units[0].Position = new FixedVector2(wood.Position.X + Fixed.FromInt(1), wood.Position.Y);
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(0, 0));
+
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(resourceId, new[] { 1 })));
+
+            WorkerDiagnosticSample previous = default;
+            bool hasPrevious = false;
+            int phaseChanges = 0;
+            int reservationChanges = 0;
+            int moveTargetChanges = 0;
+            int backwardsMoves = 0;
+            int deposits = 0;
+            int stockpileBefore = state.PlayerStates.Players[0].Resources.Wood;
+            for (int tick = 0; tick < 360; tick++)
+            {
+                if (tick > 0)
+                {
+                    AddNoOp(buffer, tick, 0, (uint)(20920 + tick));
+                }
+
+                runner.AdvanceOneTick(state, rules, buffer);
+                Unit unit = state.EntityState.Units[0];
+                WorkerDiagnosticSample current = WorkerDiagnosticSample.Capture(unit);
+                if (state.PlayerStates.Players[0].Resources.Wood > stockpileBefore)
+                {
+                    deposits++;
+                    stockpileBefore = state.PlayerStates.Players[0].Resources.Wood;
+                }
+
+                if (hasPrevious)
+                {
+                    if (current.Phase != previous.Phase)
+                    {
+                        phaseChanges++;
+                    }
+
+                    if (current.ReservationKey != previous.ReservationKey)
+                    {
+                        reservationChanges++;
+                    }
+
+                    if (current.MoveTargetKey != previous.MoveTargetKey)
+                    {
+                        moveTargetChanges++;
+                    }
+
+                    if (current.PositionXRaw < previous.PositionXRaw
+                        && current.Phase == previous.Phase
+                        && current.MoveTargetKey == previous.MoveTargetKey
+                        && current.ReservationKey == previous.ReservationKey)
+                    {
+                        backwardsMoves++;
+                    }
+                }
+
+                hasPrevious = true;
+                previous = current;
+                AssertEqual(resourceId, unit.CurrentResourceNodeId, "worker should keep exact wood target through diagnostic loop");
+                AssertEqual(true, unit.TaskPhase != WorkerTaskPhase.Idle || unit.CarriedAmount == 0, "worker should not idle while still carrying resources");
+            }
+
+            AssertEqual(true, deposits >= 3, "diagnostic loop should include multiple deposits");
+            AssertEqual(true, phaseChanges < 180, "task phase should not flip every tick during stable gather/deposit loop changes=" + phaseChanges);
+            AssertEqual(true, reservationChanges < 180, "reservation should not churn every tick during stable gather/deposit loop changes=" + reservationChanges);
+            AssertEqual(true, moveTargetChanges < 180, "move target should not be rewritten every tick during stable gather/deposit loop changes=" + moveTargetChanges);
+            AssertEqual(0, backwardsMoves, "worker raw x should not oscillate backwards while pursuing the same stable target");
         }
 
         private static void FullGoldCarrierBlockedDropoffTargetRetargetsAndDeposits()
@@ -6083,6 +6160,51 @@ namespace RtsGame.Tests
                 int tileY = SpatialRules.GetTileY(unit.Position);
                 int key = (tileY << 16) ^ (tileX & 0xFFFF);
                 AssertEqual(true, occupied.Add(key), message + " at " + tileX + "," + tileY);
+            }
+        }
+
+        private readonly struct WorkerDiagnosticSample
+        {
+            public WorkerTaskPhase Phase { get; }
+            public long PositionXRaw { get; }
+            public long MoveTargetKey { get; }
+            public long ReservationKey { get; }
+
+            private WorkerDiagnosticSample(WorkerTaskPhase phase, long positionXRaw, long moveTargetKey, long reservationKey)
+            {
+                Phase = phase;
+                PositionXRaw = positionXRaw;
+                MoveTargetKey = moveTargetKey;
+                ReservationKey = reservationKey;
+            }
+
+            public static WorkerDiagnosticSample Capture(Unit unit)
+            {
+                long moveTargetKey = unit.HasMoveTarget ? CombineRaw(unit.MoveTarget.X.Raw, unit.MoveTarget.Y.Raw) : -1L;
+                long reservationKey = unit.ReservedInteractionKind == InteractionReservationKind.None
+                    ? -1L
+                    : CombineInts((int)unit.ReservedInteractionKind, unit.ReservedInteractionTargetId, unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
+                return new WorkerDiagnosticSample(unit.TaskPhase, unit.Position.X.Raw, moveTargetKey, reservationKey);
+            }
+
+            private static long CombineRaw(long xRaw, long yRaw)
+            {
+                unchecked
+                {
+                    return (xRaw * 397L) ^ yRaw;
+                }
+            }
+
+            private static long CombineInts(int a, int b, int c, int d)
+            {
+                unchecked
+                {
+                    long result = a;
+                    result = (result * 397L) ^ b;
+                    result = (result * 397L) ^ c;
+                    result = (result * 397L) ^ d;
+                    return result;
+                }
             }
         }
 

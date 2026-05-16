@@ -44,6 +44,14 @@ namespace RtsGame.Presentation.Snapshots
         public FixedVector2 MoveTarget { get; }
         public int CurrentBuildTargetId { get; }
         public int CurrentResourceNodeId { get; }
+        public WorkerTaskPhase TaskPhase { get; }
+        public InteractionReservationKind ReservedInteractionKind { get; }
+        public int ReservedInteractionTargetId { get; }
+        public int ReservedInteractionTileX { get; }
+        public int ReservedInteractionTileY { get; }
+        public bool InResourceInteractionRange { get; }
+        public bool InDropoffInteractionRange { get; }
+        public bool InBuildInteractionRange { get; }
         public ResourceType CarriedResourceType { get; }
         public int CarriedAmount { get; }
         public int AttackTargetId { get; }
@@ -61,6 +69,14 @@ namespace RtsGame.Presentation.Snapshots
             FixedVector2 moveTarget,
             int currentBuildTargetId,
             int currentResourceNodeId,
+            WorkerTaskPhase taskPhase,
+            InteractionReservationKind reservedInteractionKind,
+            int reservedInteractionTargetId,
+            int reservedInteractionTileX,
+            int reservedInteractionTileY,
+            bool inResourceInteractionRange,
+            bool inDropoffInteractionRange,
+            bool inBuildInteractionRange,
             ResourceType carriedResourceType,
             int carriedAmount,
             int attackTargetId,
@@ -77,6 +93,14 @@ namespace RtsGame.Presentation.Snapshots
             MoveTarget = moveTarget;
             CurrentBuildTargetId = currentBuildTargetId;
             CurrentResourceNodeId = currentResourceNodeId;
+            TaskPhase = taskPhase;
+            ReservedInteractionKind = reservedInteractionKind;
+            ReservedInteractionTargetId = reservedInteractionTargetId;
+            ReservedInteractionTileX = reservedInteractionTileX;
+            ReservedInteractionTileY = reservedInteractionTileY;
+            InResourceInteractionRange = inResourceInteractionRange;
+            InDropoffInteractionRange = inDropoffInteractionRange;
+            InBuildInteractionRange = inBuildInteractionRange;
             CarriedResourceType = carriedResourceType;
             CarriedAmount = carriedAmount;
             AttackTargetId = attackTargetId;

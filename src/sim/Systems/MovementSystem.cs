@@ -208,7 +208,7 @@ namespace RtsGame.Sim.Systems
 
                 if (plans[i].Blocked)
                 {
-                    unit.TaskPhase = GetPhaseAfterBlockedMove(unit.TaskPhase);
+                    unit.TaskPhase = GetPhaseAfterBlockedMove(state, unit);
                     continue;
                 }
 
@@ -242,9 +242,15 @@ namespace RtsGame.Sim.Systems
             return phase;
         }
 
-        private static WorkerTaskPhase GetPhaseAfterBlockedMove(WorkerTaskPhase phase)
+        private static WorkerTaskPhase GetPhaseAfterBlockedMove(GameState state, Unit unit)
         {
-            return IsWorkerTaskMovementPhase(phase) ? WorkerTaskPhase.BlockedWaiting : phase;
+            if (!IsWorkerTaskMovementPhase(unit.TaskPhase))
+            {
+                return unit.TaskPhase;
+            }
+
+            int blockedTicks = unit.LastMovedTick < 0 ? int.MaxValue : state.Tick - unit.LastMovedTick;
+            return blockedTicks >= GameData.InteractionTargetRetargetBlockedTicks ? WorkerTaskPhase.BlockedWaiting : unit.TaskPhase;
         }
 
         private static WorkerTaskPhase GetPhaseAfterArrivedMove(WorkerTaskPhase phase)

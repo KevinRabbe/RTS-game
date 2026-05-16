@@ -27,6 +27,14 @@ namespace RtsGame.Presentation.GodotBridge
                     string build = unit.CurrentBuildTargetId == 0 ? "BuildTarget -" : "BuildTarget " + unit.CurrentBuildTargetId;
                     string resource = unit.CurrentResourceNodeId == 0 ? "ResourceTarget -" : "ResourceTarget " + unit.CurrentResourceNodeId;
                     string attack = unit.AttackTargetId == 0 ? "AttackTarget -" : "AttackTarget " + unit.AttackTargetId;
+                    string position = "Tile(" + unit.PositionTileX + "," + unit.PositionTileY + ") PosRaw(" + unit.PositionXRaw + "," + unit.PositionYRaw + ")";
+                    string phase = "Phase " + ResolveTaskPhaseLabel(unit.TaskPhaseId);
+                    string reservation = unit.ReservedInteractionKindId == 0
+                        ? "Reserve -"
+                        : "Reserve " + ResolveReservationLabel(unit.ReservedInteractionKindId) + " " + unit.ReservedInteractionTargetId + " Tile(" + unit.ReservedInteractionTileX + "," + unit.ReservedInteractionTileY + ")";
+                    string ranges = "Range R:" + FormatBool(unit.InResourceInteractionRange)
+                        + " D:" + FormatBool(unit.InDropoffInteractionRange)
+                        + " B:" + FormatBool(unit.InBuildInteractionRange);
                     bool isFullCarry = unit.CarriedAmount >= GameData.VillagerCarryCapacity;
                     string carry = unit.CarriedAmount == 0
                         ? "Carry -"
@@ -37,11 +45,36 @@ namespace RtsGame.Presentation.GodotBridge
                         depositHint = "  DepositNeedsCompletedTC";
                     }
 
-                    return new[] { status, move + "  " + build + "  " + resource + "  " + attack + "  " + carry + depositHint };
+                    return new[] { status, position + "  " + move + "  " + phase + "  " + reservation + "  " + ranges + "  " + build + "  " + resource + "  " + attack + "  " + carry + depositHint };
                 }
             }
 
             return new[] { status, "Unit Status: none" };
+        }
+
+        private static string ResolveTaskPhaseLabel(int taskPhaseId)
+        {
+            if (System.Enum.IsDefined(typeof(WorkerTaskPhase), taskPhaseId))
+            {
+                return ((WorkerTaskPhase)taskPhaseId).ToString();
+            }
+
+            return "Unknown(" + taskPhaseId + ")";
+        }
+
+        private static string ResolveReservationLabel(int reservationKindId)
+        {
+            if (System.Enum.IsDefined(typeof(InteractionReservationKind), reservationKindId))
+            {
+                return ((InteractionReservationKind)reservationKindId).ToString();
+            }
+
+            return "Unknown(" + reservationKindId + ")";
+        }
+
+        private static string FormatBool(bool value)
+        {
+            return value ? "Y" : "N";
         }
 
         private static string ResolveResourceLabel(int carriedResourceTypeId)
