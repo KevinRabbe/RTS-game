@@ -101,6 +101,78 @@ namespace RtsGame.Sim.Data
         public const int InfantryAttack1GoldCost = 50;
         public const int InfantryAttack1DamageBonus = 2;
 
+        public static GatherProfile GetGatherProfile(GatherProfileId profileId)
+        {
+            switch (profileId)
+            {
+                case GatherProfileId.Tree:
+                    return new GatherProfile(
+                        GatherProfileId.Tree,
+                        ResourceType.Wood,
+                        ResourceNodeType.Tree,
+                        DropOffCategory.Wood,
+                        VillagerCarryCapacity,
+                        VillagerGatherPerTick,
+                        ResourcePlacementRadiusTiles,
+                        true,
+                        true,
+                        ResourceDepletedBehavior.RemoveNodeBlocker,
+                        ResourceAutoContinuationMode.SameArea);
+                case GatherProfileId.BerryBush:
+                    return new GatherProfile(
+                        GatherProfileId.BerryBush,
+                        ResourceType.Food,
+                        ResourceNodeType.BerryBush,
+                        DropOffCategory.Food,
+                        VillagerCarryCapacity,
+                        VillagerGatherPerTick,
+                        ResourcePlacementRadiusTiles,
+                        true,
+                        true,
+                        ResourceDepletedBehavior.RemoveNodeBlocker,
+                        ResourceAutoContinuationMode.SameArea);
+                case GatherProfileId.GoldVeinSmall:
+                    return new GatherProfile(
+                        GatherProfileId.GoldVeinSmall,
+                        ResourceType.Gold,
+                        ResourceNodeType.GoldVeinSmall,
+                        DropOffCategory.Gold,
+                        VillagerCarryCapacity,
+                        VillagerGatherPerTick,
+                        ResourcePlacementRadiusTiles,
+                        true,
+                        true,
+                        ResourceDepletedBehavior.RemoveNodeBlocker,
+                        ResourceAutoContinuationMode.SameArea);
+                case GatherProfileId.GoldVeinLarge:
+                    return new GatherProfile(
+                        GatherProfileId.GoldVeinLarge,
+                        ResourceType.Gold,
+                        ResourceNodeType.GoldVeinLarge,
+                        DropOffCategory.Gold,
+                        VillagerCarryCapacity,
+                        VillagerGatherPerTick,
+                        ResourcePlacementRadiusTiles,
+                        true,
+                        true,
+                        ResourceDepletedBehavior.RemoveNodeBlocker,
+                        ResourceAutoContinuationMode.SameArea);
+                default:
+                    return new GatherProfile(
+                        GatherProfileId.None,
+                        ResourceType.None,
+                        ResourceNodeType.None,
+                        DropOffCategory.None,
+                        VillagerCarryCapacity,
+                        VillagerGatherPerTick,
+                        ResourcePlacementRadiusTiles,
+                        true,
+                        true,
+                        ResourceDepletedBehavior.RemoveNodeBlocker,
+                        ResourceAutoContinuationMode.None);
+            }
+        }
+
         public static int GetBuildingPlacementRadiusTiles(BuildingTypeId buildingTypeId)
         {
             switch (buildingTypeId)

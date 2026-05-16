@@ -37,7 +37,10 @@ namespace RtsGame.Tests
                 new TestCase("test runner detects help argument", TestRunnerDetectsHelpArgument),
                 new TestCase("nomad start creates initial units", NomadStartCreatesInitialUnits),
                 new TestCase("nomad map creates center resources", NomadMapCreatesCenterResources),
+                new TestCase("resource profiles define stockpile kind and node type", ResourceProfilesDefineStockpileKindAndNodeType),
+                new TestCase("nomad resources create areas and profiled nodes", NomadResourcesCreateAreasAndProfiledNodes),
                 new TestCase("dry arabia test map initializes deterministically", DryArabiaTestMapInitializesDeterministically),
+                new TestCase("dry arabia resources create typed areas", DryArabiaResourcesCreateTypedAreas),
                 new TestCase("dry arabia test map has valid tc placement zones", DryArabiaTestMapHasValidTcPlacementZones),
                 new TestCase("dry arabia test map has nearby resources", DryArabiaTestMapHasNearbyResources),
                 new TestCase("dry arabia test map resources avoid tc zones", DryArabiaTestMapResourcesAvoidTcZones),
@@ -663,6 +666,60 @@ namespace RtsGame.Tests
             AssertEqual(ResourceType.Gold, centerGold.ResourceType, "first center resource should be gold");
             AssertEqual(FixedVector2.FromInts(GameData.MapWidthTiles / 2, GameData.MapHeightTiles / 2), centerGold.Position, "center gold should be placed at map center");
             AssertEqual(GameData.CenterGoldAmount, centerGold.RemainingAmount, "center gold should be high value");
+        }
+
+        private static void ResourceProfilesDefineStockpileKindAndNodeType()
+        {
+            GatherProfile berries = GameData.GetGatherProfile(GatherProfileId.BerryBush);
+            GatherProfile trees = GameData.GetGatherProfile(GatherProfileId.Tree);
+            GatherProfile smallGold = GameData.GetGatherProfile(GatherProfileId.GoldVeinSmall);
+            GatherProfile largeGold = GameData.GetGatherProfile(GatherProfileId.GoldVeinLarge);
+
+            AssertEqual(ResourceType.Food, berries.ResourceType, "berry profile should deposit food");
+            AssertEqual(ResourceNodeType.BerryBush, berries.NodeType, "berry profile should define berry bush nodes");
+            AssertEqual(ResourceType.Wood, trees.ResourceType, "tree profile should deposit wood");
+            AssertEqual(ResourceNodeType.Tree, trees.NodeType, "tree profile should define tree nodes");
+            AssertEqual(ResourceType.Gold, smallGold.ResourceType, "small gold profile should deposit gold");
+            AssertEqual(ResourceType.Gold, largeGold.ResourceType, "large gold profile should also deposit gold");
+            AssertEqual(ResourceNodeType.GoldVeinSmall, smallGold.NodeType, "small gold profile should define small vein nodes");
+            AssertEqual(ResourceNodeType.GoldVeinLarge, largeGold.NodeType, "large gold profile should define large vein nodes");
+        }
+
+        private static void NomadResourcesCreateAreasAndProfiledNodes()
+        {
+            GameState state = GameInitializer.CreateNomadStart(601, 1);
+            AssertEqual(6, state.EconomyState.ResourceAreas.Count, "nomad one-player map should create three home areas and three center areas");
+            AssertEqual(6, state.EconomyState.ResourceNodes.Count, "nomad one-player map should keep one node per resource area");
+
+            ResourceNode food = state.EconomyState.ResourceNodes[0];
+            ResourceArea foodArea = FindResourceAreaById(state, food.ResourceAreaId);
+            AssertEqual(ResourceAreaType.BerryPatch, foodArea.AreaType, "food node should belong to berry patch area");
+            AssertEqual(GatherProfileId.BerryBush, food.GatherProfileId, "food node should use berry profile");
+            AssertEqual(ResourceNodeType.BerryBush, food.NodeType, "food node should be a berry bush");
+
+            ResourceNode wood = state.EconomyState.ResourceNodes[1];
+            ResourceArea woodArea = FindResourceAreaById(state, wood.ResourceAreaId);
+            AssertEqual(ResourceAreaType.Forest, woodArea.AreaType, "wood node should belong to forest area");
+            AssertEqual(GatherProfileId.Tree, wood.GatherProfileId, "wood node should use tree profile");
+            AssertEqual(ResourceNodeType.Tree, wood.NodeType, "wood node should be a tree");
+        }
+
+        private static void DryArabiaResourcesCreateTypedAreas()
+        {
+            GameState state = GameInitializer.CreateDryArabiaTest01(602);
+            AssertEqual(9, state.EconomyState.ResourceAreas.Count, "dry arabia should create player home areas plus center contested areas");
+            AssertEqual(16, state.EconomyState.ResourceNodes.Count, "dry arabia should keep existing resource node count");
+
+            ResourceNode playerGold = FindResourceNodeById(state, 5);
+            ResourceArea playerGoldArea = FindResourceAreaById(state, playerGold.ResourceAreaId);
+            AssertEqual(ResourceAreaType.GoldDeposit, playerGoldArea.AreaType, "home gold should be in a gold deposit area");
+            AssertEqual(GatherProfileId.GoldVeinSmall, playerGold.GatherProfileId, "home gold should use small gold profile");
+            AssertEqual(ResourceNodeType.GoldVeinSmall, playerGold.NodeType, "home gold should be a small vein");
+
+            ResourceNode centerGold = FindResourceNodeById(state, 13);
+            AssertEqual(ResourceType.Gold, centerGold.ResourceType, "center gold should still deposit gold");
+            AssertEqual(GatherProfileId.GoldVeinLarge, centerGold.GatherProfileId, "center gold should use large gold profile");
+            AssertEqual(ResourceNodeType.GoldVeinLarge, centerGold.NodeType, "center gold should be a large vein");
         }
 
         private static void DryArabiaTestMapInitializesDeterministically()
@@ -5635,6 +5692,19 @@ namespace RtsGame.Tests
             }
 
             throw new InvalidOperationException("resource node not found id=" + resourceNodeId);
+        }
+
+        private static ResourceArea FindResourceAreaById(GameState state, int resourceAreaId)
+        {
+            for (int i = 0; i < state.EconomyState.ResourceAreas.Count; i++)
+            {
+                if (state.EconomyState.ResourceAreas[i].Id == resourceAreaId)
+                {
+                    return state.EconomyState.ResourceAreas[i];
+                }
+            }
+
+            throw new InvalidOperationException("resource area not found id=" + resourceAreaId);
         }
 
         private static int FindFirstResourceNodeIdByType(GameState state, ResourceType resourceType)

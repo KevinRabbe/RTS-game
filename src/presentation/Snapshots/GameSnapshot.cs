@@ -136,14 +136,32 @@ namespace RtsGame.Presentation.Snapshots
     public readonly struct ResourceNodeSnapshot
     {
         public int Id { get; }
+        public int ResourceAreaId { get; }
         public ResourceType ResourceType { get; }
+        public ResourceNodeType NodeType { get; }
+        public GatherProfileId GatherProfileId { get; }
         public FixedVector2 Position { get; }
         public int RemainingAmount { get; }
 
         public ResourceNodeSnapshot(int id, ResourceType resourceType, FixedVector2 position, int remainingAmount)
+            : this(id, 0, resourceType, ResourceNodeType.None, GatherProfileId.None, position, remainingAmount)
+        {
+        }
+
+        public ResourceNodeSnapshot(
+            int id,
+            int resourceAreaId,
+            ResourceType resourceType,
+            ResourceNodeType nodeType,
+            GatherProfileId gatherProfileId,
+            FixedVector2 position,
+            int remainingAmount)
         {
             Id = id;
+            ResourceAreaId = resourceAreaId;
             ResourceType = resourceType;
+            NodeType = nodeType;
+            GatherProfileId = gatherProfileId;
             Position = position;
             RemainingAmount = remainingAmount;
         }

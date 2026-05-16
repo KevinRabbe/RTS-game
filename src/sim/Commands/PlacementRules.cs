@@ -37,7 +37,14 @@ namespace RtsGame.Sim.Commands
                     continue;
                 }
 
-                if (IsWithinCombinedRadius(position, radiusTiles, node.Position, GameData.ResourcePlacementRadiusTiles))
+                GatherProfile profile = GameData.GetGatherProfile(node.GatherProfileId);
+                if (!profile.BlocksPlacement)
+                {
+                    continue;
+                }
+
+                int resourceRadiusTiles = profile.Id == GatherProfileId.None ? GameData.ResourcePlacementRadiusTiles : profile.FootprintRadiusTiles;
+                if (IsWithinCombinedRadius(position, radiusTiles, node.Position, resourceRadiusTiles))
                 {
                     return false;
                 }

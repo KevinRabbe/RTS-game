@@ -3,7 +3,9 @@ namespace RtsGame.Sim.Data
     public sealed class EconomyState
     {
         public uint PlaceholderVersion { get; set; } = 1;
+        public int NextResourceAreaId { get; set; } = 1;
         public int NextResourceNodeId { get; set; } = 1;
+        public System.Collections.Generic.List<ResourceArea> ResourceAreas { get; } = new System.Collections.Generic.List<ResourceArea>();
         public System.Collections.Generic.List<ResourceNode> ResourceNodes { get; } = new System.Collections.Generic.List<ResourceNode>();
     }
 

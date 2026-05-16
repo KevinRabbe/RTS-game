@@ -76,7 +76,14 @@ namespace RtsGame.Presentation.Snapshots
                     continue;
                 }
 
-                resources.Add(new ResourceNodeSnapshot(node.Id, node.ResourceType, node.Position, node.RemainingAmount));
+                resources.Add(new ResourceNodeSnapshot(
+                    node.Id,
+                    node.ResourceAreaId,
+                    node.ResourceType,
+                    node.NodeType,
+                    node.GatherProfileId,
+                    node.Position,
+                    node.RemainingAmount));
             }
 
             PlayerState player = state.PlayerStates.Players[localPlayerIndex];

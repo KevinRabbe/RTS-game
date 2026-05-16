@@ -87,7 +87,13 @@ namespace RtsGame.Sim.Core
                     continue;
                 }
 
-                if (IsInsideRadius(FixedVector2.FromInts(tileX, tileY), node.Position, GameData.ResourcePlacementRadiusTiles))
+                GatherProfile profile = GameData.GetGatherProfile(node.GatherProfileId);
+                if (!profile.BlocksMovement)
+                {
+                    continue;
+                }
+
+                if (IsInsideRadius(FixedVector2.FromInts(tileX, tileY), node.Position, GetResourceFootprintRadiusTiles(node)))
                 {
                     return true;
                 }
@@ -130,7 +136,7 @@ namespace RtsGame.Sim.Core
 
         public static bool IsTileInsideResourceFootprint(ResourceNode node, int tileX, int tileY)
         {
-            return IsInsideRadius(FixedVector2.FromInts(tileX, tileY), node.Position, GameData.ResourcePlacementRadiusTiles);
+            return IsInsideRadius(FixedVector2.FromInts(tileX, tileY), node.Position, GetResourceFootprintRadiusTiles(node));
         }
 
         public static bool IsTileAdjacentToResourceFootprint(ResourceNode node, int tileX, int tileY)
@@ -154,7 +160,7 @@ namespace RtsGame.Sim.Core
         {
             int centerX = GetTileX(node.Position);
             int centerY = GetTileY(node.Position);
-            int radius = GameData.ResourcePlacementRadiusTiles;
+            int radius = GetResourceFootprintRadiusTiles(node);
             var tiles = new List<TileCoord>();
             for (int y = centerY - radius - 1; y <= centerY + radius + 1; y++)
             {
@@ -362,6 +368,12 @@ namespace RtsGame.Sim.Core
         private static int EncodeTile(int tileX, int tileY)
         {
             return (tileY << 16) ^ (tileX & 0xFFFF);
+        }
+
+        private static int GetResourceFootprintRadiusTiles(ResourceNode node)
+        {
+            GatherProfile profile = GameData.GetGatherProfile(node.GatherProfileId);
+            return profile.Id == GatherProfileId.None ? GameData.ResourcePlacementRadiusTiles : profile.FootprintRadiusTiles;
         }
     }
 }

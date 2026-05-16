@@ -139,12 +139,27 @@ namespace RtsGame.Sim.Checksums
             writer.WriteInt32(state.MatchResultState.FinishedTick);
 
             writer.WriteUInt32(state.EconomyState.PlaceholderVersion);
+            writer.WriteInt32(state.EconomyState.NextResourceAreaId);
+            writer.WriteListCount(state.EconomyState.ResourceAreas.Count);
+            foreach (ResourceArea area in state.EconomyState.ResourceAreas)
+            {
+                writer.WriteInt32(area.Id);
+                writer.WriteUInt16((ushort)area.AreaType);
+                writer.WriteUInt16((ushort)area.ResourceType);
+                writer.WriteUInt16((ushort)area.GatherProfileId);
+                writer.WriteFixed(area.Position.X);
+                writer.WriteFixed(area.Position.Y);
+            }
+
             writer.WriteInt32(state.EconomyState.NextResourceNodeId);
             writer.WriteListCount(state.EconomyState.ResourceNodes.Count);
             foreach (ResourceNode node in state.EconomyState.ResourceNodes)
             {
                 writer.WriteInt32(node.Id);
+                writer.WriteInt32(node.ResourceAreaId);
                 writer.WriteUInt16((ushort)node.ResourceType);
+                writer.WriteUInt16((ushort)node.NodeType);
+                writer.WriteUInt16((ushort)node.GatherProfileId);
                 writer.WriteFixed(node.Position.X);
                 writer.WriteFixed(node.Position.Y);
                 writer.WriteInt32(node.RemainingAmount);
