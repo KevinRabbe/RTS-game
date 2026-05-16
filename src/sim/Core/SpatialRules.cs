@@ -135,10 +135,19 @@ namespace RtsGame.Sim.Core
 
         public static bool IsTileAdjacentToResourceFootprint(ResourceNode node, int tileX, int tileY)
         {
-            return IsTileInsideResourceFootprint(node, tileX + 1, tileY)
-                || IsTileInsideResourceFootprint(node, tileX - 1, tileY)
-                || IsTileInsideResourceFootprint(node, tileX, tileY + 1)
-                || IsTileInsideResourceFootprint(node, tileX, tileY - 1);
+            for (int offsetY = -1; offsetY <= 1; offsetY++)
+            {
+                for (int offsetX = -1; offsetX <= 1; offsetX++)
+                {
+                    if ((offsetX != 0 || offsetY != 0)
+                        && IsTileInsideResourceFootprint(node, tileX + offsetX, tileY + offsetY))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         public static List<TileCoord> EnumerateResourceInteractionTiles(GameState state, ResourceNode node)
@@ -317,10 +326,19 @@ namespace RtsGame.Sim.Core
 
         private static bool IsAdjacentToBuildingFootprint(Building building, int tileX, int tileY)
         {
-            return IsTileInsideBuildingFootprint(building, tileX + 1, tileY)
-                || IsTileInsideBuildingFootprint(building, tileX - 1, tileY)
-                || IsTileInsideBuildingFootprint(building, tileX, tileY + 1)
-                || IsTileInsideBuildingFootprint(building, tileX, tileY - 1);
+            for (int offsetY = -1; offsetY <= 1; offsetY++)
+            {
+                for (int offsetX = -1; offsetX <= 1; offsetX++)
+                {
+                    if ((offsetX != 0 || offsetY != 0)
+                        && IsTileInsideBuildingFootprint(building, tileX + offsetX, tileY + offsetY))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         private static bool IsInsideRadius(FixedVector2 position, FixedVector2 center, int radiusTiles)

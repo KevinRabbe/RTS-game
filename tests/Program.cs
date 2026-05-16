@@ -72,8 +72,10 @@ namespace RtsGame.Tests
                 new TestCase("gather move target uses resource interaction ring", GatherMoveTargetUsesResourceInteractionRing),
                 new TestCase("villager does not gather outside resource range", VillagerDoesNotGatherOutsideResourceRange),
                 new TestCase("villager gathers in resource interaction range", VillagerGathersInResourceInteractionRange),
+                new TestCase("villager gathers from diagonal resource interaction tile", VillagerGathersFromDiagonalResourceInteractionTile),
                 new TestCase("villager returns to dropoff when full", VillagerReturnsToDropoffWhenFull),
                 new TestCase("dropoff move target uses town center interaction ring", DropoffMoveTargetUsesTownCenterInteractionRing),
+                new TestCase("villager deposits from diagonal town center interaction tile", VillagerDepositsFromDiagonalTownCenterInteractionTile),
                 new TestCase("villager resumes resource loop after deposit", VillagerResumesResourceLoopAfterDeposit),
                 new TestCase("villager returns to same food target after deposit", VillagerReturnsToSameFoodTargetAfterDeposit),
                 new TestCase("villager returns to same wood target after deposit", VillagerReturnsToSameWoodTargetAfterDeposit),
@@ -1142,6 +1144,19 @@ namespace RtsGame.Tests
             AssertEqual(GameData.VillagerGatherPerTick, state.EntityState.Units[0].CarriedAmount, "villager should gather when in interaction range");
         }
 
+        private static void VillagerGathersFromDiagonalResourceInteractionTile()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            var state = GameInitializer.CreateNomadStart(2076, 1);
+            ResourceNode node = FindResourceNodeById(state, 1);
+            state.EntityState.Units[0].Position = new FixedVector2(node.Position.X + Fixed.FromInt(1), node.Position.Y + Fixed.FromInt(1));
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(1, new[] { 1 })));
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(GameData.VillagerGatherPerTick, state.EntityState.Units[0].CarriedAmount, "diagonal resource interaction tile should gather");
+        }
+
         private static void VillagerReturnsToDropoffWhenFull()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -1160,11 +1175,7 @@ namespace RtsGame.Tests
             Unit unit = state.EntityState.Units[0];
             Building tc = state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index];
             AssertEqual(true, unit.HasMoveTarget, "full villager should receive dropoff movement target");
-            AssertEqual(true, SpatialRules.IsTileInsideBuildingFootprint(tc, SpatialRules.GetTileX(unit.MoveTarget) + 1, SpatialRules.GetTileY(unit.MoveTarget))
-                || SpatialRules.IsTileInsideBuildingFootprint(tc, SpatialRules.GetTileX(unit.MoveTarget) - 1, SpatialRules.GetTileY(unit.MoveTarget))
-                || SpatialRules.IsTileInsideBuildingFootprint(tc, SpatialRules.GetTileX(unit.MoveTarget), SpatialRules.GetTileY(unit.MoveTarget) + 1)
-                || SpatialRules.IsTileInsideBuildingFootprint(tc, SpatialRules.GetTileX(unit.MoveTarget), SpatialRules.GetTileY(unit.MoveTarget) - 1),
-                "dropoff target should be adjacent to town center footprint");
+            AssertEqual(true, SpatialRules.IsUnitInBuildingInteractionRange(new Unit { Position = unit.MoveTarget }, tc), "dropoff target should be on town center interaction ring");
         }
 
         private static void DropoffMoveTargetUsesTownCenterInteractionRing()
@@ -1189,6 +1200,24 @@ namespace RtsGame.Tests
             AssertEqual(true, unit.HasMoveTarget, "dropoff assignment should set an approach tile");
             AssertEqual(false, SpatialRules.IsTileInsideBuildingFootprint(tc, targetX, targetY), "dropoff approach tile should not be inside TC footprint");
             AssertEqual(true, SpatialRules.IsUnitInBuildingInteractionRange(new Unit { Position = FixedVector2.FromInts(targetX, targetY) }, tc), "dropoff approach tile should be on TC interaction ring");
+        }
+
+        private static void VillagerDepositsFromDiagonalTownCenterInteractionTile()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            var state = CreateOccupancyState(2077, 1);
+            int unitId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(12, 12));
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(10, 10));
+            Unit unit = state.EntityState.Units[state.EntityState.EntityLookup[unitId].Index];
+            unit.CarriedResourceType = ResourceType.Gold;
+            unit.CarriedAmount = GameData.VillagerCarryCapacity;
+
+            var buffer = new CommandBuffer();
+            AddNoOp(buffer, 0, 0, 2077);
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(0, unit.CarriedAmount, "diagonal TC interaction tile should deposit");
+            AssertEqual(GameData.VillagerCarryCapacity, state.PlayerStates.Players[0].Resources.Gold, "diagonal TC deposit should update stockpile");
         }
 
         private static void VillagerResumesResourceLoopAfterDeposit()
@@ -2046,8 +2075,10 @@ namespace RtsGame.Tests
             GameState state = GameInitializer.CreateNomadStart(89, 1);
             var buffer = new CommandBuffer();
             var runner = new TickRunner();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.PlaceTownCenter), new PlaceTownCenterCommand(FixedVector2.FromInts(3, 8))));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.PlaceTownCenter), new PlaceTownCenterCommand(FixedVector2.FromInts(10, 10))));
             runner.AdvanceOneTick(state, rules, buffer);
+            state.EntityState.Units[0].Position = FixedVector2.FromInts(7, 10);
+            state.EntityState.Units[1].Position = FixedVector2.FromInts(13, 10);
             buffer.Add(new CommandEnvelope(new CommandHeader(1, 0, 1, CommandType.AssignBuild), new AssignBuildCommand(6, new[] { 1, 2 })));
             runner.AdvanceOneTick(state, rules, buffer);
             for (int tick = 2; tick < 40 && state.EntityState.Buildings[state.EntityState.EntityLookup[6].Index].BuildProgressTicks < 2; tick++)
@@ -2058,9 +2089,11 @@ namespace RtsGame.Tests
 
             GameSnapshot snapshot = GameSnapshotBuilder.Build(state, 0);
             BuildingSnapshot building = FindBuildingSnapshot(snapshot, 6);
+            Building simBuilding = state.EntityState.Buildings[state.EntityState.EntityLookup[6].Index];
 
             AssertEqual(true, building.IsUnderConstruction, "building snapshot should expose construction state");
-            AssertEqual(2, building.BuildProgressTicks, "building snapshot should expose build progress");
+            AssertEqual(simBuilding.BuildProgressTicks, building.BuildProgressTicks, "building snapshot should expose build progress");
+            AssertEqual(true, building.BuildProgressTicks > 0, "building snapshot setup should have active build progress");
             AssertEqual(GameData.TownCenterBuildTicks, building.RequiredBuildTicks, "building snapshot should expose required build ticks");
             AssertEqual(0, building.TrainingQueueCount, "under-construction building should have no training queue");
         }
