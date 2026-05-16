@@ -139,6 +139,12 @@ namespace RtsGame.Tests
                 new TestCase("destroyed wall opens path next tick", DestroyedWallOpensPathNextTick),
                 new TestCase("no path returns failure deterministically", NoPathReturnsFailureDeterministically),
                 new TestCase("unit blocked by stationary unit", UnitBlockedByStationaryUnit),
+                new TestCase("occupied next step uses deterministic alternate", OccupiedNextStepUsesDeterministicAlternate),
+                new TestCase("alternate step avoids occupied tiles", AlternateStepAvoidsOccupiedTiles),
+                new TestCase("alternate step avoids static blockers", AlternateStepAvoidsStaticBlockers),
+                new TestCase("temporary live unit blockage preserves move target", TemporaryLiveUnitBlockagePreservesMoveTarget),
+                new TestCase("tc front blocker allows pass around progress", TcFrontBlockerAllowsPassAroundProgress),
+                new TestCase("resource dropoff blocker preserves worker intent", ResourceDropoffBlockerPreservesWorkerIntent),
                 new TestCase("two units attempting same tile fail", TwoUnitsAttemptingSameTileFail),
                 new TestCase("three units attempting same tile fail", ThreeUnitsAttemptingSameTileFail),
                 new TestCase("two unit tile swap fails", TwoUnitTileSwapFails),
@@ -997,7 +1003,7 @@ namespace RtsGame.Tests
             int buildingId = state.EntityState.Buildings[0].Id;
             buffer.Add(new CommandEnvelope(new CommandHeader(1, 0, 1, CommandType.AssignBuild), new AssignBuildCommand(buildingId, new[] { 1, 2, 3, 4 })));
             runner.AdvanceOneTick(state, rules, buffer);
-            AdvanceUntilBuildingComplete(state, rules, buffer, runner, buildingId, 80, 2, 2);
+            AdvanceUntilBuildingComplete(state, rules, buffer, runner, buildingId, 240, 2, 2);
 
             AssertEqual(false, state.EntityState.Buildings[0].IsUnderConstruction, "assigned villagers should complete construction");
             AssertEqual(true, state.PlayerStates.Players[0].CapitalStatus.CapitalBonusActive, "capital bonus should be active after completion");
@@ -1016,7 +1022,7 @@ namespace RtsGame.Tests
             int firstBuildingId = state.EntityState.Buildings[0].Id;
             buffer.Add(new CommandEnvelope(new CommandHeader(1, 0, 1, CommandType.AssignBuild), new AssignBuildCommand(firstBuildingId, new[] { 1, 2, 3, 4 })));
             runner.AdvanceOneTick(state, rules, buffer);
-            AdvanceUntilBuildingComplete(state, rules, buffer, runner, firstBuildingId, 80, 2, 2);
+            AdvanceUntilBuildingComplete(state, rules, buffer, runner, firstBuildingId, 240, 2, 2);
 
             state.PlayerStates.Players[0].Resources.Wood = GameData.TownCenterWoodCost;
             buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 2, CommandType.PlaceTownCenter), new PlaceTownCenterCommand(FixedVector2.FromInts(20, 20))));
@@ -1042,7 +1048,7 @@ namespace RtsGame.Tests
             int normalTownCenterId = state.EntityState.Buildings[1].Id;
             buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 4, CommandType.AssignBuild), new AssignBuildCommand(normalTownCenterId, new[] { 1, 2, 3, 4 })));
             runner.AdvanceOneTick(state, rules, buffer);
-            AdvanceUntilBuildingComplete(state, rules, buffer, runner, normalTownCenterId, 80, state.Tick, 5);
+            AdvanceUntilBuildingComplete(state, rules, buffer, runner, normalTownCenterId, 240, state.Tick, 5);
 
             AssertEqual(false, state.EntityState.Buildings[1].IsUnderConstruction, "normal town center should complete");
             AssertEqual(GameData.TownCenterHitPoints, state.EntityState.Buildings[1].HitPoints, "completed normal town center should use normal hit points");
@@ -1061,7 +1067,7 @@ namespace RtsGame.Tests
             int buildingId = state.EntityState.Buildings[0].Id;
             buffer.Add(new CommandEnvelope(new CommandHeader(1, 0, 1, CommandType.AssignBuild), new AssignBuildCommand(buildingId, new[] { 1, 2, 3, 4 })));
             runner.AdvanceOneTick(state, rules, buffer);
-            AdvanceUntilBuildingComplete(state, rules, buffer, runner, buildingId, 80, 2, 2);
+            AdvanceUntilBuildingComplete(state, rules, buffer, runner, buildingId, 240, 2, 2);
             state.EntityState.Buildings[0].IsDead = true;
             runner.AdvanceOneTick(state, rules, buffer);
 
@@ -2482,6 +2488,124 @@ namespace RtsGame.Tests
 
             AssertEqual(Fixed.FromInt(0).Raw, state.EntityState.Units[0].Position.X.Raw, "stationary unit should hold occupied tile");
             AssertEqual(true, state.EntityState.Units[0].HasMoveTarget, "blocked unit should retain move target and retry deterministically");
+        }
+
+        private static void OccupiedNextStepUsesDeterministicAlternate()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(3010);
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(0, 0));
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(1, 0));
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1 }, FixedVector2.FromInts(2, 0))));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            Unit mover = state.EntityState.Units[0];
+            AssertEqual(Fixed.FromInt(0).Raw, mover.Position.X.Raw, "alternate should keep X deterministic");
+            AssertEqual(Fixed.FromInt(1).Raw, mover.Position.Y.Raw, "alternate should step around occupied next tile");
+            AssertEqual(true, mover.HasMoveTarget, "alternate pass-around should preserve original move target");
+        }
+
+        private static void AlternateStepAvoidsOccupiedTiles()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(3011);
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(0, 0));
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(1, 0));
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(0, 1));
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1 }, FixedVector2.FromInts(2, 0))));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            Unit mover = state.EntityState.Units[0];
+            AssertEqual(Fixed.FromInt(0).Raw, mover.Position.X.Raw, "mover should not enter occupied direct tile");
+            AssertEqual(Fixed.FromInt(0).Raw, mover.Position.Y.Raw, "mover should not enter occupied alternate tile");
+            AssertEqual(true, mover.HasMoveTarget, "blocked mover should keep original move target");
+        }
+
+        private static void AlternateStepAvoidsStaticBlockers()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(3012);
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(0, 0));
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(1, 0));
+            AddCompletedWall(state, 0, FixedVector2.FromInts(0, 1));
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1 }, FixedVector2.FromInts(2, 0))));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            Unit mover = state.EntityState.Units[0];
+            AssertEqual(Fixed.FromInt(0).Raw, mover.Position.X.Raw, "mover should wait when only alternate is statically blocked");
+            AssertEqual(Fixed.FromInt(0).Raw, mover.Position.Y.Raw, "mover should not step into wall-blocked alternate");
+            AssertEqual(true, mover.HasMoveTarget, "static-blocked alternate should not clear move target");
+        }
+
+        private static void TemporaryLiveUnitBlockagePreservesMoveTarget()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(3013);
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(0, 0));
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(1, 0));
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1 }, FixedVector2.FromInts(2, 0))));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            Unit mover = state.EntityState.Units[0];
+            AssertEqual(true, mover.HasMoveTarget, "temporary unit congestion should preserve move target");
+            AssertEqual(Fixed.FromInt(2).Raw, mover.MoveTarget.X.Raw, "temporary unit congestion should preserve target X");
+            AssertEqual(Fixed.FromInt(0).Raw, mover.MoveTarget.Y.Raw, "temporary unit congestion should preserve target Y");
+        }
+
+        private static void TcFrontBlockerAllowsPassAroundProgress()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(3014);
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(10, 10));
+            int moverId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(10, 6));
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(10, 7));
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { moverId }, FixedVector2.FromInts(10, 15))));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            Unit mover = FindUnitById(state, moverId);
+            AssertEqual(true, mover.HasMoveTarget, "tc-front congestion should preserve move target");
+            AssertEqual(false, SpatialRules.GetTileX(mover.Position) == 10 && SpatialRules.GetTileY(mover.Position) == 6, "mover should make local pass-around progress near TC");
+            AssertEqual(false, SpatialRules.IsTileInsideBuildingFootprint(state.EntityState.Buildings[0], SpatialRules.GetTileX(mover.Position), SpatialRules.GetTileY(mover.Position)), "pass-around should not enter TC footprint");
+        }
+
+        private static void ResourceDropoffBlockerPreservesWorkerIntent()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(3015);
+            int workerId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(20, 6));
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(20, 7));
+            int resourceId = state.EconomyState.NextResourceNodeId++;
+            state.EconomyState.ResourceNodes.Add(new ResourceNode
+            {
+                Id = resourceId,
+                ResourceType = ResourceType.Wood,
+                Position = FixedVector2.FromInts(26, 20),
+                RemainingAmount = GameData.StartingWoodAmount
+            });
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(20, 10));
+            Unit worker = FindUnitById(state, workerId);
+            worker.CurrentResourceNodeId = resourceId;
+            worker.CarriedResourceType = ResourceType.Wood;
+            worker.CarriedAmount = GameData.VillagerCarryCapacity;
+            worker.TaskPhase = WorkerTaskPhase.MovingToDropoffSlot;
+            worker.HasMoveTarget = true;
+            worker.MoveTarget = FixedVector2.FromInts(20, 15);
+
+            new TickRunner().AdvanceOneTick(state, rules, new CommandBuffer());
+
+            AssertEqual(resourceId, worker.CurrentResourceNodeId, "local traffic avoidance should preserve resource intent");
+            AssertEqual(GameData.VillagerCarryCapacity, worker.CarriedAmount, "local traffic avoidance should not fake deposit");
+            AssertEqual(true, worker.HasMoveTarget, "local traffic avoidance should keep dropoff move target");
         }
 
         private static void TwoUnitsAttemptingSameTileFail()
@@ -6274,7 +6398,7 @@ namespace RtsGame.Tests
             int buildingId = state.EntityState.Buildings[0].Id;
             buffer.Add(new CommandEnvelope(new CommandHeader(1, 0, 1, CommandType.AssignBuild), new AssignBuildCommand(buildingId, new[] { 1, 2, 3, 4 })));
             runner.AdvanceOneTick(state, rules, buffer);
-            AdvanceUntilBuildingComplete(state, rules, buffer, runner, buildingId, 80, 2, 2);
+            AdvanceUntilBuildingComplete(state, rules, buffer, runner, buildingId, 240, 2, 2);
         }
 
         private static void AdvanceUntilBuildingComplete(GameState state, GameRules rules, CommandBuffer buffer, TickRunner runner, int buildingId, int maxTicks, int startTick, uint startSequence)

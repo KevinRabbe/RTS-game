@@ -86,9 +86,12 @@ It owns:
 - Moving toward the current target.
 - Deterministic arrival snap.
 - No-stacking enforcement.
+- Local dynamic unit avoidance when the next path step is occupied by a live unit.
 - Blocked/no-progress tracking.
 
 Movement must not decide gather continuation, deposit policy, build progress, attack targeting, or spawn logic.
+
+The current local avoidance slice is intentionally small. If a unit's next path step is occupied by another live unit, movement may choose one deterministic adjacent pass-around tile that is statically walkable, unoccupied, not reserved as a final-purpose slot, and still has a path to the original target. If no such tile exists, the unit waits cleanly and keeps its movement target and long-term task intent. This is not full group traffic or destination slot ownership; that belongs to the later group traffic phase.
 
 ### Worker And Economy Task Resolution
 

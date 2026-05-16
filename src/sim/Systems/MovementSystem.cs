@@ -6,6 +6,9 @@ namespace RtsGame.Sim.Systems
 {
     public sealed class MovementSystem : ISimSystem
     {
+        private static readonly int[] AlternateOffsetX = new[] { 1, 0, -1, 0 };
+        private static readonly int[] AlternateOffsetY = new[] { 0, 1, 0, -1 };
+
         public void Run(GameState state, GameRules rules, TickCommandContext commandContext)
         {
             MovementPlan[] plans = BuildPlans(state);
@@ -42,6 +45,8 @@ namespace RtsGame.Sim.Systems
                 int targetTileX = SpatialRules.GetTileX(unit.MoveTarget);
                 int targetTileY = SpatialRules.GetTileY(unit.MoveTarget);
                 bool nextPathTileIsTarget = true;
+                int intendedNextTileX = targetTileX;
+                int intendedNextTileY = targetTileY;
                 if (currentTileX != targetTileX || currentTileY != targetTileY)
                 {
                     if (!DeterministicPathfinder.TryFindNextTile(state, currentTileX, currentTileY, targetTileX, targetTileY, out int nextTileX, out int nextTileY))
@@ -52,6 +57,8 @@ namespace RtsGame.Sim.Systems
                     }
 
                     nextPathTileIsTarget = nextTileX == targetTileX && nextTileY == targetTileY;
+                    intendedNextTileX = nextTileX;
+                    intendedNextTileY = nextTileY;
                     delta = FixedVector2.FromInts(nextTileX, nextTileY) - unit.Position;
                 }
 
@@ -77,12 +84,107 @@ namespace RtsGame.Sim.Systems
                     continue;
                 }
 
+                if (projectedTileX != currentTileX
+                    || projectedTileY != currentTileY)
+                {
+                    if (SpatialRules.IsTileOccupiedByLiveUnit(state, projectedTileX, projectedTileY, unit.Id)
+                        && !nextPathTileIsTarget
+                        && TryBuildAlternateStepPlan(
+                            state,
+                            unit,
+                            currentTileX,
+                            currentTileY,
+                            targetTileX,
+                            targetTileY,
+                            intendedNextTileX,
+                            intendedNextTileY,
+                            speed,
+                            out FixedVector2 alternatePosition))
+                    {
+                        nextPosition = alternatePosition;
+                    }
+                }
+
                 plan.AttemptsMove = true;
                 plan.NextPosition = nextPosition;
                 plans[i] = plan;
             }
 
             return plans;
+        }
+
+        private static bool TryBuildAlternateStepPlan(
+            GameState state,
+            Unit unit,
+            int currentTileX,
+            int currentTileY,
+            int targetTileX,
+            int targetTileY,
+            int intendedNextTileX,
+            int intendedNextTileY,
+            Fixed speed,
+            out FixedVector2 nextPosition)
+        {
+            nextPosition = unit.Position;
+            int bestX = 0;
+            int bestY = 0;
+            int bestDistance = int.MaxValue;
+            int bestTurnCost = int.MaxValue;
+            bool found = false;
+
+            for (int i = 0; i < AlternateOffsetX.Length; i++)
+            {
+                int candidateX = currentTileX + AlternateOffsetX[i];
+                int candidateY = currentTileY + AlternateOffsetY[i];
+                if (!IsValidAlternateTile(state, unit, candidateX, candidateY))
+                {
+                    continue;
+                }
+
+                if (!DeterministicPathfinder.TryFindNextTile(state, candidateX, candidateY, targetTileX, targetTileY, out _, out _))
+                {
+                    continue;
+                }
+
+                int distance = Abs(candidateX - targetTileX) + Abs(candidateY - targetTileY);
+                int turnCost = Abs(candidateX - intendedNextTileX) + Abs(candidateY - intendedNextTileY);
+                if (!found
+                    || distance < bestDistance
+                    || (distance == bestDistance && turnCost < bestTurnCost)
+                    || (distance == bestDistance && turnCost == bestTurnCost && CompareTile(candidateX, candidateY, bestX, bestY) < 0))
+                {
+                    bestX = candidateX;
+                    bestY = candidateY;
+                    bestDistance = distance;
+                    bestTurnCost = turnCost;
+                    found = true;
+                }
+            }
+
+            if (!found)
+            {
+                return false;
+            }
+
+            FixedVector2 alternateTarget = FixedVector2.FromInts(bestX, bestY);
+            FixedVector2 delta = alternateTarget - unit.Position;
+            long distanceRaw = DeterministicMath.SqrtRaw(delta.LengthSquaredRaw());
+            if (distanceRaw == 0 || distanceRaw <= speed.Raw)
+            {
+                nextPosition = alternateTarget;
+                return true;
+            }
+
+            Fixed stepScale = speed / new Fixed(distanceRaw);
+            nextPosition = unit.Position + FixedVector2.Multiply(delta, stepScale);
+            return true;
+        }
+
+        private static bool IsValidAlternateTile(GameState state, Unit unit, int tileX, int tileY)
+        {
+            return !SpatialRules.IsTileBlockedForUnitMovement(state, tileX, tileY)
+                && !SpatialRules.IsTileOccupiedByLiveUnit(state, tileX, tileY, unit.Id)
+                && !SpatialRules.IsTileReservedByLiveUnit(state, tileX, tileY, unit.Id);
         }
 
         private static void MarkBlockedByStationaryUnits(GameState state, MovementPlan[] plans)
@@ -262,6 +364,17 @@ namespace RtsGame.Sim.Systems
                 || phase == WorkerTaskPhase.MovingToDropoffSlot
                 || phase == WorkerTaskPhase.MovingToBuildSlot
                 || phase == WorkerTaskPhase.BlockedWaiting;
+        }
+
+        private static int Abs(int value)
+        {
+            return value < 0 ? -value : value;
+        }
+
+        private static int CompareTile(int leftX, int leftY, int rightX, int rightY)
+        {
+            int yCompare = leftY.CompareTo(rightY);
+            return yCompare != 0 ? yCompare : leftX.CompareTo(rightX);
         }
 
         private struct MovementPlan
