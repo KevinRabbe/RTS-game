@@ -6,8 +6,8 @@ namespace RtsGame.Sim.Systems
 {
     public sealed class MovementSystem : ISimSystem
     {
-        private static readonly int[] AlternateOffsetX = new[] { 1, 0, -1, 0 };
-        private static readonly int[] AlternateOffsetY = new[] { 0, 1, 0, -1 };
+        private static readonly int[] AlternateOffsetX = new[] { 1, 0, -1, 0, 1, 1, -1, -1 };
+        private static readonly int[] AlternateOffsetY = new[] { 0, 1, 0, -1, 1, -1, 1, -1 };
 
         public void Run(GameState state, GameRules rules, TickCommandContext commandContext)
         {
@@ -129,6 +129,7 @@ namespace RtsGame.Sim.Systems
             int bestX = 0;
             int bestY = 0;
             int bestDistance = int.MaxValue;
+            int bestStepClass = int.MaxValue;
             int bestTurnCost = int.MaxValue;
             bool found = false;
 
@@ -147,15 +148,18 @@ namespace RtsGame.Sim.Systems
                 }
 
                 int distance = Abs(candidateX - targetTileX) + Abs(candidateY - targetTileY);
+                int stepClass = i < 4 ? 0 : 1;
                 int turnCost = Abs(candidateX - intendedNextTileX) + Abs(candidateY - intendedNextTileY);
                 if (!found
-                    || distance < bestDistance
-                    || (distance == bestDistance && turnCost < bestTurnCost)
-                    || (distance == bestDistance && turnCost == bestTurnCost && CompareTile(candidateX, candidateY, bestX, bestY) < 0))
+                    || stepClass < bestStepClass
+                    || (stepClass == bestStepClass && distance < bestDistance)
+                    || (stepClass == bestStepClass && distance == bestDistance && turnCost < bestTurnCost)
+                    || (stepClass == bestStepClass && distance == bestDistance && turnCost == bestTurnCost && CompareTile(candidateX, candidateY, bestX, bestY) < 0))
                 {
                     bestX = candidateX;
                     bestY = candidateY;
                     bestDistance = distance;
+                    bestStepClass = stepClass;
                     bestTurnCost = turnCost;
                     found = true;
                 }

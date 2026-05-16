@@ -173,6 +173,7 @@ Current implementation notes:
 - Movement snaps to the exact `MoveTarget` when the remaining deterministic fixed-point distance is within the unit's per-tick movement step.
 - Task systems own interaction actions: being in valid resource, drop-off, or build range clears movement and performs the task instead of chasing exact raw coordinates.
 - Reaching a command-move target returns the unit to `Idle`; reaching a task slot leaves the task phase for the gather/deposit/build system to resolve.
+- Local pass-around checks deterministic adjacent alternatives when the next path step is occupied by a live unit. Cardinal sidesteps are preferred before diagonal sidesteps, and all alternatives must remain statically walkable, unoccupied, unreserved, and pathable to the original target.
 
 The desired no-jiggle contract:
 

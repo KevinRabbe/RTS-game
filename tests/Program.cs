@@ -144,8 +144,9 @@ namespace RtsGame.Tests
                 new TestCase("pathfinder blocks building and resource tiles", PathfinderBlocksBuildingAndResourceTiles),
                 new TestCase("destroyed wall opens path next tick", DestroyedWallOpensPathNextTick),
                 new TestCase("no path returns failure deterministically", NoPathReturnsFailureDeterministically),
-                new TestCase("unit blocked by stationary unit", UnitBlockedByStationaryUnit),
+                new TestCase("unit ordered to occupied destination receives nearby slot", UnitOrderedToOccupiedDestinationReceivesNearbySlot),
                 new TestCase("occupied next step uses deterministic alternate", OccupiedNextStepUsesDeterministicAlternate),
+                new TestCase("occupied next step can use diagonal alternate", OccupiedNextStepCanUseDiagonalAlternate),
                 new TestCase("alternate step avoids occupied tiles", AlternateStepAvoidsOccupiedTiles),
                 new TestCase("alternate step avoids static blockers", AlternateStepAvoidsStaticBlockers),
                 new TestCase("temporary live unit blockage preserves move target", TemporaryLiveUnitBlockagePreservesMoveTarget),
@@ -2581,7 +2582,7 @@ namespace RtsGame.Tests
             AssertEqual(firstY, secondY, "no-path Y should be deterministic");
         }
 
-        private static void UnitBlockedByStationaryUnit()
+        private static void UnitOrderedToOccupiedDestinationReceivesNearbySlot()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
             GameState state = CreateOccupancyState(1);
@@ -2591,8 +2592,11 @@ namespace RtsGame.Tests
             buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1 }, FixedVector2.FromInts(1, 0))));
             new TickRunner().AdvanceOneTick(state, rules, buffer);
 
-            AssertEqual(Fixed.FromInt(0).Raw, state.EntityState.Units[0].Position.X.Raw, "stationary unit should hold occupied tile");
-            AssertEqual(true, state.EntityState.Units[0].HasMoveTarget, "blocked unit should retain move target and retry deterministically");
+            Unit mover = state.EntityState.Units[0];
+            AssertEqual(true, mover.HasMoveTarget, "occupied final tile should choose a nearby destination slot instead of clearing intent");
+            AssertEqual(InteractionReservationKind.MoveDestination, mover.ReservedInteractionKind, "occupied final tile should reserve a move destination slot");
+            AssertEqual(false, SpatialRules.GetTileX(mover.MoveTarget) == 1 && SpatialRules.GetTileY(mover.MoveTarget) == 0, "move destination should not be the occupied tile");
+            AssertNoLiveUnitStacking(state, "occupied final tile command should not stack units");
         }
 
         private static void OccupiedNextStepUsesDeterministicAlternate()
@@ -2612,6 +2616,25 @@ namespace RtsGame.Tests
             AssertEqual(true, mover.HasMoveTarget, "alternate pass-around should preserve original move target");
         }
 
+        private static void OccupiedNextStepCanUseDiagonalAlternate()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(3030);
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(0, 0));
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(1, 0));
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(0, 1));
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1 }, FixedVector2.FromInts(2, 0))));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            Unit mover = state.EntityState.Units[0];
+            AssertEqual(true, mover.Position.X.Raw > 0, "diagonal pass-around should make X progress toward the open diagonal tile");
+            AssertEqual(true, mover.Position.Y.Raw > 0, "diagonal pass-around should make Y progress toward the open diagonal tile");
+            AssertEqual(true, mover.HasMoveTarget, "diagonal pass-around should preserve original move target");
+            AssertNoLiveUnitStacking(state, "diagonal pass-around should not stack units");
+        }
+
         private static void AlternateStepAvoidsOccupiedTiles()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -2625,8 +2648,9 @@ namespace RtsGame.Tests
             new TickRunner().AdvanceOneTick(state, rules, buffer);
 
             Unit mover = state.EntityState.Units[0];
-            AssertEqual(Fixed.FromInt(0).Raw, mover.Position.X.Raw, "mover should not enter occupied direct tile");
-            AssertEqual(Fixed.FromInt(0).Raw, mover.Position.Y.Raw, "mover should not enter occupied alternate tile");
+            AssertEqual(true, mover.Position.X.Raw > 0, "mover should use an open diagonal instead of occupied direct/cardinal tiles");
+            AssertEqual(true, mover.Position.Y.Raw > 0, "mover should use an open diagonal instead of occupied direct/cardinal tiles");
+            AssertNoLiveUnitStacking(state, "alternate step should avoid occupied tiles");
             AssertEqual(true, mover.HasMoveTarget, "blocked mover should keep original move target");
         }
 
@@ -2637,6 +2661,7 @@ namespace RtsGame.Tests
             EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(0, 0));
             EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(1, 0));
             AddCompletedWall(state, 0, FixedVector2.FromInts(0, 1));
+            AddCompletedWall(state, 0, FixedVector2.FromInts(1, 1));
             var buffer = new CommandBuffer();
             buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1 }, FixedVector2.FromInts(2, 0))));
 
@@ -2893,8 +2918,11 @@ namespace RtsGame.Tests
             buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 1, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 2 }, FixedVector2.FromInts(0, 0))));
             new TickRunner().AdvanceOneTick(state, rules, buffer);
 
-            AssertEqual(Fixed.FromInt(0).Raw, state.EntityState.Units[0].Position.X.Raw, "first unit should not swap tiles");
-            AssertEqual(Fixed.FromInt(1).Raw, state.EntityState.Units[1].Position.X.Raw, "second unit should not swap tiles");
+            AssertNoLiveUnitStacking(state, "two units should not stack while avoiding a swap");
+            AssertEqual(true, state.EntityState.Units[0].HasMoveTarget, "first unit should keep movement intent while avoiding a swap");
+            AssertEqual(true, state.EntityState.Units[1].HasMoveTarget, "second unit should keep movement intent while avoiding a swap");
+            AssertEqual(false, SpatialRules.GetTileX(state.EntityState.Units[0].Position) == 1 && SpatialRules.GetTileY(state.EntityState.Units[0].Position) == 0, "first unit should not move into second unit's occupied tile");
+            AssertEqual(false, SpatialRules.GetTileX(state.EntityState.Units[1].Position) == 0 && SpatialRules.GetTileY(state.EntityState.Units[1].Position) == 0, "second unit should not move into first unit's occupied tile");
         }
 
         private static void WorkerTaskTileSwapKeepsMovementIntent()
