@@ -17,6 +17,10 @@ Primary mode:
 - 6-player ranked free-for-all.
 - Nomad start with 4 villagers and 1 scout.
 - First placed Town Center becomes the player's Capital.
+- 200+ population per player.
+- Bonus population above cap may come from kills, rewards, or future systems.
+- 1200+ active units must remain replay/lockstep safe.
+- Spectator and caster clients consume read-only snapshots.
 - Target match length: 25-35 minutes.
 
 Win feeling:
@@ -37,6 +41,7 @@ Avoid building the full RTS at once. The first playable goal is a small determin
 - Capital destruction creates a major penalty without instant defeat.
 - A replay can reproduce the match exactly.
 - A lockstep test can run the same command stream on multiple peers with matching checksums.
+- Worker, spawn, combat, siege, trade, and rally traffic are built from shared deterministic traffic policies instead of one-off fixes.
 
 ## Milestone 0: Project Foundation
 
@@ -123,6 +128,7 @@ Acceptance criteria:
 - Gold mines deplete and remain depleted in replay.
 - Units cannot train without resources and population room.
 - Economy state can be reconstructed from command stream only.
+- Worker traffic uses reserved interaction slots, bounded no-progress handling, and deterministic retargeting.
 
 ## Milestone 3: Movement, Visibility, and Map Control
 
@@ -132,6 +138,7 @@ Features:
 
 - Deterministic grid or nav-cell movement.
 - Unit move command.
+- Group move destination slots or formations.
 - Fog of war state.
 - Scout vision.
 - Map sectors with center, flank, choke, and high-value region tags.
@@ -146,6 +153,7 @@ Systems:
 Acceptance criteria:
 
 - Unit movement produces identical final positions across repeated runs.
+- Group traffic does not stack units or retarget every tick.
 - Visibility is derived only from simulation state.
 - No presentation-layer reveal logic affects gameplay.
 - Generated maps are fair but not mirrored.
@@ -162,6 +170,7 @@ Features:
 - Target acquisition through commands or deterministic rules.
 - Building attack and destruction.
 - No friendly fire.
+- Deterministic melee surround slots where needed.
 - Capital destruction penalty.
 - Player remains alive if other Town Centers exist.
 
@@ -192,6 +201,7 @@ Features:
 - Wall upgrade command.
 - Trebuchet or cannon with setup time and long reload.
 - Mangonel with area damage and no setup.
+- Deterministic siege deploy slots.
 - Siege population costs.
 
 Systems:
@@ -221,6 +231,7 @@ Features:
 - Longer physical route gives more income.
 - Trade units are vulnerable.
 - Trade route validity depends on map access and alive trade endpoints.
+- Trade endpoint traffic uses deterministic reservations where needed.
 
 Systems:
 
@@ -283,6 +294,7 @@ Acceptance criteria:
 - Ranking uses placement first and elimination contribution second.
 - Replay can reproduce the full match.
 - Spectator replay can read command stream without simulation mutation.
+- 6-player high-pop smoke tests stay deterministic and avoid invariant failures.
 
 ## Expansion Backlog
 
@@ -301,6 +313,7 @@ Add only after multiplayer, replay, and deterministic foundations are stable:
 Highest-risk areas:
 
 - Deterministic movement and pathing.
+- High-pop unit traffic and slot ownership.
 - Lockstep input delay and stall behavior.
 - Map generation fairness without mirroring.
 - Siege area damage determinism.
@@ -312,3 +325,20 @@ Risk policy:
 - Prefer simple deterministic approximations over complex non-deterministic realism.
 - Prove replay and checksum behavior before expanding feature complexity.
 - Keep simulation free from rendering, engine physics, wall-clock time, async callbacks, and unordered iteration.
+
+## High-Pop Scale Checklist
+
+Before each future simulation issue, answer:
+
+- Does this iterate over all units, buildings, or resources?
+- Is that acceptable at 1200+ active units?
+- Does it pathfind or repath every tick?
+- Does it retarget every tick?
+- Does it use unordered iteration?
+- Does it create per-unit logs every tick?
+- Does it rely on presentation, sprites, or colliders for gameplay?
+- Are deterministic tie-breakers defined?
+- Does this remain replay and lockstep safe?
+- Can spectator and caster clients consume it read-only?
+
+The detailed traffic policy is in [High-Pop Simulation Architecture](high-pop-simulation-architecture.md).

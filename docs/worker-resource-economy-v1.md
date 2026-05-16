@@ -8,6 +8,8 @@ Players should command workers to gather from a player-facing resource area. The
 
 The first target map is DryArabiaTest01. It should support a clean 5-10 minute economy smoke test: place TC, gather food/wood/gold, deposit, deplete resources, train villagers, and keep running without worker jiggle, desyncs, or invariant failures.
 
+This worker economy is also the first implementation of the broader high-pop traffic contract in [High-Pop Simulation Architecture](high-pop-simulation-architecture.md). Worker slots must scale toward 6-player FFA matches with 200+ population per player and 1200+ active units, so fixes should not become one-off villager hacks.
+
 ## 2. ResourceArea / ResourceNode Model
 
 `ResourceKind` is what enters the player stockpile:
@@ -128,6 +130,7 @@ Current implementation notes:
 
 - Each worker stores one deterministic reservation in simulation state: kind, target id, and tile.
 - Supported reservation kinds are `ResourceNode`, `Dropoff`, and `BuildSite`.
+- These correspond to the high-pop traffic concepts `ResourceInteraction`, `DropoffInteraction`, and `BuildInteraction`.
 - Reservation state is included in checksums because it affects future movement and task decisions.
 - Slot selection filters out blocked footprint tiles, occupied tiles, and tiles reserved by other live workers.
 - Candidate ordering is deterministic: nearest tile from the worker's current tile first, then stable tile order by Y and X.
@@ -259,6 +262,7 @@ Planned issue order:
 - Phase 7E: Simulation geometry vs visual geometry.
 - Phase 7C: Worker interaction slot reservations.
 - Phase 7D: Worker task phases and no-jiggle movement contract.
+- Phase 7S: High-pop simulation split and unit traffic architecture.
 - Phase 7F: Resource depletion and area continuation.
 - Phase 7G: Town Center villager production and spawn slots.
 - Phase 7H: Rectangle selection and group gather commands.
@@ -329,3 +333,11 @@ Determinism:
 - Slot assignment is stable.
 - Resource continuation is stable.
 - Stress scenario `chaos-v4` remains green.
+
+High-pop readiness:
+
+- Worker traffic does not rely on presentation colliders or sprite bounds.
+- Slot ownership has deterministic conflict resolution.
+- Temporary traffic does not clear long-term gather/build intent.
+- Resource, drop-off, and build logic avoid per-tick retarget churn.
+- Any new worker loop change answers the high-pop scale checklist.

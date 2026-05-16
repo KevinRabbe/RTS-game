@@ -8,6 +8,12 @@ Core law:
 
 If a feature conflicts with this law, redesign the feature.
 
+Scale law:
+
+> Simulation systems must be shaped for 6-player FFA, 200+ population per player, possible bonus population above cap, 1200+ active units, deterministic replay/lockstep, and read-only spectator/caster clients.
+
+High-pop unit traffic policy lives in [High-Pop Simulation Architecture](high-pop-simulation-architecture.md).
+
 ## Layer Overview
 
 The project is split into four layers.
@@ -27,8 +33,15 @@ Owns:
 
 - `GameState`.
 - Commands.
+- Long-term unit intent/order state.
+- Spatial geometry helpers for footprints, blockers, rings, and walkability.
+- Traffic and final-purpose slot ownership.
 - Command validation and execution.
 - Deterministic systems.
+- Movement execution.
+- Worker/economy task resolution.
+- Production and spawn resolution.
+- Future combat/siege slot resolution.
 - Tick advancement.
 - Checksums.
 - Replay reconstruction.
@@ -44,6 +57,8 @@ Forbidden:
 - Threads or async mutation.
 - Unseeded random.
 - Iteration over unordered collections.
+- Presentation/collider-driven gameplay.
+- Per-tick full pathfinding or retargeting unless explicitly bounded and proven acceptable at 1200+ units.
 
 ### Networking
 
@@ -77,6 +92,7 @@ Owns:
 - Camera.
 - Local input collection.
 - Read-only simulation snapshots.
+- Spectator and caster read-only views.
 
 Forbidden:
 
@@ -85,6 +101,8 @@ Forbidden:
 - Presentation-only state that changes gameplay results.
 
 Presentation may create command requests. The command request becomes gameplay only after it is serialized, tick-indexed, validated, and executed by Simulation Core.
+
+Spectator and caster clients follow the same rule: they may read snapshots, interpolate, filter, annotate, and display, but they never mutate `GameState`.
 
 ### Tooling and Debug
 
@@ -309,6 +327,59 @@ Recommended prototype order:
 
 Systems should be plain functions or small stateless modules. Avoid inheritance-based system hierarchies.
 
+## Simulation Responsibility Split
+
+Future systems should preserve this split inside `src/sim`:
+
+- Commands validate player actions and set intent only.
+- Intent/order state stores each unit's long-term purpose.
+- Spatial geometry exposes map bounds, footprints, blockers, rings, and walkability.
+- Traffic/slot ownership manages final-purpose reservations, conflicts, and deterministic ownership.
+- Movement execution moves toward targets, snaps/arrives, and tracks blocked/no-progress state.
+- Worker/economy task resolution performs gather, deposit, and build phases using traffic plus movement state.
+- Production/spawn systems train units and choose spawn slots.
+- Combat/siege systems will later own attack surround and siege deploy slots.
+- Snapshot/presentation systems expose read-only state for Godot, spectators, casters, and debug.
+
+Spatial rules should stay mostly pure geometry. They should not become the worker/task brain.
+
+## Unit Traffic Laws
+
+- No two live units may occupy the same tile.
+- No two units may reserve the same final-purpose slot unless the reservation kind explicitly allows sharing.
+- Temporary traffic must not clear long-term intent.
+- Conflicts resolve deterministically.
+- Losers wait cleanly or choose deterministic alternate slots.
+- Movement executes movement only; task systems decide gameplay intent.
+- Slot ownership must not rely on presentation sprites, click bounds, or colliders.
+
+Terminology:
+
+- `Occupied tile`: a tile currently containing a live unit.
+- `Reserved final-purpose slot`: a task endpoint claimed by a unit.
+- `Pass-through/path tile`: a travel tile, not a task endpoint.
+- `Static blocker`: map bounds, walls, footprints, or explicit sim blocker objects.
+- `Dynamic blocker`: a live unit occupying a tile.
+- `Reservation conflict`: multiple units attempting to own one final-purpose slot.
+- `No-progress timeout`: a bounded retry threshold.
+- `Deterministic retarget`: alternate selection through stable ordered candidates and tie-breakers.
+
+Current reservation concepts:
+
+- Resource interaction.
+- Drop-off interaction.
+- Build interaction.
+
+Future reservation concepts:
+
+- Spawn.
+- Move destination.
+- Formation.
+- Attack surround.
+- Siege deploy.
+- Rally exit.
+- Trade endpoint.
+
 ## Determinism Rules
 
 Use:
@@ -447,5 +518,13 @@ Before adding a gameplay feature, answer:
 - What checksum or replay test proves it?
 - Does presentation remain read-only?
 - Does networking still send only commands?
+- Does this iterate over all units, buildings, or resources?
+- Is that acceptable at 1200+ active units?
+- Does it pathfind or repath every tick?
+- Does it retarget every tick?
+- Does it use unordered iteration?
+- Does it create per-unit logs every tick?
+- Does it rely on presentation or collider geometry for gameplay?
+- Can spectator and caster clients consume it read-only?
 
 If any answer is unclear, narrow the feature.
