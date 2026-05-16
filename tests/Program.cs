@@ -39,6 +39,10 @@ namespace RtsGame.Tests
                 new TestCase("nomad map creates center resources", NomadMapCreatesCenterResources),
                 new TestCase("resource profiles define stockpile kind and node type", ResourceProfilesDefineStockpileKindAndNodeType),
                 new TestCase("nomad resources create areas and profiled nodes", NomadResourcesCreateAreasAndProfiledNodes),
+                new TestCase("resource visual overhang does not change sim footprint", ResourceVisualOverhangDoesNotChangeSimFootprint),
+                new TestCase("resource interaction ring uses sim footprint", ResourceInteractionRingUsesSimFootprint),
+                new TestCase("large resource interaction ring uses larger sim footprint", LargeResourceInteractionRingUsesLargerSimFootprint),
+                new TestCase("building interaction ring uses sim footprint", BuildingInteractionRingUsesSimFootprint),
                 new TestCase("dry arabia test map initializes deterministically", DryArabiaTestMapInitializesDeterministically),
                 new TestCase("dry arabia resources create typed areas", DryArabiaResourcesCreateTypedAreas),
                 new TestCase("dry arabia test map has valid tc placement zones", DryArabiaTestMapHasValidTcPlacementZones),
@@ -702,6 +706,66 @@ namespace RtsGame.Tests
             AssertEqual(ResourceAreaType.Forest, woodArea.AreaType, "wood node should belong to forest area");
             AssertEqual(GatherProfileId.Tree, wood.GatherProfileId, "wood node should use tree profile");
             AssertEqual(ResourceNodeType.Tree, wood.NodeType, "wood node should be a tree");
+        }
+
+        private static void ResourceVisualOverhangDoesNotChangeSimFootprint()
+        {
+            GameState state = CreateOccupancyState(603, 1);
+            ResourceNode tree = CreateTestResourceNode(state, GatherProfileId.Tree, FixedVector2.FromInts(10, 10), GameData.StartingWoodAmount);
+            GatherProfile profile = GameData.GetGatherProfile(tree.GatherProfileId);
+
+            AssertEqual(true, profile.VisualRadiusTiles > profile.FootprintRadiusTiles, "tree profile should model visual overhang separately from sim footprint");
+            AssertEqual(true, SpatialRules.IsTileInsideResourceFootprint(tree, 10, 10), "tree trunk tile should be the sim footprint");
+            AssertEqual(false, SpatialRules.IsTileInsideResourceFootprint(tree, 12, 10), "visual overhang tile should not be inside sim footprint");
+            AssertEqual(false, SpatialRules.IsTileBlockedForUnitMovement(state, 12, 10), "visual overhang tile should not block movement");
+            AssertEqual(true, GodotPrimitiveHitTest.ContainsPointForInteraction(
+                CreateGodotPrimitive(VisualPrimitiveKind.WoodResourceCircle, tree.Id, GameData.NeutralOwnerPlayerIndex, 10, 10),
+                Fixed.FromInt(11).Raw,
+                Fixed.FromInt(10).Raw),
+                "presentation click bounds can be generous without changing sim footprint");
+        }
+
+        private static void ResourceInteractionRingUsesSimFootprint()
+        {
+            GameState state = CreateOccupancyState(604, 1);
+            ResourceNode berries = CreateTestResourceNode(state, GatherProfileId.BerryBush, FixedVector2.FromInts(10, 10), GameData.StartingFoodAmount);
+
+            List<SpatialRules.TileCoord> footprint = SpatialRules.EnumerateResourceFootprintTiles(state, berries);
+            List<SpatialRules.TileCoord> ring = SpatialRules.EnumerateResourceInteractionTiles(state, berries);
+
+            AssertEqual(1, footprint.Count, "1x1 resource footprint should enumerate one sim tile");
+            AssertEqual(8, ring.Count, "1x1 resource footprint should expose eight surrounding interaction slots");
+            AssertEqual(true, SpatialRules.ContainsInteractionTile(ring, 9, 9), "diagonal resource slot should be valid");
+            AssertEqual(false, SpatialRules.ContainsInteractionTile(ring, 10, 10), "resource footprint tile should not be an interaction slot");
+        }
+
+        private static void LargeResourceInteractionRingUsesLargerSimFootprint()
+        {
+            GameState state = CreateOccupancyState(605, 1);
+            ResourceNode largeGold = CreateTestResourceNode(state, GatherProfileId.GoldVeinLarge, FixedVector2.FromInts(20, 20), GameData.CenterGoldAmount);
+
+            List<SpatialRules.TileCoord> footprint = SpatialRules.EnumerateResourceFootprintTiles(state, largeGold);
+            List<SpatialRules.TileCoord> ring = SpatialRules.EnumerateResourceInteractionTiles(state, largeGold);
+
+            AssertEqual(true, footprint.Count > 1, "large gold should have a larger sim footprint than a 1x1 node");
+            AssertEqual(true, ring.Count > 8, "larger resource footprint should expose a larger interaction ring");
+            AssertEqual(true, SpatialRules.IsTileBlockedForUnitMovement(state, 21, 20), "large gold footprint should block pathing");
+            AssertEqual(false, SpatialRules.ContainsInteractionTile(ring, 20, 20), "large gold center should not be an interaction slot");
+        }
+
+        private static void BuildingInteractionRingUsesSimFootprint()
+        {
+            GameState state = CreateOccupancyState(606, 1);
+            int tcId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(20, 20));
+            Building tc = state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index];
+
+            List<SpatialRules.TileCoord> footprint = SpatialRules.EnumerateBuildingFootprintTiles(state, tc);
+            List<SpatialRules.TileCoord> ring = SpatialRules.EnumerateBuildingInteractionTiles(state, tc);
+
+            AssertEqual(true, footprint.Count > 1, "town center should have a multi-tile sim footprint");
+            AssertEqual(true, ring.Count > 8, "town center footprint should expose a larger interaction ring");
+            AssertEqual(true, SpatialRules.IsTileBlockedForUnitMovement(state, 20, 20), "town center footprint should block pathing");
+            AssertEqual(false, SpatialRules.ContainsInteractionTile(ring, 20, 20), "town center footprint tile should not be an interaction slot");
         }
 
         private static void DryArabiaResourcesCreateTypedAreas()
@@ -5692,6 +5756,48 @@ namespace RtsGame.Tests
             }
 
             throw new InvalidOperationException("resource node not found id=" + resourceNodeId);
+        }
+
+        private static ResourceNode CreateTestResourceNode(GameState state, GatherProfileId profileId, FixedVector2 position, int amount)
+        {
+            GatherProfile profile = GameData.GetGatherProfile(profileId);
+            int areaId = state.EconomyState.NextResourceAreaId++;
+            state.EconomyState.ResourceAreas.Add(new ResourceArea
+            {
+                Id = areaId,
+                AreaType = ResolveTestAreaType(profile.ResourceType),
+                ResourceType = profile.ResourceType,
+                GatherProfileId = profileId,
+                Position = position
+            });
+
+            var node = new ResourceNode
+            {
+                Id = state.EconomyState.NextResourceNodeId++,
+                ResourceAreaId = areaId,
+                ResourceType = profile.ResourceType,
+                NodeType = profile.NodeType,
+                GatherProfileId = profileId,
+                Position = position,
+                RemainingAmount = amount
+            };
+            state.EconomyState.ResourceNodes.Add(node);
+            return node;
+        }
+
+        private static ResourceAreaType ResolveTestAreaType(ResourceType resourceType)
+        {
+            switch (resourceType)
+            {
+                case ResourceType.Food:
+                    return ResourceAreaType.BerryPatch;
+                case ResourceType.Wood:
+                    return ResourceAreaType.Forest;
+                case ResourceType.Gold:
+                    return ResourceAreaType.GoldDeposit;
+                default:
+                    return ResourceAreaType.None;
+            }
         }
 
         private static ResourceArea FindResourceAreaById(GameState state, int resourceAreaId)

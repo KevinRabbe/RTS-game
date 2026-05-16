@@ -54,6 +54,7 @@ Suggested profile fields:
 - `GatherTicksPerAmount` or equivalent rate field if slower cadence is needed
 - `DropOffCategory`
 - `NodeFootprint`
+- `VisualRadiusTiles` or equivalent presentation-only visual overhang metadata
 - `BlocksMovement`
 - `BlocksPlacement`
 - `InteractionSlotShape`
@@ -189,6 +190,14 @@ Rules:
 - Visual sprites may overhang their simulation footprint.
 - Pathfinding uses shared blocker truth from footprints and live units.
 - Interaction slots should be visually plausible, but they are simulation concepts first.
+
+Current implementation notes:
+
+- `GatherProfile.FootprintRadiusTiles` controls resource simulation footprint.
+- `GatherProfile.VisualRadiusTiles` is presentation-facing metadata and must not decide movement/path blockers.
+- `SpatialRules.EnumerateResourceFootprintTiles(...)` and `SpatialRules.EnumerateBuildingFootprintTiles(...)` expose deterministic simulation footprints.
+- `SpatialRules.EnumerateResourceInteractionTiles(...)` and `SpatialRules.EnumerateBuildingInteractionTiles(...)` derive rings from simulation footprints.
+- Placement and pathfinding read the simulation footprint/blocker contract, not Godot primitive sizes or click bounds.
 
 This separation lets a gold sprite look large without forcing workers to path to sprite pixels, and lets a TC look like a large building while exposing stable slots around its footprint.
 

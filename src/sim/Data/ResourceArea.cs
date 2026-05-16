@@ -65,6 +65,7 @@ namespace RtsGame.Sim.Data
         public int CarryCapacity { get; }
         public int GatherAmountPerTick { get; }
         public int FootprintRadiusTiles { get; }
+        public int VisualRadiusTiles { get; }
         public bool BlocksMovement { get; }
         public bool BlocksPlacement { get; }
         public ResourceDepletedBehavior DepletedBehavior { get; }
@@ -78,6 +79,7 @@ namespace RtsGame.Sim.Data
             int carryCapacity,
             int gatherAmountPerTick,
             int footprintRadiusTiles,
+            int visualRadiusTiles,
             bool blocksMovement,
             bool blocksPlacement,
             ResourceDepletedBehavior depletedBehavior,
@@ -90,6 +92,7 @@ namespace RtsGame.Sim.Data
             CarryCapacity = carryCapacity;
             GatherAmountPerTick = gatherAmountPerTick;
             FootprintRadiusTiles = footprintRadiusTiles;
+            VisualRadiusTiles = visualRadiusTiles;
             BlocksMovement = blocksMovement;
             BlocksPlacement = blocksPlacement;
             DepletedBehavior = depletedBehavior;
