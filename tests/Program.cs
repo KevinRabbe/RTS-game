@@ -114,6 +114,12 @@ namespace RtsGame.Tests
                 new TestCase("economy replay determinism", EconomyReplayDeterminism),
                 new TestCase("economy lockstep", EconomyLockstep),
                 new TestCase("train villager pays cost and completes", TrainVillagerPaysCostAndCompletes),
+                new TestCase("trained villager spawns outside town center footprint", TrainedVillagerSpawnsOutsideTownCenterFootprint),
+                new TestCase("trained villager avoids occupied spawn slot", TrainedVillagerAvoidsOccupiedSpawnSlot),
+                new TestCase("blocked spawn waits until slot opens", BlockedSpawnWaitsUntilSlotOpens),
+                new TestCase("multiple trained villagers use different spawn slots", MultipleTrainedVillagersUseDifferentSpawnSlots),
+                new TestCase("trained villager avoids reserved spawn slot", TrainedVillagerAvoidsReservedSpawnSlot),
+                new TestCase("spawn slot selection is deterministic", SpawnSlotSelectionIsDeterministic),
                 new TestCase("train villager rejects missing resources", TrainVillagerRejectsMissingResources),
                 new TestCase("train villager respects population cap", TrainVillagerRespectsPopulationCap),
                 new TestCase("training replay determinism", TrainingReplayDeterminism),
@@ -199,6 +205,7 @@ namespace RtsGame.Tests
                 new TestCase("godot interaction router routes build assignment with expanded bounds", GodotInteractionRouterRoutesBuildAssignmentWithExpandedBounds),
                 new TestCase("godot interaction router ignores completed build target", GodotInteractionRouterIgnoresCompletedBuildTarget),
                 new TestCase("godot interaction router routes resources", GodotInteractionRouterRoutesResources),
+                new TestCase("godot interaction router routes resource over friendly completed building", GodotInteractionRouterRoutesResourceOverFriendlyCompletedBuilding),
                 new TestCase("godot interaction router routes move fallback", GodotInteractionRouterRoutesMoveFallback),
                 new TestCase("godot interaction router ignores friendly target", GodotInteractionRouterIgnoresFriendlyTarget),
                 new TestCase("godot selection router prioritizes local unit", GodotSelectionRouterPrioritizesLocalUnit),
@@ -2034,6 +2041,120 @@ namespace RtsGame.Tests
             AssertEqual(UnitTypeId.Villager, state.EntityState.Units[state.EntityState.Units.Count - 1].UnitTypeId, "trained unit should be villager");
         }
 
+        private static void TrainedVillagerSpawnsOutsideTownCenterFootprint()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(1801, 1);
+            int townCenterId = AddCompletedTownCenter(state, 0, FixedVector2.FromInts(10, 10));
+            Building townCenter = FindBuildingById(state, townCenterId);
+            QueueImmediateVillager(townCenter);
+
+            AdvanceSingleNoOp(state, rules, 0, 0);
+
+            Unit trained = state.EntityState.Units[state.EntityState.Units.Count - 1];
+            int tileX = SpatialRules.GetTileX(trained.Position);
+            int tileY = SpatialRules.GetTileY(trained.Position);
+            AssertEqual(false, SpatialRules.IsTileInsideBuildingFootprint(townCenter, tileX, tileY), "trained villager should not spawn inside TC footprint");
+            AssertEqual(false, SpatialRules.IsTileBlockedForUnitMovement(state, tileX, tileY), "trained villager should spawn on a walkable tile");
+            AssertEqual(0, townCenter.TrainingQueue.Count, "training queue should clear after successful spawn");
+        }
+
+        private static void TrainedVillagerAvoidsOccupiedSpawnSlot()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(1802, 1);
+            int townCenterId = AddCompletedTownCenter(state, 0, FixedVector2.FromInts(10, 10));
+            Building townCenter = FindBuildingById(state, townCenterId);
+            SpatialRules.TileCoord firstSlot = SpatialRules.EnumerateBuildInteractionTiles(state, townCenter)[0];
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(firstSlot.X, firstSlot.Y), false);
+            QueueImmediateVillager(townCenter);
+
+            AdvanceSingleNoOp(state, rules, 0, 0);
+
+            Unit trained = state.EntityState.Units[state.EntityState.Units.Count - 1];
+            AssertEqual(false, SpatialRules.GetTileX(trained.Position) == firstSlot.X && SpatialRules.GetTileY(trained.Position) == firstSlot.Y, "spawn should skip occupied first slot");
+            AssertEqual(0, townCenter.TrainingQueue.Count, "training queue should clear when another spawn slot is open");
+        }
+
+        private static void BlockedSpawnWaitsUntilSlotOpens()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(1803, 1);
+            int townCenterId = AddCompletedTownCenter(state, 0, FixedVector2.FromInts(10, 10));
+            Building townCenter = FindBuildingById(state, townCenterId);
+            var spawnSlots = SpatialRules.EnumerateBuildInteractionTiles(state, townCenter);
+            var blockers = new List<int>();
+            for (int i = 0; i < spawnSlots.Count; i++)
+            {
+                blockers.Add(EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(spawnSlots[i].X, spawnSlots[i].Y), false));
+            }
+
+            QueueImmediateVillager(townCenter);
+            int blockedUnitCount = state.EntityState.Units.Count;
+
+            AdvanceSingleNoOp(state, rules, 0, 0);
+
+            AssertEqual(blockedUnitCount, state.EntityState.Units.Count, "blocked spawn should not create a stacked unit");
+            AssertEqual(1, townCenter.TrainingQueue.Count, "completed training should wait while all spawn slots are blocked");
+            AssertEqual(1, townCenter.TrainingQueue[0].ProgressTicks, "waiting completed training should stay complete");
+
+            FindUnitById(state, blockers[0]).Position = FixedVector2.FromInts(40, 40);
+            AdvanceSingleNoOp(state, rules, 1, 1);
+
+            AssertEqual(blockedUnitCount + 1, state.EntityState.Units.Count, "unit should spawn once an exit slot opens");
+            AssertEqual(0, townCenter.TrainingQueue.Count, "queue should clear after delayed spawn");
+            Unit trained = state.EntityState.Units[state.EntityState.Units.Count - 1];
+            AssertEqual(spawnSlots[0].X, SpatialRules.GetTileX(trained.Position), "delayed spawn should use first newly available deterministic slot X");
+            AssertEqual(spawnSlots[0].Y, SpatialRules.GetTileY(trained.Position), "delayed spawn should use first newly available deterministic slot Y");
+        }
+
+        private static void MultipleTrainedVillagersUseDifferentSpawnSlots()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(1804, 1);
+            int townCenterId = AddCompletedTownCenter(state, 0, FixedVector2.FromInts(10, 10));
+            Building townCenter = FindBuildingById(state, townCenterId);
+            QueueImmediateVillager(townCenter);
+            QueueImmediateVillager(townCenter);
+
+            AdvanceSingleNoOp(state, rules, 0, 0);
+            Unit first = state.EntityState.Units[state.EntityState.Units.Count - 1];
+            AdvanceSingleNoOp(state, rules, 1, 1);
+            Unit second = state.EntityState.Units[state.EntityState.Units.Count - 1];
+
+            AssertEqual(false,
+                SpatialRules.GetTileX(first.Position) == SpatialRules.GetTileX(second.Position)
+                    && SpatialRules.GetTileY(first.Position) == SpatialRules.GetTileY(second.Position),
+                "successive trained villagers should not stack on the same spawn tile");
+            AssertEqual(0, townCenter.TrainingQueue.Count, "both queued villagers should spawn when slots are available");
+        }
+
+        private static void TrainedVillagerAvoidsReservedSpawnSlot()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(1805, 1);
+            int townCenterId = AddCompletedTownCenter(state, 0, FixedVector2.FromInts(10, 10));
+            Building townCenter = FindBuildingById(state, townCenterId);
+            SpatialRules.TileCoord firstSlot = SpatialRules.EnumerateBuildInteractionTiles(state, townCenter)[0];
+            int reserverId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(30, 30), false);
+            SpatialRules.ReserveInteractionSlot(FindUnitById(state, reserverId), InteractionReservationKind.Dropoff, townCenterId, firstSlot);
+            QueueImmediateVillager(townCenter);
+
+            AdvanceSingleNoOp(state, rules, 0, 0);
+
+            Unit trained = state.EntityState.Units[state.EntityState.Units.Count - 1];
+            AssertEqual(false, SpatialRules.GetTileX(trained.Position) == firstSlot.X && SpatialRules.GetTileY(trained.Position) == firstSlot.Y, "spawn should skip reserved final-purpose slots");
+        }
+
+        private static void SpawnSlotSelectionIsDeterministic()
+        {
+            FixedVector2 first = RunImmediateSpawnAndReturnPosition(1806);
+            FixedVector2 second = RunImmediateSpawnAndReturnPosition(1806);
+
+            AssertEqual(first.X.Raw, second.X.Raw, "spawn X should be deterministic");
+            AssertEqual(first.Y.Raw, second.Y.Raw, "spawn Y should be deterministic");
+        }
+
         private static void TrainVillagerRejectsMissingResources()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -3521,8 +3642,8 @@ namespace RtsGame.Tests
 
             GodotInteractionIntent intent = GodotInteractionRouter.RouteRightClick(frame, 0, true, Fixed.FromInt(5).Raw, Fixed.FromInt(5).Raw);
 
-            AssertEqual(GodotInteractionIntentKind.Move, intent.Kind, "completed own building should not route to build assignment");
-            AssertEqual(0, intent.TargetEntityId, "completed own building should not be exposed as a build target");
+            AssertEqual(GodotInteractionIntentKind.None, intent.Kind, "completed own building should suppress ground move fallback");
+            AssertEqual(22, intent.TargetEntityId, "completed own building should remain visible as the resolved target");
         }
 
         private static void GodotInteractionRouterRoutesResources()
@@ -3537,6 +3658,25 @@ namespace RtsGame.Tests
             AssertEqual(GodotInteractionIntentKind.GatherResource, intent.Kind, "resource target should route to gather");
             AssertEqual(30, intent.ResourceNodeId, "gather intent should expose resource node id");
             AssertEqual(0, intent.TargetEntityId, "gather intent should not expose an attack target id");
+        }
+
+        private static void GodotInteractionRouterRoutesResourceOverFriendlyCompletedBuilding()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(
+                new[]
+                {
+                    CreateGodotPrimitive(VisualPrimitiveKind.BuildingRectangle, 22, 0, 5, 5),
+                    CreateGodotPrimitive(VisualPrimitiveKind.WoodResourceCircle, 31, GameData.NeutralOwnerPlayerIndex, 5, 5)
+                },
+                new[]
+                {
+                    new GodotBuildingStatusDto(22, (int)BuildingTypeId.TownCenter, false, GameData.TownCenterBuildTicks, GameData.TownCenterBuildTicks, 0, 0, 0, 0)
+                });
+
+            GodotInteractionIntent intent = GodotInteractionRouter.RouteRightClick(frame, 0, true, Fixed.FromInt(5).Raw, Fixed.FromInt(5).Raw);
+
+            AssertEqual(GodotInteractionIntentKind.GatherResource, intent.Kind, "resource target should beat friendly completed building suppression");
+            AssertEqual(31, intent.ResourceNodeId, "overlapping resource should remain gatherable");
         }
 
         private static void GodotInteractionRouterPicksNearestOverlappingResource()
@@ -6147,6 +6287,42 @@ namespace RtsGame.Tests
             }
 
             return townCenterId;
+        }
+
+        private static void QueueImmediateVillager(Building building)
+        {
+            building.TrainingQueue.Add(new TrainingQueueItem(UnitTypeId.Villager, 1));
+        }
+
+        private static void AdvanceSingleNoOp(GameState state, GameRules rules, int tick, uint sequence)
+        {
+            var buffer = new CommandBuffer();
+            AddNoOp(buffer, tick, 0, sequence);
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+        }
+
+        private static FixedVector2 RunImmediateSpawnAndReturnPosition(ulong seed)
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(seed, 1);
+            int townCenterId = AddCompletedTownCenter(state, 0, FixedVector2.FromInts(10, 10));
+            Building townCenter = FindBuildingById(state, townCenterId);
+            QueueImmediateVillager(townCenter);
+            AdvanceSingleNoOp(state, rules, 0, 0);
+            return state.EntityState.Units[state.EntityState.Units.Count - 1].Position;
+        }
+
+        private static Building FindBuildingById(GameState state, int buildingId)
+        {
+            if (!state.EntityState.EntityLookup.TryGetValue(buildingId, out EntityRef entityRef)
+                || entityRef.Kind != EntityKind.Building
+                || entityRef.Index < 0
+                || entityRef.Index >= state.EntityState.Buildings.Count)
+            {
+                throw new InvalidOperationException("building not found id=" + buildingId);
+            }
+
+            return state.EntityState.Buildings[entityRef.Index];
         }
 
         private static int FindUnderConstructionBuildingId(GameState state, int ownerPlayerIndex, BuildingTypeId buildingTypeId)

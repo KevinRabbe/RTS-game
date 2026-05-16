@@ -23,25 +23,32 @@ namespace RtsGame.Sim.Systems
                     continue;
                 }
 
-                FixedVector2 spawnPosition = ResolveSpawnPosition(state, building);
+                if (!TryResolveSpawnPosition(state, building, out FixedVector2 spawnPosition))
+                {
+                    item.ProgressTicks = item.RequiredTicks;
+                    continue;
+                }
+
                 EntityFactory.CreateUnit(state, building.OwnerPlayerIndex, item.UnitTypeId, spawnPosition, false);
                 building.TrainingQueue.RemoveAt(0);
             }
         }
 
-        private static FixedVector2 ResolveSpawnPosition(GameState state, Building building)
+        private static bool TryResolveSpawnPosition(GameState state, Building building, out FixedVector2 spawnPosition)
         {
             var interactionTiles = SpatialRules.EnumerateBuildInteractionTiles(state, building);
             for (int i = 0; i < interactionTiles.Count; i++)
             {
                 SpatialRules.TileCoord tile = interactionTiles[i];
-                if (!SpatialRules.IsTileOccupiedByLiveUnit(state, tile.X, tile.Y))
+                if (SpatialRules.IsTileAvailableForUnitSpawn(state, tile.X, tile.Y))
                 {
-                    return FixedVector2.FromInts(tile.X, tile.Y);
+                    spawnPosition = FixedVector2.FromInts(tile.X, tile.Y);
+                    return true;
                 }
             }
 
-            return building.Position;
+            spawnPosition = default;
+            return false;
         }
     }
 }

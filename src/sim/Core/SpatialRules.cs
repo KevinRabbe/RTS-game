@@ -133,6 +133,34 @@ namespace RtsGame.Sim.Core
                 || IsTileBlockedByResource(state, tileX, tileY);
         }
 
+        public static bool IsTileAvailableForUnitSpawn(GameState state, int tileX, int tileY)
+        {
+            return !IsTileBlockedForUnitMovement(state, tileX, tileY)
+                && !IsTileOccupiedByLiveUnit(state, tileX, tileY)
+                && !IsTileReservedByLiveUnit(state, tileX, tileY);
+        }
+
+        public static bool IsTileReservedByLiveUnit(GameState state, int tileX, int tileY, int ignoredUnitId = 0)
+        {
+            for (int i = 0; i < state.EntityState.Units.Count; i++)
+            {
+                Unit unit = state.EntityState.Units[i];
+                if (unit.IsDead
+                    || unit.Id == ignoredUnitId
+                    || unit.ReservedInteractionKind == InteractionReservationKind.None)
+                {
+                    continue;
+                }
+
+                if (unit.ReservedInteractionTileX == tileX && unit.ReservedInteractionTileY == tileY)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         public static bool IsTileInsideResourceFootprint(ResourceNode node, int tileX, int tileY)
         {
             return IsTileInsideSimulationFootprint(tileX, tileY, node.Position, GetResourceFootprintRadiusTiles(node));

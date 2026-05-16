@@ -52,6 +52,12 @@ namespace RtsGame.Presentation.GodotBridge
                 return new GodotInteractionIntent(GodotInteractionIntentKind.GatherResource, 0, resourceId);
             }
 
+            int ownBuildingId = FindOwnCompletedBuildingAt(frame, localPlayerIndex, xRaw, yRaw);
+            if (ownBuildingId != 0)
+            {
+                return new GodotInteractionIntent(GodotInteractionIntentKind.None, ownBuildingId, 0);
+            }
+
             return new GodotInteractionIntent(GodotInteractionIntentKind.Move, 0, 0);
         }
 
@@ -123,6 +129,32 @@ namespace RtsGame.Presentation.GodotBridge
                 }
 
                 if (!IsUnderConstruction(frame, primitive.EntityId))
+                {
+                    continue;
+                }
+
+                if (GodotPrimitiveHitTest.ContainsPointForInteraction(primitive, xRaw, yRaw))
+                {
+                    return primitive.EntityId;
+                }
+            }
+
+            return 0;
+        }
+
+        public static int FindOwnCompletedBuildingAt(GodotFrameDto frame, int localPlayerIndex, long xRaw, long yRaw)
+        {
+            for (int i = 0; i < frame.Primitives.Length; i++)
+            {
+                GodotPrimitiveDto primitive = frame.Primitives[i];
+                if ((primitive.Kind != (int)VisualPrimitiveKind.BuildingRectangle
+                        && primitive.Kind != (int)VisualPrimitiveKind.WallRectangle)
+                    || primitive.OwnerPlayerIndex != localPlayerIndex)
+                {
+                    continue;
+                }
+
+                if (IsUnderConstruction(frame, primitive.EntityId))
                 {
                     continue;
                 }
