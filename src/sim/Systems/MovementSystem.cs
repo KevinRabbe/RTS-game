@@ -53,7 +53,14 @@ namespace RtsGame.Sim.Systems
                 {
                     if (!DeterministicPathfinder.TryFindNextTile(state, currentTileX, currentTileY, targetTileX, targetTileY, out int nextTileX, out int nextTileY))
                     {
-                        plan.ShouldClearTarget = true;
+                        if (IsWorkerTaskMovementPhase(unit.TaskPhase))
+                        {
+                            plan.Blocked = true;
+                        }
+                        else
+                        {
+                            plan.ShouldClearTarget = true;
+                        }
                         plans[i] = plan;
                         continue;
                     }
@@ -81,7 +88,14 @@ namespace RtsGame.Sim.Systems
                 int projectedTileY = SpatialRules.GetTileY(nextPosition);
                 if (SpatialRules.IsTileBlockedForUnitMovement(state, projectedTileX, projectedTileY))
                 {
-                    plan.ShouldClearTarget = true;
+                    if (IsWorkerTaskMovementPhase(unit.TaskPhase))
+                    {
+                        plan.Blocked = true;
+                    }
+                    else
+                    {
+                        plan.ShouldClearTarget = true;
+                    }
                     plans[i] = plan;
                     continue;
                 }
@@ -91,7 +105,6 @@ namespace RtsGame.Sim.Systems
                 {
                     if (context.IsTileOccupied(projectedTileX, projectedTileY, unit.Id)
                         && !context.IsOccupyingUnitMoving(projectedTileX, projectedTileY, unit.Id)
-                        && !nextPathTileIsTarget
                         && TryBuildAlternateStepPlan(
                             state,
                             context,

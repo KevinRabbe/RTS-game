@@ -1,5 +1,6 @@
 using RtsGame.Presentation.Visuals;
 using RtsGame.Sim.Data;
+using RtsGame.Sim.Determinism;
 
 namespace RtsGame.Presentation.GodotBridge
 {
@@ -18,28 +19,22 @@ namespace RtsGame.Presentation.GodotBridge
         {
             long halfSize = primitive.SizeRaw / 2;
             long interactionHalfSize = halfSize;
+            long oneTile = Fixed.FromInt(1).Raw;
+            long halfTile = Fixed.FromRatio(1, 2).Raw;
 
             switch ((VisualPrimitiveKind)primitive.Kind)
             {
                 case VisualPrimitiveKind.BuildingRectangle:
                 case VisualPrimitiveKind.WallRectangle:
-                    interactionHalfSize = halfSize * 2;
-                    if (primitive.TypeId == (int)BuildingTypeId.TownCenter)
-                    {
-                        interactionHalfSize = halfSize * 3;
-                    }
-                    if (primitive.IsCapital)
-                    {
-                        interactionHalfSize = interactionHalfSize * 11 / 10;
-                    }
+                    interactionHalfSize = halfSize + oneTile;
                     break;
                 case VisualPrimitiveKind.UnitSquare:
-                    interactionHalfSize = halfSize * 3 / 2;
+                    interactionHalfSize = halfSize + halfTile;
                     break;
                 case VisualPrimitiveKind.FoodResourceCircle:
                 case VisualPrimitiveKind.WoodResourceCircle:
                 case VisualPrimitiveKind.GoldResourceCircle:
-                    interactionHalfSize = halfSize * 2;
+                    interactionHalfSize = halfSize + oneTile;
                     break;
             }
 

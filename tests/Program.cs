@@ -4832,8 +4832,8 @@ namespace RtsGame.Tests
         {
             GodotPrimitiveDto primitive = CreateGodotPrimitiveWithType(VisualPrimitiveKind.BuildingRectangle, 102, 0, (int)BuildingTypeId.TownCenter, 10, 10);
 
-            long outsideCoreX = primitive.XRaw + primitive.SizeRaw;
-            long outsideCoreY = primitive.YRaw + primitive.SizeRaw;
+            long outsideCoreX = primitive.XRaw + (primitive.SizeRaw / 2) + Fixed.FromRatio(1, 2).Raw;
+            long outsideCoreY = primitive.YRaw + (primitive.SizeRaw / 2) + Fixed.FromRatio(1, 2).Raw;
             bool containsCore = GodotPrimitiveHitTest.ContainsPoint(primitive, outsideCoreX, outsideCoreY);
             bool containsInteraction = GodotPrimitiveHitTest.ContainsPointForInteraction(primitive, outsideCoreX, outsideCoreY);
 
