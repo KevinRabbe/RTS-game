@@ -16,9 +16,9 @@ namespace RtsGame.Sim.Data
         public const int TradePostUnderConstructionHitPoints = 180;
         public const int CapitalHitPointBonus = 400;
         public const int CapitalPopulationBonus = 10;
-        public const int TownCenterBuildTicks = 5;
-        public const int WallBuildTicks = 4;
-        public const int TradePostBuildTicks = 6;
+        public const int TownCenterBuildTicks = 60;
+        public const int WallBuildTicks = 24;
+        public const int TradePostBuildTicks = 48;
         public const int VillagerGatherPerTick = 1;
         public const int VillagerCarryCapacity = 10;
         public const int VillagerTrainTicks = 40;

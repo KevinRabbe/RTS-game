@@ -260,6 +260,12 @@ First playable economy loop:
 - Second TC comes later.
 - A 5-10 minute smoke test runs without jiggle, desync, or invariant failures.
 
+Prototype pacing notes:
+
+- Current construction, gathering, and training values are smoke-test pacing, not final balance.
+- Construction should remain slow enough to observe one-builder and multi-builder behavior around foundations.
+- Build times may be retuned later after resource depletion, rectangle selection, and map layout stabilize.
+
 ## 11. Implementation Phases
 
 Planned issue order:

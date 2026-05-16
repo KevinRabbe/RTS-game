@@ -105,6 +105,8 @@ namespace RtsGame.Tests
                 new TestCase("full gold carrier blocked dropoff target retargets and deposits", FullGoldCarrierBlockedDropoffTargetRetargetsAndDeposits),
                 new TestCase("full food carrier blocked dropoff target retargets and deposits", FullFoodCarrierBlockedDropoffTargetRetargetsAndDeposits),
                 new TestCase("full wood carrier blocked dropoff target retargets and deposits", FullWoodCarrierBlockedDropoffTargetRetargetsAndDeposits),
+                new TestCase("construction pacing does not complete instantly", ConstructionPacingDoesNotCompleteInstantly),
+                new TestCase("construction progress advances gradually", ConstructionProgressAdvancesGradually),
                 new TestCase("two builders in range build faster than one", TwoBuildersInRangeBuildFasterThanOne),
                 new TestCase("build move target uses foundation interaction ring", BuildMoveTargetUsesFoundationInteractionRing),
                 new TestCase("multiple builders reserve distinct build slots", MultipleBuildersReserveDistinctBuildSlots),
@@ -1818,6 +1820,32 @@ namespace RtsGame.Tests
         private static void FullWoodCarrierBlockedDropoffTargetRetargetsAndDeposits()
         {
             AssertBlockedCarrierRetargetsAndDeposits(ResourceType.Wood, 2074);
+        }
+
+        private static void ConstructionPacingDoesNotCompleteInstantly()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateConstructionPacingState(2097, out Building foundation);
+
+            new ConstructionSystem().Run(state, rules, new TickCommandContext(new List<CommandEnvelope>()));
+
+            AssertEqual(true, foundation.IsUnderConstruction, "one builder should not complete a town center in one tick");
+            AssertEqual(1, foundation.BuildProgressTicks, "one builder should add one visible progress tick");
+            AssertEqual(true, GameData.TownCenterBuildTicks > foundation.BuildProgressTicks, "town center build time should be visibly longer than first progress tick");
+        }
+
+        private static void ConstructionProgressAdvancesGradually()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateConstructionPacingState(2098, out Building foundation);
+
+            for (int i = 0; i < 5; i++)
+            {
+                new ConstructionSystem().Run(state, rules, new TickCommandContext(new List<CommandEnvelope>()));
+            }
+
+            AssertEqual(5, foundation.BuildProgressTicks, "one builder should advance construction gradually over multiple ticks");
+            AssertEqual(true, foundation.IsUnderConstruction, "placeholder TC construction should remain observable after a few ticks");
         }
 
         private static void TwoBuildersInRangeBuildFasterThanOne()
@@ -4491,10 +4519,10 @@ namespace RtsGame.Tests
         {
             GodotFrameDto frame = CreateGodotInteractionFrame(
                 new[] { CreateGodotPrimitiveWithType(VisualPrimitiveKind.BuildingRectangle, 213, 0, (int)BuildingTypeId.TownCenter, 5, 5) },
-                new[] { new GodotBuildingStatusDto(213, (int)BuildingTypeId.TownCenter, true, 3, 5, 0, 0, 0, 0) });
+                new[] { new GodotBuildingStatusDto(213, (int)BuildingTypeId.TownCenter, true, 3, GameData.TownCenterBuildTicks, 0, 0, 0, 0) });
 
             string[] lines = GodotBuildingDebugStatusBuilder.BuildLines(frame, 213);
-            AssertEqual(true, lines[0].Contains("BUILDING 3/5"), "selected incomplete building status should include build progress");
+            AssertEqual(true, lines[0].Contains("BUILDING 3/" + GameData.TownCenterBuildTicks), "selected incomplete building status should include build progress");
             AssertEqual(true, lines[1].Contains("unavailable until complete"), "selected incomplete building should mark training unavailable");
         }
 
@@ -5804,7 +5832,7 @@ namespace RtsGame.Tests
 
             AssertEqual(4, assignedBuilders, "dry arabia build assignment should assign all selected villagers to tc build target");
 
-            for (int tick = 2; tick < 10 && state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index].IsUnderConstruction; tick++)
+            for (int tick = 2; tick < 120 && state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index].IsUnderConstruction; tick++)
             {
                 buffer.Add(new CommandEnvelope(new CommandHeader(tick, 0, (uint)tick, CommandType.NoOp), new NoOpCommand()));
                 buffer.Add(new CommandEnvelope(new CommandHeader(tick, 1, (uint)tick, CommandType.NoOp), new NoOpCommand()));
@@ -6793,6 +6821,18 @@ namespace RtsGame.Tests
             {
                 AssertEqual(startGold + GameData.VillagerCarryCapacity, state.PlayerStates.Players[0].Resources.Gold, "gold deposit should apply after retarget");
             }
+        }
+
+        private static GameState CreateConstructionPacingState(ulong seed, out Building foundation)
+        {
+            GameState state = CreateOccupancyState(seed, 1);
+            int builderId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(12, 10));
+            int foundationId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(10, 10));
+            foundation = FindBuildingById(state, foundationId);
+            foundation.AssignedBuilderIds.Add(builderId);
+            Unit builder = FindUnitById(state, builderId);
+            builder.CurrentBuildTargetId = foundationId;
+            return state;
         }
 
         private static void FundTradePost(GameState state, int playerIndex)
