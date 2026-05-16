@@ -439,7 +439,7 @@ public partial class RtsClientRoot : Node2D
 				}
 
 				QueueCommandAndConfirm(
-					"attack p=" + LocalPlayerIndex + " targetEntity=" + intent.TargetEntityId,
+					"attack p=" + LocalPlayerIndex + " targetEntity=" + intent.TargetEntityId + " units=[" + string.Join(",", selectedUnitIds) + "]",
 					f => f.QueueAttack(LocalPlayerIndex, selectedUnitIds, intent.TargetEntityId));
 			}
 			else if (intent.Kind == GodotInteractionIntentKind.AssignBuild)
@@ -451,7 +451,7 @@ public partial class RtsClientRoot : Node2D
 				}
 
 				QueueCommandAndConfirm(
-					"assign build p=" + LocalPlayerIndex + " targetBuilding=" + intent.TargetEntityId,
+					"assign build p=" + LocalPlayerIndex + " targetBuilding=" + intent.TargetEntityId + " units=[" + string.Join(",", selectedUnitIds) + "]",
 					f => f.QueueAssignBuild(LocalPlayerIndex, intent.TargetEntityId, selectedUnitIds));
 			}
 			else if (intent.Kind == GodotInteractionIntentKind.GatherResource)
@@ -463,14 +463,14 @@ public partial class RtsClientRoot : Node2D
 				}
 
 				QueueCommandAndConfirm(
-					"gather p=" + LocalPlayerIndex + " resource=" + intent.ResourceNodeId,
+					"gather p=" + LocalPlayerIndex + " resource=" + intent.ResourceNodeId + " units=[" + string.Join(",", selectedUnitIds) + "]",
 					f => f.QueueGatherResource(LocalPlayerIndex, intent.ResourceNodeId, selectedUnitIds));
 			}
 			else if (intent.Kind == GodotInteractionIntentKind.Move)
 			{
 				SetCommandMarker("Move", ToScreen(TileToRaw(tile.X), TileToRaw(tile.Y)), Colors.LightSkyBlue);
 				QueueCommandAndConfirm(
-					"move p=" + LocalPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ")",
+					"move p=" + LocalPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ") units=[" + string.Join(",", selectedUnitIds) + "]",
 					f => f.QueueMoveUnits(LocalPlayerIndex, selectedUnitIds, tile.X, tile.Y));
 			}
 		}
@@ -1260,7 +1260,22 @@ public partial class RtsClientRoot : Node2D
 		int afterExecuted = _frame?.Match.ExecutedCommandCount ?? facade.ExecutedCommandCount;
 		int afterRejected = _frame?.Match.RejectedCommandCount ?? facade.RejectedCommandCount;
 		GodotCommandResultKind result = GodotCommandResultClassifier.Classify(beforeExecuted, beforeRejected, afterExecuted, afterRejected);
-		_debugEventLog.Add("result " + result + " ex " + beforeExecuted + "->" + afterExecuted + " rej " + beforeRejected + "->" + afterRejected);
+		string rejectionDetail = "";
+		if (_frame != null)
+		{
+			GodotMatchDto match = _frame.Match;
+			rejectionDetail =
+				" cmd=" + match.LastCommandTypeId
+				+ " reason=" + match.LastCommandReasonId
+				+ " accepted=" + (match.LastCommandAccepted ? "Y" : "N")
+				+ " player=" + match.LastCommandPlayerIndex
+				+ " targetEntity=" + match.LastCommandTargetEntityId
+				+ " targetTile=(" + match.LastCommandTargetTileX + "," + match.LastCommandTargetTileY + ")"
+				+ " unitCount=" + match.LastCommandUnitCount
+				+ " firstUnit=" + match.LastCommandFirstUnitId;
+		}
+
+		_debugEventLog.Add("result " + result + " ex " + beforeExecuted + "->" + afterExecuted + " rej " + beforeRejected + "->" + afterRejected + rejectionDetail);
 	}
 
 	private static GodotPrimitiveDto? FindPrimitiveByEntityId(GodotFrameDto frame, int entityId)

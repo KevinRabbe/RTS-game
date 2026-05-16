@@ -36,21 +36,26 @@ namespace RtsGame.Sim.Commands
 
         public bool IsValid(GameState state, GameRules rules, CommandHeader header)
         {
+            return CommandValidationInspector.IsAccepted(GetValidationReason(state, rules, header));
+        }
+
+        public CommandValidationReason GetValidationReason(GameState state, GameRules rules, CommandHeader header)
+        {
             if (header.CommandType != Type || header.Tick != state.Tick || header.PlayerIndex < 0 || header.PlayerIndex >= rules.MaxPlayers)
             {
-                return false;
+                return CommandValidationReason.InvalidHeader;
             }
 
             if (UnitIds.Count == 0)
             {
-                return false;
+                return CommandValidationReason.UnitCannotPerformAction;
             }
 
             int targetTileX = SpatialRules.GetTileX(Target);
             int targetTileY = SpatialRules.GetTileY(Target);
             if (SpatialRules.IsTileBlockedForUnitMovement(state, targetTileX, targetTileY))
             {
-                return false;
+                return CommandValidationReason.TargetBlockedByStaticGeometry;
             }
 
             var seen = new HashSet<int>();
@@ -59,23 +64,23 @@ namespace RtsGame.Sim.Commands
                 int unitId = UnitIds[i];
                 if (!seen.Add(unitId) || !TryGetUnit(state, unitId, out Unit? unit))
                 {
-                    return false;
+                    return CommandValidationReason.DuplicateUnitSelection;
                 }
 
                 if (unit.OwnerPlayerIndex != header.PlayerIndex || unit.IsDead)
                 {
-                    return false;
+                    return CommandValidationReason.UnitCannotPerformAction;
                 }
 
                 int unitTileX = SpatialRules.GetTileX(unit.Position);
                 int unitTileY = SpatialRules.GetTileY(unit.Position);
                 if (!DeterministicPathfinder.TryFindNextTile(state, unitTileX, unitTileY, targetTileX, targetTileY, out _, out _))
                 {
-                    return false;
+                    return CommandValidationReason.NoStaticPath;
                 }
             }
 
-            return true;
+            return CommandValidationReason.Accepted;
         }
 
         public void Execute(GameState state, GameRules rules, CommandHeader header)

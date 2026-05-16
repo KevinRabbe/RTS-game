@@ -35,19 +35,24 @@ namespace RtsGame.Sim.Commands
 
         public bool IsValid(GameState state, GameRules rules, CommandHeader header)
         {
+            return CommandValidationInspector.IsAccepted(GetValidationReason(state, rules, header));
+        }
+
+        public CommandValidationReason GetValidationReason(GameState state, GameRules rules, CommandHeader header)
+        {
             if (header.CommandType != Type || header.Tick != state.Tick || header.PlayerIndex < 0 || header.PlayerIndex >= rules.MaxPlayers)
             {
-                return false;
+                return CommandValidationReason.InvalidHeader;
             }
 
             if (AttackerUnitIds.Count == 0 || !TryGetTargetInfo(state, TargetEntityId, out TargetInfo targetInfo))
             {
-                return false;
+                return CommandValidationReason.TargetMissing;
             }
 
             if (targetInfo.OwnerPlayerIndex == header.PlayerIndex)
             {
-                return false;
+                return CommandValidationReason.WrongOwner;
             }
 
             var seen = new HashSet<int>();
@@ -56,16 +61,16 @@ namespace RtsGame.Sim.Commands
                 int unitId = AttackerUnitIds[i];
                 if (!seen.Add(unitId) || !TryGetUnit(state, unitId, out Unit? unit))
                 {
-                    return false;
+                    return CommandValidationReason.DuplicateUnitSelection;
                 }
 
                 if (unit.OwnerPlayerIndex != header.PlayerIndex || unit.IsDead || !CanAttackTarget(unit.UnitTypeId, targetInfo.Kind))
                 {
-                    return false;
+                    return CommandValidationReason.UnitCannotPerformAction;
                 }
             }
 
-            return true;
+            return CommandValidationReason.Accepted;
         }
 
         public void Execute(GameState state, GameRules rules, CommandHeader header)

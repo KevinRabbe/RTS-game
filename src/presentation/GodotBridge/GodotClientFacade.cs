@@ -3,6 +3,7 @@ using RtsGame.Presentation.ClientInput;
 using RtsGame.Presentation.LocalPlay;
 using RtsGame.Presentation.Snapshots;
 using RtsGame.Presentation.Visuals;
+using RtsGame.Sim.Commands;
 using RtsGame.Sim.Core;
 using RtsGame.Sim.Data;
 using RtsGame.Sim.Determinism;
@@ -170,7 +171,19 @@ namespace RtsGame.Presentation.GodotBridge
                 _session.MapName,
                 snapshot.LocalPlayerIndex,
                 ToLocalPlayerDto(snapshot.LocalPlayer),
-                ToMatchDto(snapshot.Match, _session.ExecutedCommandCount, _session.RejectedCommandCount),
+                ToMatchDto(
+                    snapshot.Match,
+                    _session.ExecutedCommandCount,
+                    _session.RejectedCommandCount,
+                    _session.LastCommandType,
+                    _session.LastCommandReason,
+                    _session.LastCommandAccepted,
+                    _session.LastCommandPlayerIndex,
+                    _session.LastCommandTargetEntityId,
+                    _session.LastCommandTargetTileX,
+                    _session.LastCommandTargetTileY,
+                    _session.LastCommandUnitCount,
+                    _session.LastCommandFirstUnitId),
                 primitives,
                 unitStatuses,
                 buildingStatuses);
@@ -322,9 +335,35 @@ namespace RtsGame.Presentation.GodotBridge
                 snapshot.TrainingRequiredTicks);
         }
 
-        private static GodotMatchDto ToMatchDto(MatchSnapshot snapshot, int executedCommandCount, int rejectedCommandCount)
+        private static GodotMatchDto ToMatchDto(
+            MatchSnapshot snapshot,
+            int executedCommandCount,
+            int rejectedCommandCount,
+            CommandType lastCommandType,
+            CommandValidationReason lastCommandReason,
+            bool lastCommandAccepted,
+            int lastCommandPlayerIndex,
+            int lastCommandTargetEntityId,
+            int lastCommandTargetTileX,
+            int lastCommandTargetTileY,
+            int lastCommandUnitCount,
+            int lastCommandFirstUnitId)
         {
-            return new GodotMatchDto(snapshot.IsFinished, snapshot.WinnerPlayerIndex, snapshot.FinishedTick, executedCommandCount, rejectedCommandCount);
+            return new GodotMatchDto(
+                snapshot.IsFinished,
+                snapshot.WinnerPlayerIndex,
+                snapshot.FinishedTick,
+                executedCommandCount,
+                rejectedCommandCount,
+                (int)lastCommandType,
+                (int)lastCommandReason,
+                lastCommandAccepted,
+                lastCommandPlayerIndex,
+                lastCommandTargetEntityId,
+                lastCommandTargetTileX,
+                lastCommandTargetTileY,
+                lastCommandUnitCount,
+                lastCommandFirstUnitId);
         }
     }
 }

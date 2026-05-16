@@ -198,6 +198,15 @@ namespace RtsGame.Sim.Checksums
             writer.WriteInt32(state.DebugCounters.ExecutedCommandCount);
             writer.WriteInt32(state.DebugCounters.RejectedCommandCount);
             writer.WriteInt32(state.DebugCounters.DebugCounter);
+            writer.WriteUInt16((ushort)state.DebugCounters.LastCommandType);
+            writer.WriteUInt16((ushort)state.DebugCounters.LastCommandReason);
+            writer.WriteBool(state.DebugCounters.LastCommandAccepted);
+            writer.WriteInt32(state.DebugCounters.LastCommandPlayerIndex);
+            writer.WriteInt32(state.DebugCounters.LastCommandTargetEntityId);
+            writer.WriteInt32(state.DebugCounters.LastCommandTargetTileX);
+            writer.WriteInt32(state.DebugCounters.LastCommandTargetTileY);
+            writer.WriteInt32(state.DebugCounters.LastCommandUnitCount);
+            writer.WriteInt32(state.DebugCounters.LastCommandFirstUnitId);
         }
 
         private static ulong Fnv1A64(byte[] bytes)

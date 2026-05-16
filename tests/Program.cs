@@ -73,6 +73,7 @@ namespace RtsGame.Tests
                 new TestCase("gather waits for completed town center", GatherWaitsForCompletedTownCenter),
                 new TestCase("villagers gather and deposit food", VillagersGatherAndDepositFood),
                 new TestCase("gather rejects carried different resource", GatherRejectsCarriedDifferentResource),
+                new TestCase("gather reject reason for depleted resource is target complete", GatherRejectReasonForDepletedResourceIsTargetComplete),
                 new TestCase("depleted resource clears gather assignment", DepletedResourceClearsGatherAssignment),
                 new TestCase("tree depletion reduces amount and unblocks footprint", TreeDepletionReducesAmountAndUnblocksFootprint),
                 new TestCase("depleted resource rejects gather command", DepletedResourceRejectsGatherCommand),
@@ -117,6 +118,8 @@ namespace RtsGame.Tests
                 new TestCase("two builders in range build faster than one", TwoBuildersInRangeBuildFasterThanOne),
                 new TestCase("build move target uses foundation interaction ring", BuildMoveTargetUsesFoundationInteractionRing),
                 new TestCase("multiple builders reserve distinct build slots", MultipleBuildersReserveDistinctBuildSlots),
+                new TestCase("assign build accepts temporary congestion intent", AssignBuildAcceptsTemporaryCongestionIntent),
+                new TestCase("assign build reject reason for completed target", AssignBuildRejectReasonForCompletedTarget),
                 new TestCase("builder in build range builds without micro movement", BuilderInBuildRangeBuildsWithoutMicroMovement),
                 new TestCase("builder blocked approach retargets deterministically", BuilderBlockedApproachRetargetsDeterministically),
                 new TestCase("movement arrival snaps without raw oscillation", MovementArrivalSnapsWithoutRawOscillation),
@@ -137,6 +140,7 @@ namespace RtsGame.Tests
                 new TestCase("move unit snaps to target", MoveUnitSnapsToTarget),
                 new TestCase("move command clears work assignments", MoveCommandClearsWorkAssignments),
                 new TestCase("move rejects wall-blocked target", MoveRejectsWallBlockedTarget),
+                new TestCase("move reject reason for wall blocked target", MoveRejectReasonForWallBlockedTarget),
                 new TestCase("move rejects resource-blocked target", MoveRejectsResourceBlockedTarget),
                 new TestCase("move rejects unreachable open target", MoveRejectsUnreachableOpenTarget),
                 new TestCase("movement pathfinds around wall", MovementPathfindsAroundWall),
@@ -213,6 +217,7 @@ namespace RtsGame.Tests
                 new TestCase("godot facade drives local capital flow", GodotFacadeDrivesLocalCapitalFlow),
                 new TestCase("godot facade creates local 6 player ffa", GodotFacadeCreatesLocal6PlayerFfa),
                 new TestCase("godot facade rejects invalid commands through sim", GodotFacadeRejectsInvalidCommandsThroughSim),
+                new TestCase("godot facade exposes last command rejection metadata", GodotFacadeExposesLastCommandRejectionMetadata),
                 new TestCase("godot facade exposes fixed raw coordinates", GodotFacadeExposesFixedRawCoordinates),
                 new TestCase("godot facade exposes primitive type ids", GodotFacadeExposesPrimitiveTypeIds),
                 new TestCase("godot facade exposes building status dto", GodotFacadeExposesBuildingStatusDto),
@@ -1252,6 +1257,24 @@ namespace RtsGame.Tests
 
             AssertEqual(0, state.EntityState.Units[0].CurrentResourceNodeId, "villager should not accept incompatible gather order");
             AssertEqual(1, state.DebugCounters.RejectedCommandCount, "incompatible gather order should count as rejected");
+        }
+
+        private static void GatherRejectReasonForDepletedResourceIsTargetComplete()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateTwoNodeResourceAreaState(3199, GatherProfileId.Tree, out int firstNodeId, out _, out _);
+            FindResourceNodeById(state, firstNodeId).RemainingAmount = 0;
+            var header = new CommandHeader(state.Tick, 0, 0, CommandType.GatherResource);
+            var command = new GatherResourceCommand(firstNodeId, new[] { 1 });
+
+            CommandValidationReport report = CommandValidationInspector.Evaluate(
+                state,
+                rules,
+                new CommandEnvelope(header, command));
+
+            AssertEqual(false, report.Accepted, "depleted node gather should reject");
+            AssertEqual(CommandValidationReason.TargetComplete, report.Reason, "depleted node gather should report target complete");
+            AssertEqual(firstNodeId, report.TargetEntityId, "gather rejection should include target resource id");
         }
 
         private static void DepletedResourceClearsGatherAssignment()
@@ -2464,6 +2487,26 @@ namespace RtsGame.Tests
 
             AssertEqual(false, state.EntityState.Units[0].HasMoveTarget, "move target inside wall should reject");
             AssertEqual(1, state.DebugCounters.RejectedCommandCount, "blocked move target should count as rejected");
+        }
+
+        private static void MoveRejectReasonForWallBlockedTarget()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            var state = GameInitializer.CreateNomadStart(1599, 1);
+            EntityFactory.CreateWall(state, 0, FixedVector2.FromInts(2, 0));
+            state.EntityState.Buildings[0].IsUnderConstruction = false;
+            var header = new CommandHeader(state.Tick, 0, 0, CommandType.MoveUnits);
+            var command = new MoveUnitsCommand(new[] { 1 }, FixedVector2.FromInts(2, 0));
+
+            CommandValidationReport report = CommandValidationInspector.Evaluate(
+                state,
+                rules,
+                new CommandEnvelope(header, command));
+
+            AssertEqual(false, report.Accepted, "move to blocked wall tile should reject");
+            AssertEqual(CommandValidationReason.TargetBlockedByStaticGeometry, report.Reason, "blocked tile should report static geometry reason");
+            AssertEqual(2, report.TargetTileX, "report should include target tile x");
+            AssertEqual(0, report.TargetTileY, "report should include target tile y");
         }
 
         private static void MoveRejectsResourceBlockedTarget()
@@ -3881,6 +3924,21 @@ namespace RtsGame.Tests
 
             AssertEqual(1, facade.RejectedCommandCount, "godot facade should route invalid commands to sim rejection");
             AssertEqual(true, facade.GetFrame(0).LocalPlayer.HasCapitalBeenPlaced, "first valid capital should remain visible in local player state");
+        }
+
+        private static void GodotFacadeExposesLastCommandRejectionMetadata()
+        {
+            GodotClientFacade facade = CreateGodotFacadeWithCompletedCapital(789);
+            facade.QueueMoveUnits(0, new[] { 1 }, 3, 8);
+            facade.AdvanceOneTick();
+            GodotFrameDto frame = facade.GetFrame(0);
+
+            AssertEqual(false, frame.Match.LastCommandAccepted, "invalid command should expose rejected status");
+            AssertEqual((int)CommandType.MoveUnits, frame.Match.LastCommandTypeId, "match metadata should expose command type");
+            AssertEqual((int)CommandValidationReason.TargetBlockedByStaticGeometry, frame.Match.LastCommandReasonId, "resource-blocked move should expose blocked geometry reason");
+            AssertEqual(0, frame.Match.LastCommandPlayerIndex, "match metadata should expose issuing player");
+            AssertEqual(3, frame.Match.LastCommandTargetTileX, "match metadata should expose target tile x");
+            AssertEqual(8, frame.Match.LastCommandTargetTileY, "match metadata should expose target tile y");
         }
 
         private static void GodotFacadeExposesFixedRawCoordinates()
@@ -6325,16 +6383,64 @@ namespace RtsGame.Tests
             var rules = GameRules.CreatePhaseZeroDefaults(1);
             GameState state = GameInitializer.CreateNomadStart(143, 1);
             int tcId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(10, 10));
-            Unit villager = state.EntityState.Units[0];
-            villager.Position = FixedVector2.FromInts(0, 0);
-            AddCompletedWall(state, 0, FixedVector2.FromInts(1, 0));
-            AddCompletedWall(state, 0, FixedVector2.FromInts(0, 1));
+            Building tc = state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index];
+            List<SpatialRules.TileCoord> blockedRing = SpatialRules.EnumerateBuildInteractionTiles(state, tc);
+            for (int i = 0; i < blockedRing.Count; i++)
+            {
+                AddCompletedWall(state, 0, FixedVector2.FromInts(blockedRing[i].X, blockedRing[i].Y));
+            }
             var buffer = new CommandBuffer();
             buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AssignBuild), new AssignBuildCommand(tcId, new[] { 1 })));
             new TickRunner().AdvanceOneTick(state, rules, buffer);
 
             AssertEqual(1, state.DebugCounters.RejectedCommandCount, "assign build should reject when no reachable interaction tile exists");
             AssertEqual(0, state.EntityState.Units[0].CurrentBuildTargetId, "rejected assignment should not set build target");
+        }
+
+        private static void AssignBuildAcceptsTemporaryCongestionIntent()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = GameInitializer.CreateNomadStart(1490, 1);
+            int tcId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(10, 10));
+            Unit villager = state.EntityState.Units[0];
+            villager.Position = FixedVector2.FromInts(0, 0);
+            AddCompletedWall(state, 0, FixedVector2.FromInts(1, 0));
+            AddCompletedWall(state, 0, FixedVector2.FromInts(0, 1));
+            var header = new CommandHeader(state.Tick, 0, 0, CommandType.AssignBuild);
+            var command = new AssignBuildCommand(tcId, new[] { villager.Id });
+
+            CommandValidationReport report = CommandValidationInspector.Evaluate(
+                state,
+                rules,
+                new CommandEnvelope(header, command));
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(header, command));
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(true, report.Accepted, "temporarily blocked builder should accept long-term intent");
+            AssertEqual(CommandValidationReason.TemporaryCongestionAcceptedIntent, report.Reason, "temporarily blocked builder should report congestion acceptance");
+            AssertEqual(tcId, state.EntityState.Units[0].CurrentBuildTargetId, "accepted command should keep build target for wait/retry");
+            AssertEqual(0, state.DebugCounters.RejectedCommandCount, "temporary congestion should not count as rejection");
+        }
+
+        private static void AssignBuildRejectReasonForCompletedTarget()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = GameInitializer.CreateNomadStart(1491, 1);
+            int tcId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(10, 10));
+            Building tc = state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index];
+            tc.IsUnderConstruction = false;
+            var header = new CommandHeader(state.Tick, 0, 0, CommandType.AssignBuild);
+            var command = new AssignBuildCommand(tcId, new[] { 1 });
+
+            CommandValidationReport report = CommandValidationInspector.Evaluate(
+                state,
+                rules,
+                new CommandEnvelope(header, command));
+
+            AssertEqual(false, report.Accepted, "completed target should reject assign-build");
+            AssertEqual(CommandValidationReason.TargetComplete, report.Reason, "completed target should report target complete");
+            AssertEqual(tcId, report.TargetEntityId, "report should include build target id");
         }
 
         private static void VillagerPathsToTcInteractionTileFromLeft()

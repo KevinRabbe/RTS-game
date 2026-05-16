@@ -11,11 +11,24 @@ namespace RtsGame.Sim.Systems
             {
                 if (IsBlockedByPlayerState(state, command))
                 {
+                    RecordCommandResult(
+                        state,
+                        command,
+                        new CommandValidationReport(
+                            false,
+                            CommandValidationReason.PlayerStateBlocked,
+                            0,
+                            0,
+                            0,
+                            0,
+                            0));
                     state.DebugCounters.RejectedCommandCount++;
                     continue;
                 }
 
-                if (command.Payload.IsValid(state, rules, command.Header))
+                CommandValidationReport report = CommandValidationInspector.Evaluate(state, rules, command);
+                RecordCommandResult(state, command, report);
+                if (report.Accepted)
                 {
                     commandContext.AcceptedCommands.Add(command);
                 }
@@ -24,6 +37,24 @@ namespace RtsGame.Sim.Systems
                     state.DebugCounters.RejectedCommandCount++;
                 }
             }
+        }
+
+        private static void RecordCommandResult(GameState state, CommandEnvelope command, CommandValidationReport report)
+        {
+            if (command.Header.CommandType == CommandType.NoOp)
+            {
+                return;
+            }
+
+            state.DebugCounters.LastCommandType = command.Header.CommandType;
+            state.DebugCounters.LastCommandReason = report.Reason;
+            state.DebugCounters.LastCommandAccepted = report.Accepted;
+            state.DebugCounters.LastCommandPlayerIndex = command.Header.PlayerIndex;
+            state.DebugCounters.LastCommandTargetEntityId = report.TargetEntityId;
+            state.DebugCounters.LastCommandTargetTileX = report.TargetTileX;
+            state.DebugCounters.LastCommandTargetTileY = report.TargetTileY;
+            state.DebugCounters.LastCommandUnitCount = report.UnitCount;
+            state.DebugCounters.LastCommandFirstUnitId = report.FirstUnitId;
         }
 
         private static bool IsBlockedByPlayerState(GameState state, CommandEnvelope command)

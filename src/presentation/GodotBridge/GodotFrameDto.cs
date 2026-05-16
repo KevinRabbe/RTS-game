@@ -383,6 +383,15 @@ namespace RtsGame.Presentation.GodotBridge
         public int FinishedTick { get; }
         public int ExecutedCommandCount { get; }
         public int RejectedCommandCount { get; }
+        public int LastCommandTypeId { get; }
+        public int LastCommandReasonId { get; }
+        public bool LastCommandAccepted { get; }
+        public int LastCommandPlayerIndex { get; }
+        public int LastCommandTargetEntityId { get; }
+        public int LastCommandTargetTileX { get; }
+        public int LastCommandTargetTileY { get; }
+        public int LastCommandUnitCount { get; }
+        public int LastCommandFirstUnitId { get; }
 
         public GodotMatchDto(bool isFinished, int winnerPlayerIndex, int finishedTick, int rejectedCommandCount)
             : this(isFinished, winnerPlayerIndex, finishedTick, 0, rejectedCommandCount)
@@ -390,12 +399,54 @@ namespace RtsGame.Presentation.GodotBridge
         }
 
         public GodotMatchDto(bool isFinished, int winnerPlayerIndex, int finishedTick, int executedCommandCount, int rejectedCommandCount)
+            : this(
+                isFinished,
+                winnerPlayerIndex,
+                finishedTick,
+                executedCommandCount,
+                rejectedCommandCount,
+                0,
+                0,
+                false,
+                -1,
+                0,
+                0,
+                0,
+                0,
+                0)
+        {
+        }
+
+        public GodotMatchDto(
+            bool isFinished,
+            int winnerPlayerIndex,
+            int finishedTick,
+            int executedCommandCount,
+            int rejectedCommandCount,
+            int lastCommandTypeId,
+            int lastCommandReasonId,
+            bool lastCommandAccepted,
+            int lastCommandPlayerIndex,
+            int lastCommandTargetEntityId,
+            int lastCommandTargetTileX,
+            int lastCommandTargetTileY,
+            int lastCommandUnitCount,
+            int lastCommandFirstUnitId)
         {
             IsFinished = isFinished;
             WinnerPlayerIndex = winnerPlayerIndex;
             FinishedTick = finishedTick;
             ExecutedCommandCount = executedCommandCount;
             RejectedCommandCount = rejectedCommandCount;
+            LastCommandTypeId = lastCommandTypeId;
+            LastCommandReasonId = lastCommandReasonId;
+            LastCommandAccepted = lastCommandAccepted;
+            LastCommandPlayerIndex = lastCommandPlayerIndex;
+            LastCommandTargetEntityId = lastCommandTargetEntityId;
+            LastCommandTargetTileX = lastCommandTargetTileX;
+            LastCommandTargetTileY = lastCommandTargetTileY;
+            LastCommandUnitCount = lastCommandUnitCount;
+            LastCommandFirstUnitId = lastCommandFirstUnitId;
         }
     }
 }

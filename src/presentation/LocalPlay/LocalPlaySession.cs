@@ -39,6 +39,51 @@ namespace RtsGame.Presentation.LocalPlay
             get { return _state.DebugCounters.RejectedCommandCount; }
         }
 
+        public CommandType LastCommandType
+        {
+            get { return _state.DebugCounters.LastCommandType; }
+        }
+
+        public CommandValidationReason LastCommandReason
+        {
+            get { return _state.DebugCounters.LastCommandReason; }
+        }
+
+        public bool LastCommandAccepted
+        {
+            get { return _state.DebugCounters.LastCommandAccepted; }
+        }
+
+        public int LastCommandPlayerIndex
+        {
+            get { return _state.DebugCounters.LastCommandPlayerIndex; }
+        }
+
+        public int LastCommandTargetEntityId
+        {
+            get { return _state.DebugCounters.LastCommandTargetEntityId; }
+        }
+
+        public int LastCommandTargetTileX
+        {
+            get { return _state.DebugCounters.LastCommandTargetTileX; }
+        }
+
+        public int LastCommandTargetTileY
+        {
+            get { return _state.DebugCounters.LastCommandTargetTileY; }
+        }
+
+        public int LastCommandUnitCount
+        {
+            get { return _state.DebugCounters.LastCommandUnitCount; }
+        }
+
+        public int LastCommandFirstUnitId
+        {
+            get { return _state.DebugCounters.LastCommandFirstUnitId; }
+        }
+
         public ulong LastChecksum
         {
             get { return _state.LastChecksum; }

@@ -1,5 +1,6 @@
 using RtsGame.Sim.Data;
 using RtsGame.Sim.Determinism;
+using RtsGame.Sim.Commands;
 
 namespace RtsGame.Sim.Core
 {
@@ -42,5 +43,14 @@ namespace RtsGame.Sim.Core
         public int ExecutedCommandCount { get; set; }
         public int RejectedCommandCount { get; set; }
         public int DebugCounter { get; set; }
+        public CommandType LastCommandType { get; set; }
+        public CommandValidationReason LastCommandReason { get; set; }
+        public bool LastCommandAccepted { get; set; }
+        public int LastCommandPlayerIndex { get; set; }
+        public int LastCommandTargetEntityId { get; set; }
+        public int LastCommandTargetTileX { get; set; }
+        public int LastCommandTargetTileY { get; set; }
+        public int LastCommandUnitCount { get; set; }
+        public int LastCommandFirstUnitId { get; set; }
     }
 }

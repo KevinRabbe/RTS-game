@@ -34,14 +34,29 @@ namespace RtsGame.Sim.Commands
 
         public bool IsValid(GameState state, GameRules rules, CommandHeader header)
         {
+            return CommandValidationInspector.IsAccepted(GetValidationReason(state, rules, header));
+        }
+
+        public CommandValidationReason GetValidationReason(GameState state, GameRules rules, CommandHeader header)
+        {
             if (header.CommandType != Type || header.Tick != state.Tick || header.PlayerIndex < 0 || header.PlayerIndex >= rules.MaxPlayers)
             {
-                return false;
+                return CommandValidationReason.InvalidHeader;
             }
 
-            if (UnitIds.Count == 0 || !TryGetResourceNode(state, ResourceNodeId, out ResourceNode? node) || node.IsDepleted)
+            if (UnitIds.Count == 0)
             {
-                return false;
+                return CommandValidationReason.UnitCannotPerformAction;
+            }
+
+            if (!TryGetResourceNode(state, ResourceNodeId, out ResourceNode? node))
+            {
+                return CommandValidationReason.TargetMissing;
+            }
+
+            if (node.IsDepleted)
+            {
+                return CommandValidationReason.TargetComplete;
             }
 
             var seen = new HashSet<int>();
@@ -50,21 +65,21 @@ namespace RtsGame.Sim.Commands
                 int unitId = UnitIds[i];
                 if (!seen.Add(unitId) || !TryGetUnit(state, unitId, out Unit? unit))
                 {
-                    return false;
+                    return CommandValidationReason.DuplicateUnitSelection;
                 }
 
                 if (unit.OwnerPlayerIndex != header.PlayerIndex || unit.IsDead || unit.UnitTypeId != UnitTypeId.Villager)
                 {
-                    return false;
+                    return CommandValidationReason.UnitCannotPerformAction;
                 }
 
                 if (unit.CarriedResourceType != ResourceType.None && unit.CarriedResourceType != node.ResourceType)
                 {
-                    return false;
+                    return CommandValidationReason.UnitCannotPerformAction;
                 }
             }
 
-            return true;
+            return CommandValidationReason.Accepted;
         }
 
         public void Execute(GameState state, GameRules rules, CommandHeader header)

@@ -29,35 +29,50 @@ namespace RtsGame.Sim.Commands
 
         public bool IsValid(GameState state, GameRules rules, CommandHeader header)
         {
+            return CommandValidationInspector.IsAccepted(GetValidationReason(state, rules, header));
+        }
+
+        public CommandValidationReason GetValidationReason(GameState state, GameRules rules, CommandHeader header)
+        {
             if (header.CommandType != Type || header.Tick != state.Tick || header.PlayerIndex < 0 || header.PlayerIndex >= rules.MaxPlayers)
             {
-                return false;
+                return CommandValidationReason.InvalidHeader;
             }
 
             if (!TryGetBuilding(state, BuildingId, out Building? building))
             {
-                return false;
+                return CommandValidationReason.TargetMissing;
             }
 
-            if (building.OwnerPlayerIndex != header.PlayerIndex || building.IsDead || building.IsUnderConstruction)
+            if (building.OwnerPlayerIndex != header.PlayerIndex)
             {
-                return false;
+                return CommandValidationReason.WrongOwner;
+            }
+
+            if (building.IsDead)
+            {
+                return CommandValidationReason.TargetMissing;
+            }
+
+            if (building.IsUnderConstruction)
+            {
+                return CommandValidationReason.TargetComplete;
             }
 
             if (!GameData.CanTrain(building.BuildingTypeId, UnitTypeId))
             {
-                return false;
+                return CommandValidationReason.InvalidTargetType;
             }
 
             PlayerState player = state.PlayerStates.Players[header.PlayerIndex];
             int unitPopulation = GameData.GetUnitPopulation(UnitTypeId);
             if (player.PopulationUsed + unitPopulation > player.PopulationCap)
             {
-                return false;
+                return CommandValidationReason.PopulationBlocked;
             }
 
             ResourceStockpile cost = GameData.GetUnitCost(UnitTypeId);
-            return player.Resources.CanPay(cost);
+            return player.Resources.CanPay(cost) ? CommandValidationReason.Accepted : CommandValidationReason.MissingResources;
         }
 
         public void Execute(GameState state, GameRules rules, CommandHeader header)
