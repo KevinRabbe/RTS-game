@@ -22,6 +22,7 @@ namespace RtsGame.Sim.Data
         public int LastMovedTick { get; set; }
         public int HitPoints { get; set; }
         public int CurrentBuildTargetId { get; set; }
+        public int CurrentResourceAreaId { get; set; }
         public int CurrentResourceNodeId { get; set; }
         public WorkerTaskPhase TaskPhase { get; set; }
         public InteractionReservationKind ReservedInteractionKind { get; set; }

@@ -25,6 +25,7 @@ namespace RtsGame.Sim.Core
                 LastMovedTick = -1,
                 HitPoints = GameData.GetUnitHitPoints(unitTypeId),
                 CurrentBuildTargetId = 0,
+                CurrentResourceAreaId = 0,
                 CurrentResourceNodeId = 0,
                 TaskPhase = WorkerTaskPhase.Idle,
                 ReservedInteractionKind = InteractionReservationKind.None,

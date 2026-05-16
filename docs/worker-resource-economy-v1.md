@@ -43,6 +43,13 @@ Important rules:
 - Small and large gold veins are both `ResourceKind.Gold`; they differ by node type, profile, amount, footprint, visual, and depletion behavior.
 - Future resources such as deer, farms, fish, and stone should fit through areas, nodes, and profiles later without rewriting worker movement.
 
+Current implementation notes:
+
+- Workers store `CurrentResourceAreaId` and `CurrentResourceNodeId` in deterministic simulation state.
+- Gather commands set both the long-term area target and current node target from the clicked node.
+- When a node depletes, the worker releases the old node reservation and deterministically chooses another non-depleted reachable node in the same area when the profile allows same-area continuation.
+- If no valid node remains in the area, the worker clears gather intent and idles cleanly.
+
 ## 3. GatherProfile Model
 
 `GatherProfile` controls behavior. Worker movement must not hardcode tree, berry, or gold rules.

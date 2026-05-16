@@ -38,6 +38,7 @@ namespace RtsGame.Sim.Systems
                 unit.OwnerPlayerIndex = GameData.NeutralOwnerPlayerIndex;
                 unit.HasMoveTarget = false;
                 unit.CurrentBuildTargetId = 0;
+                unit.CurrentResourceAreaId = 0;
                 unit.CurrentResourceNodeId = 0;
                 SpatialRules.ClearInteractionReservation(unit);
                 unit.TaskPhase = WorkerTaskPhase.Idle;

@@ -73,6 +73,12 @@ namespace RtsGame.Tests
                 new TestCase("villagers gather and deposit food", VillagersGatherAndDepositFood),
                 new TestCase("gather rejects carried different resource", GatherRejectsCarriedDifferentResource),
                 new TestCase("depleted resource clears gather assignment", DepletedResourceClearsGatherAssignment),
+                new TestCase("tree depletion reduces amount and unblocks footprint", TreeDepletionReducesAmountAndUnblocksFootprint),
+                new TestCase("depleted resource rejects gather command", DepletedResourceRejectsGatherCommand),
+                new TestCase("forest continuation chooses another tree", ForestContinuationChoosesAnotherTree),
+                new TestCase("berry patch continuation chooses another bush", BerryPatchContinuationChoosesAnotherBush),
+                new TestCase("gold deposit continuation chooses another vein", GoldDepositContinuationChoosesAnotherVein),
+                new TestCase("resource area exhaustion idles worker cleanly", ResourceAreaExhaustionIdlesWorkerCleanly),
                 new TestCase("gather command keeps selected food target id", GatherCommandKeepsSelectedFoodTargetId),
                 new TestCase("gather command keeps selected wood target id", GatherCommandKeepsSelectedWoodTargetId),
                 new TestCase("gather command keeps selected gold target id", GatherCommandKeepsSelectedGoldTargetId),
@@ -1228,6 +1234,96 @@ namespace RtsGame.Tests
 
             AssertEqual(0, state.EconomyState.ResourceNodes[0].RemainingAmount, "resource node should deplete");
             AssertEqual(0, state.EntityState.Units[0].CurrentResourceNodeId, "depleted node should clear gather assignment");
+            AssertEqual(0, state.EntityState.Units[0].CurrentResourceAreaId, "exhausted area should clear long-term gather assignment");
+        }
+
+        private static void TreeDepletionReducesAmountAndUnblocksFootprint()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateTwoNodeResourceAreaState(3101, GatherProfileId.Tree, out int firstNodeId, out _, out int areaId);
+            ResourceNode first = FindResourceNodeById(state, firstNodeId);
+            Unit worker = state.EntityState.Units[0];
+            worker.Position = new FixedVector2(first.Position.X + Fixed.FromInt(1), first.Position.Y);
+            first.RemainingAmount = GameData.VillagerGatherPerTick;
+
+            AssertEqual(true, SpatialRules.IsTileBlockedByResource(state, SpatialRules.GetTileX(first.Position), SpatialRules.GetTileY(first.Position)), "active tree should block its footprint");
+            RunGatherCommand(state, rules, firstNodeId, worker.Id);
+
+            AssertEqual(0, first.RemainingAmount, "tree gather should reduce remaining amount to zero");
+            AssertEqual(true, first.IsDepleted, "tree should be marked depleted");
+            AssertEqual(false, SpatialRules.IsTileBlockedByResource(state, SpatialRules.GetTileX(first.Position), SpatialRules.GetTileY(first.Position)), "depleted tree should unblock its footprint");
+            AssertEqual(areaId, worker.CurrentResourceAreaId, "worker should keep long-term forest target while another node remains");
+        }
+
+        private static void DepletedResourceRejectsGatherCommand()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateTwoNodeResourceAreaState(3102, GatherProfileId.Tree, out int firstNodeId, out _, out _);
+            FindResourceNodeById(state, firstNodeId).RemainingAmount = 0;
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(firstNodeId, new[] { 1 })));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(1, state.DebugCounters.RejectedCommandCount, "depleted node should reject gather command");
+            AssertEqual(0, state.EntityState.Units[0].CurrentResourceNodeId, "rejected depleted node should not assign gather target");
+        }
+
+        private static void ForestContinuationChoosesAnotherTree()
+        {
+            AssertResourceContinuationChoosesAnotherNode(GatherProfileId.Tree, ResourceType.Wood, 3103);
+        }
+
+        private static void BerryPatchContinuationChoosesAnotherBush()
+        {
+            AssertResourceContinuationChoosesAnotherNode(GatherProfileId.BerryBush, ResourceType.Food, 3104);
+        }
+
+        private static void GoldDepositContinuationChoosesAnotherVein()
+        {
+            AssertResourceContinuationChoosesAnotherNode(GatherProfileId.GoldVeinSmall, ResourceType.Gold, 3105);
+        }
+
+        private static void ResourceAreaExhaustionIdlesWorkerCleanly()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateSingleNodeResourceAreaState(3106, GatherProfileId.BerryBush, out int nodeId, out _);
+            ResourceNode node = FindResourceNodeById(state, nodeId);
+            Unit worker = state.EntityState.Units[0];
+            worker.Position = new FixedVector2(node.Position.X + Fixed.FromInt(1), node.Position.Y);
+            node.RemainingAmount = GameData.VillagerGatherPerTick;
+
+            RunGatherCommand(state, rules, nodeId, worker.Id);
+
+            AssertEqual(0, worker.CurrentResourceNodeId, "exhausted area should clear current node");
+            AssertEqual(0, worker.CurrentResourceAreaId, "exhausted area should clear long-term area target");
+            AssertEqual(false, worker.HasMoveTarget, "exhausted area should not leave stale movement");
+            AssertEqual(WorkerTaskPhase.Idle, worker.TaskPhase, "exhausted area should idle worker cleanly");
+        }
+
+        private static void AssertResourceContinuationChoosesAnotherNode(GatherProfileId profileId, ResourceType resourceType, ulong seed)
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateTwoNodeResourceAreaState(seed, profileId, out int firstNodeId, out int secondNodeId, out int areaId);
+            ResourceNode first = FindResourceNodeById(state, firstNodeId);
+            Unit worker = state.EntityState.Units[0];
+            worker.Position = new FixedVector2(first.Position.X + Fixed.FromInt(1), first.Position.Y);
+            first.RemainingAmount = GameData.VillagerGatherPerTick;
+
+            RunGatherCommand(state, rules, firstNodeId, worker.Id);
+
+            AssertEqual(0, first.RemainingAmount, "first " + resourceType + " node should deplete");
+            AssertEqual(secondNodeId, worker.CurrentResourceNodeId, "worker should continue to another node in the same area for " + resourceType);
+            AssertEqual(areaId, worker.CurrentResourceAreaId, "worker should keep long-term area target for " + resourceType);
+            AssertEqual(InteractionReservationKind.ResourceNode, worker.ReservedInteractionKind, "worker should reserve next resource slot for " + resourceType);
+            AssertEqual(secondNodeId, worker.ReservedInteractionTargetId, "reservation should target the continuation node for " + resourceType);
+        }
+
+        private static void RunGatherCommand(GameState state, GameRules rules, int resourceNodeId, int workerId)
+        {
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 0, CommandType.GatherResource), new GatherResourceCommand(resourceNodeId, new[] { workerId })));
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
         }
 
         private static void GatherCommandKeepsSelectedFoodTargetId()
@@ -6602,6 +6698,59 @@ namespace RtsGame.Tests
             };
             state.EconomyState.ResourceNodes.Add(node);
             return node;
+        }
+
+        private static GameState CreateSingleNodeResourceAreaState(ulong seed, GatherProfileId profileId, out int nodeId, out int areaId)
+        {
+            GameState state = CreateOccupancyState(seed, 1);
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(0, 0));
+            areaId = AddTestResourceArea(state, profileId, FixedVector2.FromInts(10, 10));
+            nodeId = AddTestResourceNodeToArea(state, areaId, profileId, FixedVector2.FromInts(10, 10), GameData.VillagerGatherPerTick);
+            return state;
+        }
+
+        private static GameState CreateTwoNodeResourceAreaState(ulong seed, GatherProfileId profileId, out int firstNodeId, out int secondNodeId, out int areaId)
+        {
+            GameState state = CreateOccupancyState(seed, 1);
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(0, 0));
+            areaId = AddTestResourceArea(state, profileId, FixedVector2.FromInts(10, 10));
+            firstNodeId = AddTestResourceNodeToArea(state, areaId, profileId, FixedVector2.FromInts(10, 10), GameData.VillagerGatherPerTick);
+            secondNodeId = AddTestResourceNodeToArea(state, areaId, profileId, FixedVector2.FromInts(12, 10), GameData.StartingWoodAmount);
+            return state;
+        }
+
+        private static int AddTestResourceArea(GameState state, GatherProfileId profileId, FixedVector2 position)
+        {
+            GatherProfile profile = GameData.GetGatherProfile(profileId);
+            int areaId = state.EconomyState.NextResourceAreaId++;
+            state.EconomyState.ResourceAreas.Add(new ResourceArea
+            {
+                Id = areaId,
+                AreaType = ResolveTestAreaType(profile.ResourceType),
+                ResourceType = profile.ResourceType,
+                GatherProfileId = profileId,
+                Position = position
+            });
+
+            return areaId;
+        }
+
+        private static int AddTestResourceNodeToArea(GameState state, int areaId, GatherProfileId profileId, FixedVector2 position, int amount)
+        {
+            GatherProfile profile = GameData.GetGatherProfile(profileId);
+            int nodeId = state.EconomyState.NextResourceNodeId++;
+            state.EconomyState.ResourceNodes.Add(new ResourceNode
+            {
+                Id = nodeId,
+                ResourceAreaId = areaId,
+                ResourceType = profile.ResourceType,
+                NodeType = profile.NodeType,
+                GatherProfileId = profileId,
+                Position = position,
+                RemainingAmount = amount
+            });
+
+            return nodeId;
         }
 
         private static GameState CreateDropoffReservationState(ulong seed, ResourceType resourceType, out int townCenterId)

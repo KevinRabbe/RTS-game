@@ -17,12 +17,10 @@ namespace RtsGame.Sim.Systems
                     continue;
                 }
 
-                ResourceNode? node = FindNode(state, unit.CurrentResourceNodeId);
-                if (node == null || node.IsDepleted)
+                ResourceNode? node = ResolveCurrentNode(state, unit);
+                if (node == null)
                 {
-                    unit.CurrentResourceNodeId = 0;
-                    SpatialRules.ClearInteractionReservation(unit);
-                    unit.TaskPhase = WorkerTaskPhase.Idle;
+                    ClearExhaustedGatherIntent(unit);
                     continue;
                 }
 
@@ -83,11 +81,104 @@ namespace RtsGame.Sim.Systems
                 node.RemainingAmount -= gathered;
                 if (node.IsDepleted)
                 {
-                    unit.CurrentResourceNodeId = 0;
                     SpatialRules.ClearInteractionReservation(unit);
-                    unit.TaskPhase = WorkerTaskPhase.Idle;
+                    if (unit.CarriedAmount >= GameData.VillagerCarryCapacity)
+                    {
+                        ResolveCurrentNode(state, unit);
+                        unit.TaskPhase = WorkerTaskPhase.MovingToDropoffSlot;
+                    }
+                    else if (TryChooseContinuationNode(state, unit, node.ResourceAreaId, out ResourceNode? nextNode))
+                    {
+                        unit.CurrentResourceNodeId = nextNode!.Id;
+                        unit.TaskPhase = WorkerTaskPhase.MovingToResourceSlot;
+                        unit.HasMoveTarget = true;
+                        unit.MoveTarget = FixedVector2.FromInts(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
+                    }
+                    else
+                    {
+                        ClearExhaustedGatherIntent(unit);
+                    }
                 }
             }
+        }
+
+        private static ResourceNode? ResolveCurrentNode(GameState state, Unit unit)
+        {
+            ResourceNode? node = FindNode(state, unit.CurrentResourceNodeId);
+            if (node != null && !node.IsDepleted)
+            {
+                return node;
+            }
+
+            if (node != null)
+            {
+                SpatialRules.ClearInteractionReservation(unit);
+            }
+
+            if (unit.CurrentResourceAreaId != 0
+                && TryChooseContinuationNode(state, unit, unit.CurrentResourceAreaId, out ResourceNode? nextNode))
+            {
+                unit.CurrentResourceNodeId = nextNode!.Id;
+                return nextNode;
+            }
+
+            return null;
+        }
+
+        private static bool TryChooseContinuationNode(GameState state, Unit unit, int resourceAreaId, out ResourceNode? selectedNode)
+        {
+            selectedNode = null;
+            ResourceNode? best = null;
+            int bestDistance = int.MaxValue;
+            for (int i = 0; i < state.EconomyState.ResourceNodes.Count; i++)
+            {
+                ResourceNode candidate = state.EconomyState.ResourceNodes[i];
+                if (candidate.ResourceAreaId != resourceAreaId || candidate.IsDepleted)
+                {
+                    continue;
+                }
+
+                GatherProfile profile = GameData.GetGatherProfile(candidate.GatherProfileId);
+                if (profile.AutoContinuationMode != ResourceAutoContinuationMode.SameArea)
+                {
+                    continue;
+                }
+
+                int unitTileX = SpatialRules.GetTileX(unit.Position);
+                int unitTileY = SpatialRules.GetTileY(unit.Position);
+                int candidateTileX = SpatialRules.GetTileX(candidate.Position);
+                int candidateTileY = SpatialRules.GetTileY(candidate.Position);
+                int distance = Abs(unitTileX - candidateTileX) + Abs(unitTileY - candidateTileY);
+                if (best == null
+                    || distance < bestDistance
+                    || (distance == bestDistance && candidate.Id < best.Id))
+                {
+                    best = candidate;
+                    bestDistance = distance;
+                }
+            }
+
+            if (best == null)
+            {
+                return false;
+            }
+
+            if (!TryChooseResourceApproachTile(state, unit, best, out _, out _))
+            {
+                return false;
+            }
+
+            selectedNode = best;
+            return true;
+        }
+
+        private static void ClearExhaustedGatherIntent(Unit unit)
+        {
+            unit.CurrentResourceAreaId = 0;
+            unit.CurrentResourceNodeId = 0;
+            unit.HasMoveTarget = false;
+            SpatialRules.ClearInteractionReservation(unit);
+            unit.TaskPhase = WorkerTaskPhase.Idle;
         }
 
         private static ResourceNode? FindNode(GameState state, int nodeId)
@@ -149,6 +240,11 @@ namespace RtsGame.Sim.Systems
         {
             int result = a < b ? a : b;
             return result < c ? result : c;
+        }
+
+        private static int Abs(int value)
+        {
+            return value < 0 ? -value : value;
         }
 
     }
