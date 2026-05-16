@@ -301,6 +301,12 @@ Implementation guidance:
 - Keep command validation authoritative.
 - Avoid broad refactors until the new model needs them.
 
+Command handling clarification:
+
+- Hard-invalid commands should reject deterministically.
+- Temporary congestion should not reject valid gather/build/drop-off intent.
+- Under temporary congestion, units should keep long-term targets and use bounded deterministic retry/re-slot behavior.
+
 ## 12. Test Checklist
 
 Core resource model:
@@ -366,3 +372,8 @@ High-pop readiness:
 - Temporary traffic does not clear long-term gather/build intent.
 - Resource, drop-off, and build logic avoid per-tick retarget churn.
 - Any new worker loop change answers the high-pop scale checklist.
+
+Current manual smoke expectation:
+
+- In repeated 5-10 minute DryArabia runs, workers should gather/deposit/build with no stacking and no endless jitter loops.
+- Temporary jams are acceptable only when units wait cleanly and recover deterministically without losing intent.

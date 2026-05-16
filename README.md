@@ -18,8 +18,11 @@ The simulation core must not depend on rendering, UI, audio, engine physics, net
 
 ## Project Docs
 
+- [Current Vertical Slice](docs/current-vertical-slice.md)
 - [Development Roadmap](docs/development-roadmap.md)
 - [Prototype Architecture](docs/prototype-architecture.md)
+- [Worker Resource Economy v1](docs/worker-resource-economy-v1.md)
+- [High-Pop Simulation Architecture](docs/high-pop-simulation-architecture.md)
 - [Playable Prototype Spec](docs/playable-prototype-spec.md)
 - [Phase 0 Code Skeleton Blueprint](docs/phase-0-code-skeleton-blueprint.md)
 - [Testing Workflow](docs/testing-workflow.md)

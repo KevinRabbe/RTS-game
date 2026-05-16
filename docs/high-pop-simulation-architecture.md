@@ -6,6 +6,8 @@ Capital Frontiers targets a high-pop deterministic RTS, not a small skirmish san
 
 This document defines the simulation split and traffic policy for future gameplay work.
 
+For immediate execution order and smoke gates, see [Current Vertical Slice](current-vertical-slice.md).
+
 ## Scale Assumptions
 
 Design every simulation feature against these assumptions:

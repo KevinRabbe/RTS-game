@@ -260,6 +260,7 @@ Command requirements:
 - Deterministic.
 - Validated by simulation.
 - Executed only during a simulation tick.
+- Distinguish hard-invalid command rejection from temporary-congestion handling.
 
 Initial command set:
 
@@ -293,6 +294,11 @@ Local UI Input
 ```
 
 Command rejection must be deterministic. The same invalid command must fail the same way on every peer.
+
+Congestion rule:
+
+- Hard-invalid requests reject (out of bounds, blocked footprint target, illegal ownership, missing prerequisites).
+- Temporary traffic congestion should preserve valid long-term intent and be resolved by task/reservation/movement systems, not by command rejection.
 
 ## Fixed System Order
 

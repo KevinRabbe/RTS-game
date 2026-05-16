@@ -43,6 +43,28 @@ Avoid building the full RTS at once. The first playable goal is a small determin
 - A lockstep test can run the same command stream on multiple peers with matching checksums.
 - Worker, spawn, combat, siege, trade, and rally traffic are built from shared deterministic traffic policies instead of one-off fixes.
 
+## Current Vertical Slice Milestone
+
+Short-term milestone:
+
+- `DryArabiaTest01 Playable Economy Slice`
+
+This milestone is prioritized ahead of broad feature expansion. The near-term roadmap is:
+
+1. Stabilize worker command reliability.
+2. Add playability invariant tests and worker trace diagnostics.
+3. Finalize DryArabia economy layout for readable worker lanes.
+4. Build HUD foundation from read-only snapshots.
+5. Split `RtsClientRoot` into focused components.
+6. Stabilize basic combat slice.
+7. Add easy bot for local pressure testing.
+8. Harden replayable local 1v1 flow.
+9. Add LAN host/join lockstep slice.
+10. Add reconnect v1.
+11. Expand toward long-term 6-player FFA hardening.
+
+The long-term 6-player FFA target remains unchanged. This is a sequencing clarification, not a vision change.
+
 ## Milestone 0: Project Foundation
 
 Goal: Establish the architecture guardrails before gameplay code grows.
