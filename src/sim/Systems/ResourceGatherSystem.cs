@@ -105,20 +105,8 @@ namespace RtsGame.Sim.Systems
 
         private static bool ShouldKeepCurrentApproachTarget(GameState state, Unit unit, ResourceNode node)
         {
-            if (!unit.HasMoveTarget)
-            {
-                return false;
-            }
-
-            int targetX = SpatialRules.GetTileX(unit.MoveTarget);
-            int targetY = SpatialRules.GetTileY(unit.MoveTarget);
             List<SpatialRules.TileCoord> interactionTiles = SpatialRules.EnumerateResourceInteractionTiles(state, node);
-            if (!SpatialRules.ContainsInteractionTile(interactionTiles, targetX, targetY))
-            {
-                return false;
-            }
-
-            return true;
+            return SpatialRules.ShouldRetainInteractionMoveTarget(state, unit, interactionTiles);
         }
 
         private static int EncodeTile(int tileX, int tileY)

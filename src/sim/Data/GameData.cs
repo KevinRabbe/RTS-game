@@ -91,6 +91,7 @@ namespace RtsGame.Sim.Data
         public const int WallPlacementRadiusTiles = 1;
         public const int TradePostPlacementRadiusTiles = 2;
         public const int ResourcePlacementRadiusTiles = 1;
+        public const int InteractionTargetRetargetBlockedTicks = 8;
         public const int TownCenterWoodCost = 275;
         public const int WallWoodCost = 5;
         public const int TradePostWoodCost = 150;

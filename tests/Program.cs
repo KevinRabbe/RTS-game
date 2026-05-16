@@ -80,8 +80,12 @@ namespace RtsGame.Tests
                 new TestCase("villager returns to same gold target after deposit", VillagerReturnsToSameGoldTargetAfterDeposit),
                 new TestCase("gather keeps assigned resource when nearer same type exists", GatherKeepsAssignedResourceWhenNearerSameTypeExists),
                 new TestCase("gather move target remains stable while approaching", GatherMoveTargetRemainsStableWhileApproaching),
+                new TestCase("full gold carrier blocked dropoff target retargets and deposits", FullGoldCarrierBlockedDropoffTargetRetargetsAndDeposits),
+                new TestCase("full food carrier blocked dropoff target retargets and deposits", FullFoodCarrierBlockedDropoffTargetRetargetsAndDeposits),
+                new TestCase("full wood carrier blocked dropoff target retargets and deposits", FullWoodCarrierBlockedDropoffTargetRetargetsAndDeposits),
                 new TestCase("two builders in range build faster than one", TwoBuildersInRangeBuildFasterThanOne),
                 new TestCase("build move target uses foundation interaction ring", BuildMoveTargetUsesFoundationInteractionRing),
+                new TestCase("builder blocked approach retargets deterministically", BuilderBlockedApproachRetargetsDeterministically),
                 new TestCase("economy replay determinism", EconomyReplayDeterminism),
                 new TestCase("economy lockstep", EconomyLockstep),
                 new TestCase("train villager pays cost and completes", TrainVillagerPaysCostAndCompletes),
@@ -1284,6 +1288,21 @@ namespace RtsGame.Tests
             }
         }
 
+        private static void FullGoldCarrierBlockedDropoffTargetRetargetsAndDeposits()
+        {
+            AssertBlockedCarrierRetargetsAndDeposits(ResourceType.Gold, 2072);
+        }
+
+        private static void FullFoodCarrierBlockedDropoffTargetRetargetsAndDeposits()
+        {
+            AssertBlockedCarrierRetargetsAndDeposits(ResourceType.Food, 2073);
+        }
+
+        private static void FullWoodCarrierBlockedDropoffTargetRetargetsAndDeposits()
+        {
+            AssertBlockedCarrierRetargetsAndDeposits(ResourceType.Wood, 2074);
+        }
+
         private static void TwoBuildersInRangeBuildFasterThanOne()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -1332,6 +1351,35 @@ namespace RtsGame.Tests
             AssertEqual(true, unit.HasMoveTarget, "build assignment should set an approach tile");
             AssertEqual(false, SpatialRules.IsTileInsideBuildingFootprint(foundation, targetX, targetY), "build approach tile should not be inside foundation footprint");
             AssertEqual(true, SpatialRules.IsUnitInBuildingInteractionRange(new Unit { Position = FixedVector2.FromInts(targetX, targetY) }, foundation), "build approach tile should be on foundation interaction ring");
+        }
+
+        private static void BuilderBlockedApproachRetargetsDeterministically()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(2075, 1);
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(14, 20));
+            int foundationId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(20, 20));
+            Building foundation = state.EntityState.Buildings[state.EntityState.EntityLookup[foundationId].Index];
+            List<SpatialRules.TileCoord> tiles = SpatialRules.EnumerateBuildInteractionTiles(state, foundation);
+            SpatialRules.TileCoord blockedTile = tiles[0];
+            state.EntityState.Units[0].Position = FixedVector2.FromInts(0, 0);
+            state.EntityState.Units[0].CurrentBuildTargetId = foundationId;
+            foundation.AssignedBuilderIds.Add(state.EntityState.Units[0].Id);
+            int blockerId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(blockedTile.X, blockedTile.Y), false);
+            state.EntityState.Units[0].HasMoveTarget = true;
+            state.EntityState.Units[0].MoveTarget = FixedVector2.FromInts(blockedTile.X, blockedTile.Y);
+            state.EntityState.Units[0].LastMovedTick = 0;
+            state.Tick = GameData.InteractionTargetRetargetBlockedTicks;
+
+            TickRunner runner = new TickRunner();
+            CommandBuffer buffer = new CommandBuffer();
+            AddNoOp(buffer, state.Tick, 0, 8000);
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            Unit builder = state.EntityState.Units[0];
+            AssertEqual(true, builder.HasMoveTarget, "builder should keep build intent and retarget");
+            AssertEqual(false, SpatialRules.GetTileX(builder.MoveTarget) == blockedTile.X && SpatialRules.GetTileY(builder.MoveTarget) == blockedTile.Y, "builder should retarget away from stale blocked tile");
+            AssertEqual(foundationId, builder.CurrentBuildTargetId, "builder should keep build target during congestion recovery");
         }
 
         private static void EconomyReplayDeterminism()
@@ -5602,6 +5650,94 @@ namespace RtsGame.Tests
 
             Unit unit = state.EntityState.Units[0];
             AssertEqual(resourceId, unit.CurrentResourceNodeId, "worker should return to exact assigned resource id after deposit for " + resourceType);
+        }
+
+        private static void AssertBlockedCarrierRetargetsAndDeposits(ResourceType resourceType, ulong seed)
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(seed, 1);
+            int workerId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(25, 20));
+            int resourceId = state.EconomyState.NextResourceNodeId++;
+            state.EconomyState.ResourceNodes.Add(new ResourceNode
+            {
+                Id = resourceId,
+                ResourceType = resourceType,
+                Position = FixedVector2.FromInts(26, 20),
+                RemainingAmount = GameData.StartingFoodAmount
+            });
+            int tcId = AddCompletedTownCenter(state, 0, FixedVector2.FromInts(20, 20));
+            Building tc = state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index];
+            List<SpatialRules.TileCoord> ring = SpatialRules.EnumerateBuildingInteractionTiles(state, tc);
+            Unit worker = state.EntityState.Units[state.EntityState.EntityLookup[workerId].Index];
+            SpatialRules.TileCoord blockedTile = default;
+            bool foundBlockedWithAlternate = false;
+            int workerTileX = SpatialRules.GetTileX(worker.Position);
+            int workerTileY = SpatialRules.GetTileY(worker.Position);
+            for (int i = 0; i < ring.Count && !foundBlockedWithAlternate; i++)
+            {
+                for (int j = 0; j < ring.Count; j++)
+                {
+                    if (i == j)
+                    {
+                        continue;
+                    }
+
+                    if (DeterministicPathfinder.TryFindNextTile(state, workerTileX, workerTileY, ring[j].X, ring[j].Y, out _, out _))
+                    {
+                        blockedTile = ring[i];
+                        foundBlockedWithAlternate = true;
+                        break;
+                    }
+                }
+            }
+
+            AssertEqual(true, foundBlockedWithAlternate, "test setup should provide an alternate reachable dropoff interaction tile");
+            worker.CurrentResourceNodeId = resourceId;
+            worker.CarriedResourceType = resourceType;
+            worker.CarriedAmount = GameData.VillagerCarryCapacity;
+            worker.HasMoveTarget = true;
+            worker.MoveTarget = FixedVector2.FromInts(blockedTile.X, blockedTile.Y);
+            worker.LastMovedTick = 0;
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(blockedTile.X, blockedTile.Y), false);
+            state.Tick = GameData.InteractionTargetRetargetBlockedTicks;
+
+            TickRunner runner = new TickRunner();
+            CommandBuffer buffer = new CommandBuffer();
+            AddNoOp(buffer, state.Tick, 0, 7000);
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(true, worker.HasMoveTarget, "blocked full carrier should retarget and keep dropoff intent");
+            AssertEqual(resourceId, worker.CurrentResourceNodeId, "temporary congestion should not clear resource target");
+
+            int startFood = state.PlayerStates.Players[0].Resources.Food;
+            int startWood = state.PlayerStates.Players[0].Resources.Wood;
+            int startGold = state.PlayerStates.Players[0].Resources.Gold;
+            bool retargetedAwayFromBlockedTile = false;
+            for (int i = 0; i < 80 && worker.CarriedAmount > 0; i++)
+            {
+                AddNoOp(buffer, state.Tick, 0, (uint)(7100 + i));
+                runner.AdvanceOneTick(state, rules, buffer);
+                if (SpatialRules.GetTileX(worker.MoveTarget) != blockedTile.X || SpatialRules.GetTileY(worker.MoveTarget) != blockedTile.Y)
+                {
+                    retargetedAwayFromBlockedTile = true;
+                }
+            }
+
+            AssertEqual(true, retargetedAwayFromBlockedTile, "carrier should retarget away from stale blocked tile during recovery");
+            AssertEqual(0, worker.CarriedAmount, "carrier should eventually deposit after deterministic retarget");
+            AssertEqual(resourceId, worker.CurrentResourceNodeId, "worker should preserve assigned gather target after deposit");
+            if (resourceType == ResourceType.Food)
+            {
+                AssertEqual(startFood + GameData.VillagerCarryCapacity, state.PlayerStates.Players[0].Resources.Food, "food deposit should apply after retarget");
+            }
+            else if (resourceType == ResourceType.Wood)
+            {
+                AssertEqual(startWood + GameData.VillagerCarryCapacity, state.PlayerStates.Players[0].Resources.Wood, "wood deposit should apply after retarget");
+            }
+            else if (resourceType == ResourceType.Gold)
+            {
+                AssertEqual(startGold + GameData.VillagerCarryCapacity, state.PlayerStates.Players[0].Resources.Gold, "gold deposit should apply after retarget");
+            }
         }
 
         private static void FundTradePost(GameState state, int playerIndex)

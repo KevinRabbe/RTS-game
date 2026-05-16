@@ -277,6 +277,34 @@ namespace RtsGame.Sim.Core
             return false;
         }
 
+        public static bool ShouldRetainInteractionMoveTarget(GameState state, Unit unit, List<TileCoord> interactionTiles)
+        {
+            if (!unit.HasMoveTarget)
+            {
+                return false;
+            }
+
+            int targetX = GetTileX(unit.MoveTarget);
+            int targetY = GetTileY(unit.MoveTarget);
+            if (!ContainsInteractionTile(interactionTiles, targetX, targetY))
+            {
+                return false;
+            }
+
+            if (IsTileOccupiedByLiveUnit(state, targetX, targetY, unit.Id))
+            {
+                return false;
+            }
+
+            int blockedTicks = unit.LastMovedTick < 0 ? int.MaxValue : state.Tick - unit.LastMovedTick;
+            if (blockedTicks >= GameData.InteractionTargetRetargetBlockedTicks)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         public static List<TileCoord> EnumerateBuildInteractionTiles(GameState state, Building building)
         {
             return EnumerateBuildingInteractionTiles(state, building);
