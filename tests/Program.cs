@@ -186,6 +186,7 @@ namespace RtsGame.Tests
                 new TestCase("visual frame includes trade route line", VisualFrameIncludesTradeRouteLine),
                 new TestCase("visual frame does not mutate checksum", VisualFrameDoesNotMutateChecksum),
                 new TestCase("client intent maps movement command", ClientIntentMapsMovementCommand),
+                new TestCase("client intent sorts selected unit ids", ClientIntentSortsSelectedUnitIds),
                 new TestCase("client intent maps research command", ClientIntentMapsResearchCommand),
                 new TestCase("client intent maps local 1v1 command flow", ClientIntentMapsLocal1v1CommandFlow),
                 new TestCase("client command mapping does not mutate checksum", ClientCommandMappingDoesNotMutateChecksum),
@@ -225,6 +226,8 @@ namespace RtsGame.Tests
                 new TestCase("godot selection router prioritizes local unit", GodotSelectionRouterPrioritizesLocalUnit),
                 new TestCase("godot selection router selects local building", GodotSelectionRouterSelectsLocalBuilding),
                 new TestCase("godot selection router ignores enemy primitive", GodotSelectionRouterIgnoresEnemyPrimitive),
+                new TestCase("godot selection router rectangle selects owned units in id order", GodotSelectionRouterRectangleSelectsOwnedUnitsInIdOrder),
+                new TestCase("godot selection router rectangle normalizes corners", GodotSelectionRouterRectangleNormalizesCorners),
                 new TestCase("godot selection router returns none", GodotSelectionRouterReturnsNone),
                 new TestCase("godot hud text includes economy and selection", GodotHudTextIncludesEconomyAndSelection),
                 new TestCase("godot hud text build lines returns two lines", GodotHudTextBuildLinesReturnsTwoLines),
@@ -3283,6 +3286,28 @@ namespace RtsGame.Tests
             AssertEqual(CommandType.MoveUnits, envelope.Payload.Type, "payload should be movement command");
         }
 
+        private static void ClientIntentSortsSelectedUnitIds()
+        {
+            ClientCommandIntent move = ClientCommandIntent.MoveUnits(new[] { 4, 1, 3, 2 }, FixedVector2.FromInts(5, 6));
+            ClientCommandIntent gather = ClientCommandIntent.GatherResource(10, new[] { 9, 7, 8 });
+            ClientCommandIntent build = ClientCommandIntent.AssignBuild(11, new[] { 6, 5, 4 });
+            ClientCommandIntent attack = ClientCommandIntent.Attack(new[] { 14, 12, 13 }, 99);
+
+            AssertEqual(1, move.UnitIds[0], "move selected unit ids should be sorted before command mapping");
+            AssertEqual(2, move.UnitIds[1], "move selected unit ids should be sorted before command mapping");
+            AssertEqual(3, move.UnitIds[2], "move selected unit ids should be sorted before command mapping");
+            AssertEqual(4, move.UnitIds[3], "move selected unit ids should be sorted before command mapping");
+            AssertEqual(7, gather.UnitIds[0], "gather selected unit ids should be sorted before command mapping");
+            AssertEqual(8, gather.UnitIds[1], "gather selected unit ids should be sorted before command mapping");
+            AssertEqual(9, gather.UnitIds[2], "gather selected unit ids should be sorted before command mapping");
+            AssertEqual(4, build.UnitIds[0], "build selected unit ids should be sorted before command mapping");
+            AssertEqual(5, build.UnitIds[1], "build selected unit ids should be sorted before command mapping");
+            AssertEqual(6, build.UnitIds[2], "build selected unit ids should be sorted before command mapping");
+            AssertEqual(12, attack.UnitIds[0], "attack selected unit ids should be sorted before command mapping");
+            AssertEqual(13, attack.UnitIds[1], "attack selected unit ids should be sorted before command mapping");
+            AssertEqual(14, attack.UnitIds[2], "attack selected unit ids should be sorted before command mapping");
+        }
+
         private static void ClientIntentMapsResearchCommand()
         {
             CommandEnvelope envelope = ClientCommandMapper.ToCommandEnvelope(
@@ -4006,6 +4031,52 @@ namespace RtsGame.Tests
 
             AssertEqual(GodotSelectionKind.None, selection.Kind, "enemy primitives should not be selected by local selection router");
             AssertEqual(0, selection.EntityId, "ignored selection should not expose an entity id");
+        }
+
+        private static void GodotSelectionRouterRectangleSelectsOwnedUnitsInIdOrder()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(new[]
+            {
+                CreateGodotPrimitive(VisualPrimitiveKind.UnitSquare, 103, 0, 7, 8),
+                CreateGodotPrimitive(VisualPrimitiveKind.BuildingRectangle, 201, 0, 8, 8),
+                CreateGodotPrimitive(VisualPrimitiveKind.UnitSquare, 101, 0, 5, 5),
+                CreateGodotPrimitive(VisualPrimitiveKind.UnitSquare, 102, 1, 6, 6),
+                CreateGodotPrimitive(VisualPrimitiveKind.UnitSquare, 100, 0, 6, 7),
+                CreateGodotPrimitive(VisualPrimitiveKind.UnitSquare, 104, 0, 20, 20)
+            });
+
+            int[] selected = GodotSelectionRouter.SelectUnitsInRectangle(
+                frame,
+                0,
+                Fixed.FromInt(4).Raw,
+                Fixed.FromInt(4).Raw,
+                Fixed.FromInt(8).Raw,
+                Fixed.FromInt(9).Raw);
+
+            AssertEqual(3, selected.Length, "rectangle selection should include only owned units inside the drag box");
+            AssertEqual(100, selected[0], "rectangle selection should return deterministic unit id order");
+            AssertEqual(101, selected[1], "rectangle selection should return deterministic unit id order");
+            AssertEqual(103, selected[2], "rectangle selection should return deterministic unit id order");
+        }
+
+        private static void GodotSelectionRouterRectangleNormalizesCorners()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(new[]
+            {
+                CreateGodotPrimitive(VisualPrimitiveKind.UnitSquare, 111, 0, 3, 4),
+                CreateGodotPrimitive(VisualPrimitiveKind.UnitSquare, 112, 0, 12, 12)
+            });
+
+            int[] selected = GodotSelectionRouter.SelectUnitsInRectangle(
+                frame,
+                0,
+                Fixed.FromInt(5).Raw,
+                Fixed.FromInt(5).Raw,
+                Fixed.FromInt(2).Raw,
+                Fixed.FromInt(2).Raw);
+
+            AssertEqual(1, selected.Length, "rectangle selection should normalize drag corners");
+            AssertEqual(111, selected[0], "normalized rectangle should select the owned unit inside the box");
         }
 
         private static void GodotSelectionRouterReturnsNone()

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using RtsGame.Presentation.Visuals;
 
 namespace RtsGame.Presentation.GodotBridge
@@ -23,6 +24,34 @@ namespace RtsGame.Presentation.GodotBridge
 
     public static class GodotSelectionRouter
     {
+        public static int[] SelectUnitsInRectangle(GodotFrameDto frame, int localPlayerIndex, long leftRaw, long topRaw, long rightRaw, long bottomRaw)
+        {
+            long minX = leftRaw < rightRaw ? leftRaw : rightRaw;
+            long maxX = leftRaw > rightRaw ? leftRaw : rightRaw;
+            long minY = topRaw < bottomRaw ? topRaw : bottomRaw;
+            long maxY = topRaw > bottomRaw ? topRaw : bottomRaw;
+
+            var selected = new List<int>();
+            for (int i = 0; i < frame.Primitives.Length; i++)
+            {
+                GodotPrimitiveDto primitive = frame.Primitives[i];
+                if (primitive.Kind != (int)VisualPrimitiveKind.UnitSquare || primitive.OwnerPlayerIndex != localPlayerIndex)
+                {
+                    continue;
+                }
+
+                if (primitive.XRaw < minX || primitive.XRaw > maxX || primitive.YRaw < minY || primitive.YRaw > maxY)
+                {
+                    continue;
+                }
+
+                selected.Add(primitive.EntityId);
+            }
+
+            selected.Sort();
+            return selected.ToArray();
+        }
+
         public static GodotSelectionResult SelectAt(GodotFrameDto frame, int localPlayerIndex, long xRaw, long yRaw)
         {
             for (int i = 0; i < frame.Primitives.Length; i++)

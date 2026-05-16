@@ -23,6 +23,7 @@ public partial class RtsClientRoot : Node2D
 	private const int WallRadiusTiles = 1;
 	private const int TradePostRadiusTiles = 2;
 	private const int ResourceRadiusTiles = 1;
+	private const float DragSelectionThresholdPixels = 6.0f;
 
 	private readonly List<int> _selectedUnitIds = new List<int>();
 	private readonly GodotDebugEventLog _debugEventLog = new GodotDebugEventLog(10);
@@ -53,6 +54,11 @@ public partial class RtsClientRoot : Node2D
 	private bool _middleMouseDragActive;
 	private Vector2 _middleMouseDragStartScreen = Vector2.Zero;
 	private Vector2 _middleMouseDragStartCamera = Vector2.Zero;
+
+	// Left-mouse drag selection in world/sim pixel coordinates.
+	private bool _selectionDragActive;
+	private Vector2 _selectionDragStart = Vector2.Zero;
+	private Vector2 _selectionDragCurrent = Vector2.Zero;
 
 	public override void _Ready()
 	{
@@ -147,10 +153,39 @@ public partial class RtsClientRoot : Node2D
 				return;
 			}
 
+			if (_tcPlacementMode)
+			{
+				if (mouse.Pressed)
+				{
+					HandleMouse(mouse);
+				}
+				return;
+			}
+
+			if (mouse.ButtonIndex == MouseButton.Left)
+			{
+				if (mouse.Pressed)
+				{
+					BeginSelectionDrag();
+				}
+				else
+				{
+					FinishSelectionDrag();
+				}
+				return;
+			}
+
 			if (mouse.Pressed)
 			{
 				HandleMouse(mouse);
 			}
+			return;
+		}
+
+		if (@event is InputEventMouseMotion && _selectionDragActive)
+		{
+			_selectionDragCurrent = GetGlobalMousePosition();
+			QueueRedraw();
 		}
 	}
 
@@ -176,6 +211,8 @@ public partial class RtsClientRoot : Node2D
 		{
 			DrawTcPlacementGhost();
 		}
+
+		DrawSelectionDragRectangle();
 
 		DrawHud();
 	}
@@ -335,6 +372,7 @@ public partial class RtsClientRoot : Node2D
 		_tcPlacementMode = false;
 		_tcPreviewResult = TcPlacementPreviewResult.Unknown;
 		_middleMouseDragActive = false;
+		_selectionDragActive = false;
 		_tickAccumulator = 0.0;
 		_paused = false;
 		facade.AdvanceOneTick();
@@ -380,6 +418,7 @@ public partial class RtsClientRoot : Node2D
 
 		if (mouse.ButtonIndex == MouseButton.Right && _selectedUnitIds.Count > 0)
 		{
+			int[] selectedUnitIds = GetSelectedUnitIdsSorted();
 			GodotInteractionProbeResult probe = GodotInteractionProbe.Probe(frame, LocalPlayerIndex, mouseXRaw, mouseYRaw);
 			GodotInteractionIntent intent = GodotInteractionRouter.RouteRightClick(
 				frame,
@@ -401,7 +440,7 @@ public partial class RtsClientRoot : Node2D
 
 				QueueCommandAndConfirm(
 					"attack p=" + LocalPlayerIndex + " targetEntity=" + intent.TargetEntityId,
-					f => f.QueueAttack(LocalPlayerIndex, _selectedUnitIds.ToArray(), intent.TargetEntityId));
+					f => f.QueueAttack(LocalPlayerIndex, selectedUnitIds, intent.TargetEntityId));
 			}
 			else if (intent.Kind == GodotInteractionIntentKind.AssignBuild)
 			{
@@ -413,7 +452,7 @@ public partial class RtsClientRoot : Node2D
 
 				QueueCommandAndConfirm(
 					"assign build p=" + LocalPlayerIndex + " targetBuilding=" + intent.TargetEntityId,
-					f => f.QueueAssignBuild(LocalPlayerIndex, intent.TargetEntityId, _selectedUnitIds.ToArray()));
+					f => f.QueueAssignBuild(LocalPlayerIndex, intent.TargetEntityId, selectedUnitIds));
 			}
 			else if (intent.Kind == GodotInteractionIntentKind.GatherResource)
 			{
@@ -425,14 +464,14 @@ public partial class RtsClientRoot : Node2D
 
 				QueueCommandAndConfirm(
 					"gather p=" + LocalPlayerIndex + " resource=" + intent.ResourceNodeId,
-					f => f.QueueGatherResource(LocalPlayerIndex, intent.ResourceNodeId, _selectedUnitIds.ToArray()));
+					f => f.QueueGatherResource(LocalPlayerIndex, intent.ResourceNodeId, selectedUnitIds));
 			}
 			else if (intent.Kind == GodotInteractionIntentKind.Move)
 			{
 				SetCommandMarker("Move", ToScreen(TileToRaw(tile.X), TileToRaw(tile.Y)), Colors.LightSkyBlue);
 				QueueCommandAndConfirm(
 					"move p=" + LocalPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ")",
-					f => f.QueueMoveUnits(LocalPlayerIndex, _selectedUnitIds.ToArray(), tile.X, tile.Y));
+					f => f.QueueMoveUnits(LocalPlayerIndex, selectedUnitIds, tile.X, tile.Y));
 			}
 		}
 	}
@@ -617,7 +656,7 @@ public partial class RtsClientRoot : Node2D
 			return;
 		}
 
-		int tradeCartId = GodotTradeRouteRouter.FindSelectedTradeCart(_frame, _selectedUnitIds.ToArray());
+		int tradeCartId = GodotTradeRouteRouter.FindSelectedTradeCart(_frame, GetSelectedUnitIdsSorted());
 		if (tradeCartId == 0)
 		{
 			_debugEventLog.Add("trade route blocked: no selected trade cart");
@@ -650,6 +689,71 @@ public partial class RtsClientRoot : Node2D
 			facade => facade.QueueCreateTradeRoute(LocalPlayerIndex, tradeCartId, routeA, tradePostId));
 		SetCommandMarker("TradeRoute", screenPosition, Colors.Gold);
 		_pendingTradeRouteAId = 0;
+	}
+
+	private void BeginSelectionDrag()
+	{
+		_selectionDragActive = true;
+		_selectionDragStart = GetGlobalMousePosition();
+		_selectionDragCurrent = _selectionDragStart;
+		QueueRedraw();
+	}
+
+	private void FinishSelectionDrag()
+	{
+		if (!_selectionDragActive)
+		{
+			return;
+		}
+
+		_selectionDragCurrent = GetGlobalMousePosition();
+		Vector2 delta = _selectionDragCurrent - _selectionDragStart;
+		bool isRectangleSelection = delta.LengthSquared() >= DragSelectionThresholdPixels * DragSelectionThresholdPixels;
+		_selectionDragActive = false;
+
+		if (isRectangleSelection)
+		{
+			SelectUnitsInRectangle(_selectionDragStart, _selectionDragCurrent);
+		}
+		else
+		{
+			SelectAt(_selectionDragCurrent);
+		}
+
+		RefreshFrame();
+	}
+
+	private void SelectUnitsInRectangle(Vector2 start, Vector2 end)
+	{
+		_selectedUnitIds.Clear();
+		_selectedBuildingId = 0;
+		_pendingTradeRouteAId = 0;
+		if (_frame == null)
+		{
+			return;
+		}
+
+		int[] selected = GodotSelectionRouter.SelectUnitsInRectangle(
+			_frame,
+			LocalPlayerIndex,
+			ScreenToRaw(start.X),
+			ScreenToRaw(start.Y),
+			ScreenToRaw(end.X),
+			ScreenToRaw(end.Y));
+
+		for (int i = 0; i < selected.Length; i++)
+		{
+			_selectedUnitIds.Add(selected[i]);
+		}
+
+		if (selected.Length == 0)
+		{
+			_debugEventLog.Add("box select none");
+		}
+		else
+		{
+			_debugEventLog.Add("box select units=" + string.Join(",", selected));
+		}
 	}
 
 	private void SelectAt(Vector2 screenPosition)
@@ -687,6 +791,13 @@ public partial class RtsClientRoot : Node2D
 		{
 			_debugEventLog.Add("selection cleared");
 		}
+	}
+
+	private int[] GetSelectedUnitIdsSorted()
+	{
+		int[] selected = _selectedUnitIds.ToArray();
+		Array.Sort(selected);
+		return selected;
 	}
 
 	private void DrawPrimitive(GodotPrimitiveDto primitive)
@@ -838,7 +949,7 @@ public partial class RtsClientRoot : Node2D
 
 		string[] lines = GodotHudTextBuilder.BuildLines(
 			_frame,
-			_selectedUnitIds.ToArray(),
+			GetSelectedUnitIdsSorted(),
 			_selectedBuildingId,
 			_hoveredResourceNodeId,
 			_paused);
@@ -1057,6 +1168,25 @@ public partial class RtsClientRoot : Node2D
 		Vector2 ringCenter = center + new Vector2(0.0f, 4.0f);
 		DrawArc(ringCenter, radius + 1.5f, 0.0f, Mathf.Tau, 36, Colors.Black, 3.0f);
 		DrawArc(ringCenter, radius, 0.0f, Mathf.Tau, 36, color, 2.4f);
+	}
+
+	private void DrawSelectionDragRectangle()
+	{
+		if (!_selectionDragActive)
+		{
+			return;
+		}
+
+		Vector2 min = new Vector2(
+			Mathf.Min(_selectionDragStart.X, _selectionDragCurrent.X),
+			Mathf.Min(_selectionDragStart.Y, _selectionDragCurrent.Y));
+		Vector2 max = new Vector2(
+			Mathf.Max(_selectionDragStart.X, _selectionDragCurrent.X),
+			Mathf.Max(_selectionDragStart.Y, _selectionDragCurrent.Y));
+		Vector2 size = max - min;
+		var rect = new Rect2(min, size);
+		DrawRect(rect, new Color(0.25f, 0.8f, 1.0f, 0.12f), true);
+		DrawRect(rect, Colors.Aqua, false, 1.5f);
 	}
 
 	private void DrawCommandMarker()

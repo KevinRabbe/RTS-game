@@ -56,12 +56,12 @@ namespace RtsGame.Presentation.ClientInput
 
         public static ClientCommandIntent AssignBuild(int buildingId, IReadOnlyList<int> builderUnitIds)
         {
-            return new ClientCommandIntent(ClientIntentType.AssignBuild, FixedVector2.FromInts(0, 0), builderUnitIds, 0, buildingId, 0, 0, 0, 0, 0, 0);
+            return new ClientCommandIntent(ClientIntentType.AssignBuild, FixedVector2.FromInts(0, 0), SortedUnitIds(builderUnitIds), 0, buildingId, 0, 0, 0, 0, 0, 0);
         }
 
         public static ClientCommandIntent GatherResource(int resourceNodeId, IReadOnlyList<int> unitIds)
         {
-            return new ClientCommandIntent(ClientIntentType.GatherResource, FixedVector2.FromInts(0, 0), unitIds, 0, 0, resourceNodeId, 0, 0, 0, 0, 0);
+            return new ClientCommandIntent(ClientIntentType.GatherResource, FixedVector2.FromInts(0, 0), SortedUnitIds(unitIds), 0, 0, resourceNodeId, 0, 0, 0, 0, 0);
         }
 
         public static ClientCommandIntent TrainUnit(int buildingId, UnitTypeId unitTypeId)
@@ -76,12 +76,12 @@ namespace RtsGame.Presentation.ClientInput
 
         public static ClientCommandIntent MoveUnits(IReadOnlyList<int> unitIds, FixedVector2 target)
         {
-            return new ClientCommandIntent(ClientIntentType.MoveUnits, target, unitIds, 0, 0, 0, 0, 0, 0, 0, 0);
+            return new ClientCommandIntent(ClientIntentType.MoveUnits, target, SortedUnitIds(unitIds), 0, 0, 0, 0, 0, 0, 0, 0);
         }
 
         public static ClientCommandIntent Attack(IReadOnlyList<int> attackerUnitIds, int targetEntityId)
         {
-            return new ClientCommandIntent(ClientIntentType.Attack, FixedVector2.FromInts(0, 0), attackerUnitIds, targetEntityId, 0, 0, 0, 0, 0, 0, 0);
+            return new ClientCommandIntent(ClientIntentType.Attack, FixedVector2.FromInts(0, 0), SortedUnitIds(attackerUnitIds), targetEntityId, 0, 0, 0, 0, 0, 0, 0);
         }
 
         public static ClientCommandIntent Resign()
@@ -102,6 +102,11 @@ namespace RtsGame.Presentation.ClientInput
         public static ClientCommandIntent PlaceTradePost(FixedVector2 position)
         {
             return new ClientCommandIntent(ClientIntentType.PlaceTradePost, position, new int[0], 0, 0, 0, 0, 0, 0, 0, 0);
+        }
+
+        private static IReadOnlyList<int> SortedUnitIds(IReadOnlyList<int> unitIds)
+        {
+            return StableSort.Sorted(unitIds, (left, right) => left.CompareTo(right));
         }
     }
 }
