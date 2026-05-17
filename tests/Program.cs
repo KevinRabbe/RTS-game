@@ -405,6 +405,7 @@ namespace RtsGame.Tests
                 new TestCase("playability invariant ten workers around tc movement trace", PlayabilityInvariantTenWorkersAroundTcMovementTrace),
                 new TestCase("playability invariant trained villagers gather trace", PlayabilityInvariantTrainedVillagersGatherTrace),
                 new TestCase("playability invariant depletion continuation pressure trace", PlayabilityInvariantDepletionContinuationPressureTrace),
+                new TestCase("simulation scenario harness mixed economy workflow", SimulationScenarioHarnessMixedEconomyWorkflow),
                 new TestCase("under construction wall can be destroyed", UnderConstructionWallCanBeDestroyed),
                 new TestCase("wall replay determinism", WallReplayDeterminism),
                 new TestCase("wall lockstep", WallLockstep),
@@ -7298,6 +7299,80 @@ namespace RtsGame.Tests
             AssertEqual(true, areaOrNodeRetained, BuildTraceFailureMessage("workers should retain area intent or continue on next node", traces));
         }
 
+        private static void SimulationScenarioHarnessMixedEconomyWorkflow()
+        {
+            GameRules rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = GameInitializer.CreateDryArabiaTest01(27106);
+            FixedVector2 tcPos = DryArabiaTest01MapDefinition.GetTownCenterZone(0);
+            var scenario = new SimScenarioHarness(state, rules, 2, 47000);
+
+            scenario.Step(
+                new CommandEnvelope(new CommandHeader(state.Tick, 0, 0, CommandType.PlaceTownCenter), new PlaceTownCenterCommand(tcPos)),
+                new CommandEnvelope(new CommandHeader(state.Tick, 1, 0, CommandType.NoOp), new NoOpCommand()));
+            int tcId = FindUnderConstructionBuildingId(state, 0, BuildingTypeId.TownCenter);
+            scenario.RunTicks(200, () => !state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index].IsUnderConstruction);
+
+            while (GetPlayerVillagerIds(state, 0).Length < 5)
+            {
+                int index = state.EntityState.Units.Count;
+                EntityFactory.CreateUnit(
+                    state,
+                    0,
+                    UnitTypeId.Villager,
+                    FixedVector2.FromInts(tcPos.X.FloorToInt() - 3 + (index % 3), tcPos.Y.FloorToInt() + 5 + (index % 2)));
+            }
+
+            int[] workers = GetPlayerVillagerIds(state, 0);
+            int foodId = FindFirstResourceNodeIdByType(state, ResourceType.Food);
+            int goldId = FindFirstResourceNodeIdByType(state, ResourceType.Gold);
+            int woodId = FindFirstResourceNodeIdByType(state, ResourceType.Wood);
+            int startingFood = state.PlayerStates.Players[0].Resources.Food;
+            int startingGold = state.PlayerStates.Players[0].Resources.Gold;
+            int startingWood = state.PlayerStates.Players[0].Resources.Wood;
+
+            scenario.Step(
+                new CommandEnvelope(new CommandHeader(state.Tick, 0, 1, CommandType.GatherResource), new GatherResourceCommand(foodId, new[] { workers[0], workers[1] })),
+                new CommandEnvelope(new CommandHeader(state.Tick, 0, 2, CommandType.GatherResource), new GatherResourceCommand(goldId, new[] { workers[2], workers[3] })),
+                new CommandEnvelope(new CommandHeader(state.Tick, 0, 3, CommandType.GatherResource), new GatherResourceCommand(woodId, new[] { workers[4] })),
+                new CommandEnvelope(new CommandHeader(state.Tick, 1, 1, CommandType.NoOp), new NoOpCommand()));
+
+            bool sawGatherOrCarry = false;
+            bool sawActiveIntent = false;
+            for (int tick = 0; tick < 700; tick++)
+            {
+                scenario.StepNoOps();
+                scenario.CaptureWorkerTrace(workers, 60);
+                scenario.AssertCoreInvariants("mixed-economy");
+
+                for (int i = 0; i < workers.Length; i++)
+                {
+                    Unit unit = FindUnitById(state, workers[i]);
+                    if (unit.TaskPhase == WorkerTaskPhase.Gathering || unit.CarriedAmount > 0)
+                    {
+                        sawGatherOrCarry = true;
+                    }
+
+                    if (unit.CurrentResourceAreaId != 0
+                        || unit.CurrentResourceNodeId != 0
+                        || unit.TaskPhase == WorkerTaskPhase.MovingToResourceSlot
+                        || unit.TaskPhase == WorkerTaskPhase.MovingToDropoffSlot
+                        || unit.TaskPhase == WorkerTaskPhase.BlockedWaiting)
+                    {
+                        sawActiveIntent = true;
+                    }
+                }
+            }
+
+            bool anyStockpileProgress =
+                state.PlayerStates.Players[0].Resources.Food > startingFood
+                || state.PlayerStates.Players[0].Resources.Gold > startingGold
+                || state.PlayerStates.Players[0].Resources.Wood > startingWood;
+            AssertEqual(true, sawGatherOrCarry, scenario.Fail("expected at least one worker to gather or carry"));
+            AssertEqual(true, anyStockpileProgress || sawActiveIntent, scenario.Fail("expected mixed economy progress or retained active intent"));
+            AssertNoEndlessWorkerPhase(state, workers, WorkerTaskPhase.MovingToResourceSlot, 900, scenario.Fail("workers stuck moving-to-resource"));
+            AssertNoEndlessWorkerPhase(state, workers, WorkerTaskPhase.MovingToDropoffSlot, 900, scenario.Fail("workers stuck moving-to-dropoff"));
+        }
+
         private static void UnderConstructionWallCanBeDestroyed()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(2);
@@ -9515,6 +9590,77 @@ namespace RtsGame.Tests
             }
 
             AssertEqual(true, hasEdgePan, "Hotkey help should contain Mouse Edge panning documentation");
+        }
+
+        private sealed class SimScenarioHarness
+        {
+            private readonly TickRunner runner = new TickRunner();
+            private readonly CommandBuffer buffer = new CommandBuffer();
+            private readonly Queue<string> traces = new Queue<string>();
+            private readonly int players;
+            private uint nextSequence;
+
+            public SimScenarioHarness(GameState state, GameRules rules, int players, uint sequenceSeed)
+            {
+                State = state;
+                Rules = rules;
+                this.players = players;
+                nextSequence = sequenceSeed;
+            }
+
+            public GameState State { get; }
+
+            public GameRules Rules { get; }
+
+            public void Step(params CommandEnvelope[] commands)
+            {
+                for (int i = 0; i < commands.Length; i++)
+                {
+                    buffer.Add(commands[i]);
+                }
+
+                runner.AdvanceOneTick(State, Rules, buffer);
+            }
+
+            public void StepNoOps()
+            {
+                for (int player = 0; player < players; player++)
+                {
+                    AddNoOp(buffer, State.Tick, player, nextSequence++);
+                }
+
+                runner.AdvanceOneTick(State, Rules, buffer);
+            }
+
+            public void RunTicks(int maxTicks, Func<bool> stopWhen)
+            {
+                for (int i = 0; i < maxTicks; i++)
+                {
+                    if (stopWhen())
+                    {
+                        return;
+                    }
+
+                    StepNoOps();
+                }
+            }
+
+            public void CaptureWorkerTrace(int[] unitIds, int maxEntries)
+            {
+                CaptureWorkerTraceTick(State, unitIds, traces, maxEntries);
+            }
+
+            public void AssertCoreInvariants(string header)
+            {
+                AssertNoLiveUnitStacking(State, Fail(header + " stacking"));
+                AssertNoDuplicateFinalPurposeReservations(State, Fail(header + " duplicate reservations"));
+                AssertEqual(true, State.DebugCounters.RejectedCommandCount <= 64, Fail(header + " suspicious command reject volume"));
+            }
+
+            public string Fail(string header)
+            {
+                return BuildTraceFailureMessage(header, traces);
+            }
         }
 
         private static LockstepSession RunLockstep(int ticks, int players, ulong seed, bool reverseDelivery)

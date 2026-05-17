@@ -138,6 +138,18 @@ Rules:
 - Visual colliders, sprite bounds, and interpolation never decide gameplay.
 - Debug data may expose traffic state, but must not affect simulation results.
 
+## Scenario-First Debug Policy
+
+Before patching core simulation behavior, use a deterministic scenario regression loop:
+
+1. Capture the manual symptom.
+2. Build a bounded sim-only scenario that reproduces it.
+3. Attach playability invariants and compact trace output.
+4. Fix the exact failing layer.
+5. Keep the scenario as a permanent regression test.
+
+This policy is mandatory for worker/economy/traffic bugs where manual behavior is intermittent.
+
 ## Core Simulation Laws
 
 - Every gameplay system must be designed with 6-player 200+ pop scale in mind.

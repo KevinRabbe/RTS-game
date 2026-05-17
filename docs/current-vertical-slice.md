@@ -70,6 +70,21 @@ Run before promoting slice status:
 7. Verify no stacking, no endless jitter, no intent loss from temporary congestion.
 8. Confirm deterministic stress (`chaos-v4`) and full tests still pass.
 
+## Regression Workflow (Default)
+
+Core gameplay debugging now follows this order:
+
+1. Manual playtest captures a symptom.
+2. Convert the symptom into a deterministic simulation-only scenario test.
+3. Add invariant checks and compact worker trace output.
+4. Reproduce failure in tests first.
+5. Fix only the failing simulation layer.
+6. Keep the regression test permanently.
+7. Run Godot manual smoke for readability/feel after sim tests are green.
+
+Rule:
+If a manual bug needs more than one guess, it must become a sim-only scenario before additional patches.
+
 ## No-Goals For This Slice
 
 - Combat depth expansion
@@ -89,4 +104,3 @@ The slice is done when:
 - Group commands behave deterministically without stacking or endless jitter.
 - DryArabia supports a readable 5-10 minute economy loop.
 - Builds pass, full deterministic test suite passes, and stress remains desync-free.
-
