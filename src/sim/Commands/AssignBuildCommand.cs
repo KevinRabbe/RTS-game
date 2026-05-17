@@ -114,7 +114,7 @@ namespace RtsGame.Sim.Commands
                 int unitId = sortedUnitIds[i];
                 Unit unit = GetUnit(state, unitId);
                 ClearPreviousBuildAssignment(state, unit);
-                SpatialRules.ClearInteractionReservation(unit);
+                SpatialRules.ClearInteractionReservation(state, unit);
                 unit.CurrentBuildTargetId = TargetBuildingId;
                 unit.TaskPhase = WorkerTaskPhase.MovingToBuildSlot;
 
@@ -235,3 +235,4 @@ namespace RtsGame.Sim.Commands
 
     }
 }
+

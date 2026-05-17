@@ -85,6 +85,24 @@ Core gameplay debugging now follows this order:
 Rule:
 If a manual bug needs more than one guess, it must become a sim-only scenario before additional patches.
 
+## Scale-First Foundation Rule
+
+All future simulation work is now constrained by a hard foundation rule:
+
+- Design for `6 players`, `200+ pop each`, and `1200+ active units` by default.
+- Prioritize deterministic and bounded behavior over perfect RTS polish.
+- Preserve long-term intent under temporary congestion.
+- Avoid hot-path full scans when deterministic indexed checks are available.
+
+Execution order is locked:
+
+1. Build deterministic simulation scenario first.
+2. Add invariants and compact trace output.
+3. Reproduce the bug in tests.
+4. Fix the exact failing simulation layer.
+5. Keep regression tests permanently.
+6. Run Godot manual smoke only after sim tests are green.
+
 ## No-Goals For This Slice
 
 - Combat depth expansion

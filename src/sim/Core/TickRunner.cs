@@ -42,6 +42,7 @@ namespace RtsGame.Sim.Core
             var context = new TickCommandContext(commandBuffer.GetCommandsForTick(state.Tick));
             for (int i = 0; i < _systems.Length; i++)
             {
+                state.SpatialTileIndex.Rebuild(state);
                 _systems[i].Run(state, rules, context);
             }
 

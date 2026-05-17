@@ -20,7 +20,7 @@ namespace RtsGame.Sim.Systems
                 ResourceNode? node = ResolveCurrentNode(state, unit);
                 if (node == null)
                 {
-                    ClearExhaustedGatherIntent(unit);
+                    ClearExhaustedGatherIntent(state, unit);
                     continue;
                 }
 
@@ -28,7 +28,7 @@ namespace RtsGame.Sim.Systems
                 {
                     if (unit.ReservedInteractionKind == InteractionReservationKind.ResourceNode)
                     {
-                        SpatialRules.ClearInteractionReservation(unit);
+                        SpatialRules.ClearInteractionReservation(state, unit);
                     }
 
                     unit.TaskPhase = WorkerTaskPhase.MovingToDropoffSlot;
@@ -90,7 +90,7 @@ namespace RtsGame.Sim.Systems
                 node.RemainingAmount -= gathered;
                 if (node.IsDepleted)
                 {
-                    SpatialRules.ClearInteractionReservation(unit);
+                    SpatialRules.ClearInteractionReservation(state, unit);
                     if (unit.CarriedAmount >= GameData.VillagerCarryCapacity)
                     {
                         ResolveCurrentNode(state, unit);
@@ -105,7 +105,7 @@ namespace RtsGame.Sim.Systems
                     }
                     else
                     {
-                        ClearExhaustedGatherIntent(unit);
+                        ClearExhaustedGatherIntent(state, unit);
                     }
                 }
             }
@@ -121,7 +121,7 @@ namespace RtsGame.Sim.Systems
 
             if (node != null)
             {
-                SpatialRules.ClearInteractionReservation(unit);
+                SpatialRules.ClearInteractionReservation(state, unit);
             }
 
             if (unit.CurrentResourceAreaId != 0
@@ -149,12 +149,12 @@ namespace RtsGame.Sim.Systems
                 out selectedNode);
         }
 
-        private static void ClearExhaustedGatherIntent(Unit unit)
+        private static void ClearExhaustedGatherIntent(GameState state, Unit unit)
         {
             unit.CurrentResourceAreaId = 0;
             unit.CurrentResourceNodeId = 0;
             unit.HasMoveTarget = false;
-            SpatialRules.ClearInteractionReservation(unit);
+            SpatialRules.ClearInteractionReservation(state, unit);
             unit.TaskPhase = WorkerTaskPhase.Idle;
         }
 
@@ -199,3 +199,4 @@ namespace RtsGame.Sim.Systems
 
     }
 }
+

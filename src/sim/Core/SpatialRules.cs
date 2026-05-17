@@ -49,7 +49,8 @@ namespace RtsGame.Sim.Core
 
         public static bool IsTileBlockedByWall(GameState state, int tileX, int tileY)
         {
-            return IsBlockedByWall(state, FixedVector2.FromInts(tileX, tileY));
+            state.SpatialTileIndex.EnsureWarm(state);
+            return state.SpatialTileIndex.IsBlockedByWall(tileX, tileY);
         }
 
         public static bool IsTileInsideBuildingFootprint(Building building, int tileX, int tileY)
@@ -59,6 +60,12 @@ namespace RtsGame.Sim.Core
 
         public static bool IsTileBlockedByBuildingFootprint(GameState state, int tileX, int tileY, int ignoredBuildingId = 0)
         {
+            if (ignoredBuildingId <= 0)
+            {
+                state.SpatialTileIndex.EnsureWarm(state);
+                return state.SpatialTileIndex.IsBlockedByBuilding(tileX, tileY, 0);
+            }
+
             for (int i = 0; i < state.EntityState.Buildings.Count; i++)
             {
                 Building building = state.EntityState.Buildings[i];
@@ -78,31 +85,18 @@ namespace RtsGame.Sim.Core
 
         public static bool IsTileBlockedByResource(GameState state, int tileX, int tileY)
         {
-            for (int i = 0; i < state.EconomyState.ResourceNodes.Count; i++)
-            {
-                ResourceNode node = state.EconomyState.ResourceNodes[i];
-                if (node.IsDepleted)
-                {
-                    continue;
-                }
-
-                GatherProfile profile = GameData.GetGatherProfile(node.GatherProfileId);
-                if (!profile.BlocksMovement)
-                {
-                    continue;
-                }
-
-                if (IsTileInsideResourceFootprint(node, tileX, tileY))
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            state.SpatialTileIndex.EnsureWarm(state);
+            return state.SpatialTileIndex.IsBlockedByResource(tileX, tileY);
         }
 
         public static bool IsTileOccupiedByLiveUnit(GameState state, int tileX, int tileY, int ignoredUnitId = 0)
         {
+            if (ignoredUnitId <= 0)
+            {
+                state.SpatialTileIndex.EnsureWarm(state);
+                return state.SpatialTileIndex.IsOccupiedByLiveUnit(tileX, tileY, 0);
+            }
+
             for (int i = 0; i < state.EntityState.Units.Count; i++)
             {
                 Unit unit = state.EntityState.Units[i];
@@ -142,6 +136,12 @@ namespace RtsGame.Sim.Core
 
         public static bool IsTileReservedByLiveUnit(GameState state, int tileX, int tileY, int ignoredUnitId = 0)
         {
+            if (ignoredUnitId <= 0)
+            {
+                state.SpatialTileIndex.EnsureWarm(state);
+                return state.SpatialTileIndex.IsReservedByLiveUnit(tileX, tileY, 0);
+            }
+
             for (int i = 0; i < state.EntityState.Units.Count; i++)
             {
                 Unit unit = state.EntityState.Units[i];
@@ -420,7 +420,7 @@ namespace RtsGame.Sim.Core
 
             if (found)
             {
-                ReserveInteractionSlot(unit, kind, targetId, selected);
+                ReserveInteractionSlot(state, unit, kind, targetId, selected);
             }
 
             return found;
@@ -495,8 +495,10 @@ namespace RtsGame.Sim.Core
             int unitTileX = GetTileX(unit.Position);
             int unitTileY = GetTileY(unit.Position);
             bool alreadyAtSlot = unitTileX == unit.ReservedInteractionTileX && unitTileY == unit.ReservedInteractionTileY;
-            if (!alreadyAtSlot
-                && !DeterministicPathfinder.TryFindNextTile(
+            int blockedTicks = unit.LastMovedTick < 0 ? int.MaxValue : state.Tick - unit.LastMovedTick;
+            if (!alreadyAtSlot && blockedTicks >= GameData.InteractionTargetRetargetBlockedTicks)
+            {
+                if (!DeterministicPathfinder.TryFindNextTile(
                     state,
                     unitTileX,
                     unitTileY,
@@ -504,15 +506,15 @@ namespace RtsGame.Sim.Core
                     unit.ReservedInteractionTileY,
                     out _,
                     out _))
-            {
-                return false;
+                {
+                    return false;
+                }
             }
 
             if (unit.HasMoveTarget
                 && GetTileX(unit.MoveTarget) == unit.ReservedInteractionTileX
                 && GetTileY(unit.MoveTarget) == unit.ReservedInteractionTileY)
             {
-                int blockedTicks = unit.LastMovedTick < 0 ? int.MaxValue : state.Tick - unit.LastMovedTick;
                 if (blockedTicks >= GameData.InteractionTargetRetargetBlockedTicks)
                 {
                     return false;
@@ -522,12 +524,16 @@ namespace RtsGame.Sim.Core
             return true;
         }
 
-        public static void ReserveInteractionSlot(Unit unit, InteractionReservationKind kind, int targetId, TileCoord tile)
+        public static void ReserveInteractionSlot(GameState state, Unit unit, InteractionReservationKind kind, int targetId, TileCoord tile)
         {
+            bool hadReservation = unit.ReservedInteractionKind != InteractionReservationKind.None;
+            int previousTileKey = EncodeTileKey(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
             unit.ReservedInteractionKind = kind;
             unit.ReservedInteractionTargetId = targetId;
             unit.ReservedInteractionTileX = tile.X;
             unit.ReservedInteractionTileY = tile.Y;
+            int nextTileKey = EncodeTileKey(tile.X, tile.Y);
+            state.SpatialTileIndex.ApplyReservationChange(previousTileKey, hadReservation, nextTileKey, true);
         }
 
         public static bool TryReserveNearestReachableMoveDestinationTile(
@@ -593,18 +599,21 @@ namespace RtsGame.Sim.Core
 
             if (found)
             {
-                ReserveInteractionSlot(unit, InteractionReservationKind.MoveDestination, EncodeTileKey(targetTileX, targetTileY), selected);
+                ReserveInteractionSlot(state, unit, InteractionReservationKind.MoveDestination, EncodeTileKey(targetTileX, targetTileY), selected);
             }
 
             return found;
         }
 
-        public static void ClearInteractionReservation(Unit unit)
+        public static void ClearInteractionReservation(GameState state, Unit unit)
         {
+            bool hadReservation = unit.ReservedInteractionKind != InteractionReservationKind.None;
+            int previousTileKey = EncodeTileKey(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
             unit.ReservedInteractionKind = InteractionReservationKind.None;
             unit.ReservedInteractionTargetId = 0;
             unit.ReservedInteractionTileX = 0;
             unit.ReservedInteractionTileY = 0;
+            state.SpatialTileIndex.ApplyReservationChange(previousTileKey, hadReservation, 0, false);
         }
 
         public static bool HasReservedInteractionSlot(Unit unit, InteractionReservationKind kind, int targetId)
@@ -796,3 +805,4 @@ namespace RtsGame.Sim.Core
         }
     }
 }
+

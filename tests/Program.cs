@@ -182,6 +182,9 @@ namespace RtsGame.Tests
                 new TestCase("dry arabia berry group gather makes bounded food progress", DryArabiaBerryGroupGatherMakesBoundedFoodProgress),
                 new TestCase("berry visual radius matches simulation footprint radius", BerryVisualRadiusMatchesSimulationFootprintRadius),
                 new TestCase("thirty workers across resources keep progress or intent", ThirtyWorkersAcrossResourcesKeepProgressOrIntent),
+                new TestCase("fifty workers across resources keep progress or intent", FiftyWorkersAcrossResourcesKeepProgressOrIntent),
+                new TestCase("one hundred twenty workers across resources keep progress or intent", OneHundredTwentyWorkersAcrossResourcesKeepProgressOrIntent),
+                new TestCase("six player mixed population traffic remains deterministic", SixPlayerMixedPopulationTrafficRemainsDeterministic),
                 new TestCase("two units attempting same tile receive slots", TwoUnitsAttemptingSameTileReceiveSlots),
                 new TestCase("three units attempting same tile receive slots", ThreeUnitsAttemptingSameTileReceiveSlots),
                 new TestCase("two unit tile swap fails", TwoUnitTileSwapFails),
@@ -1552,7 +1555,7 @@ namespace RtsGame.Tests
             worker.HasMoveTarget = true;
             worker.MoveTarget = FixedVector2.FromInts(staleTile.X, staleTile.Y);
             worker.LastMovedTick = 0;
-            SpatialRules.ReserveInteractionSlot(worker, InteractionReservationKind.ResourceNode, node.Id, staleTile);
+            SpatialRules.ReserveInteractionSlot(state, worker, InteractionReservationKind.ResourceNode, node.Id, staleTile);
             state.Tick = GameData.InteractionTargetRetargetBlockedTicks;
 
             new ResourceGatherSystem().Run(state, rules, new TickCommandContext(new List<CommandEnvelope>()));
@@ -1592,7 +1595,7 @@ namespace RtsGame.Tests
             worker.HasMoveTarget = true;
             worker.MoveTarget = FixedVector2.FromInts(staleTile.X, staleTile.Y);
             worker.LastMovedTick = 0;
-            SpatialRules.ReserveInteractionSlot(worker, InteractionReservationKind.ResourceNode, node.Id, staleTile);
+            SpatialRules.ReserveInteractionSlot(state, worker, InteractionReservationKind.ResourceNode, node.Id, staleTile);
             state.Tick = GameData.InteractionTargetRetargetBlockedTicks + 1;
 
             new ResourceGatherSystem().Run(state, rules, new TickCommandContext(new List<CommandEnvelope>()));
@@ -2500,7 +2503,7 @@ namespace RtsGame.Tests
             Building townCenter = FindBuildingById(state, townCenterId);
             SpatialRules.TileCoord firstSlot = SpatialRules.EnumerateBuildInteractionTiles(state, townCenter)[0];
             int reserverId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(30, 30), false);
-            SpatialRules.ReserveInteractionSlot(FindUnitById(state, reserverId), InteractionReservationKind.Dropoff, townCenterId, firstSlot);
+            SpatialRules.ReserveInteractionSlot(state, FindUnitById(state, reserverId), InteractionReservationKind.Dropoff, townCenterId, firstSlot);
             QueueImmediateVillager(townCenter);
 
             AdvanceSingleNoOp(state, rules, 0, 0);
@@ -2684,6 +2687,7 @@ namespace RtsGame.Tests
             runner.AdvanceOneTick(state, rules, buffer);
             Unit worker = FindUnitById(state, workerId);
             SpatialRules.ReserveInteractionSlot(
+                state,
                 worker,
                 InteractionReservationKind.MoveDestination,
                 SpatialRules.EncodeTileKey(6, 0),
@@ -3169,7 +3173,7 @@ namespace RtsGame.Tests
             worker.HasMoveTarget = true;
             worker.MoveTarget = FixedVector2.FromInts(20, 8);
             worker.LastMovedTick = 0;
-            SpatialRules.ReserveInteractionSlot(worker, InteractionReservationKind.Dropoff, tcId, new SpatialRules.TileCoord(20, 8));
+            SpatialRules.ReserveInteractionSlot(state, worker, InteractionReservationKind.Dropoff, tcId, new SpatialRules.TileCoord(20, 8));
             state.Tick = GameData.InteractionTargetRetargetBlockedTicks + 1;
 
             AddCompletedWall(state, 0, FixedVector2.FromInts(20, 8));
@@ -3227,6 +3231,7 @@ namespace RtsGame.Tests
             GameState state = CreateOccupancyState(3022);
             int reserverId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(20, 20), false);
             SpatialRules.ReserveInteractionSlot(
+                state,
                 FindUnitById(state, reserverId),
                 InteractionReservationKind.MoveDestination,
                 SpatialRules.EncodeTileKey(10, 10),
@@ -3426,18 +3431,87 @@ namespace RtsGame.Tests
 
         private static void ThirtyWorkersAcrossResourcesKeepProgressOrIntent()
         {
+            RunWorkerPressureScenario(3042, 30, 240, "thirty workers across resources");
+        }
+
+        private static void FiftyWorkersAcrossResourcesKeepProgressOrIntent()
+        {
+            RunWorkerPressureScenario(3043, 50, 280, "fifty workers across resources");
+        }
+
+        private static void OneHundredTwentyWorkersAcrossResourcesKeepProgressOrIntent()
+        {
+            RunWorkerPressureScenario(3044, 120, 360, "one hundred twenty workers across resources");
+        }
+
+        private static void SixPlayerMixedPopulationTrafficRemainsDeterministic()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(6);
+            GameState first = GameInitializer.CreateDryArabiaTest01(3045);
+            GameState second = GameInitializer.CreateDryArabiaTest01(3045);
+            var firstBuffer = new CommandBuffer();
+            var secondBuffer = new CommandBuffer();
+
+            for (int player = 0; player < 6; player++)
+            {
+                int[] villagersFirst = GetPlayerVillagerIds(first, player);
+                int[] villagersSecond = GetPlayerVillagerIds(second, player);
+                AssertEqual(villagersFirst.Length, villagersSecond.Length, "deterministic six-player scenario should initialize equal villager counts for player " + player);
+                if (villagersFirst.Length == 0)
+                {
+                    continue;
+                }
+                int foodNodeIdFirst = FindNearbyResourceNodeId(first, DryArabiaTest01MapDefinition.GetTownCenterZone(player), ResourceType.Food);
+                int woodNodeIdFirst = FindNearbyResourceNodeId(first, DryArabiaTest01MapDefinition.GetTownCenterZone(player), ResourceType.Wood);
+                int foodNodeIdSecond = FindNearbyResourceNodeId(second, DryArabiaTest01MapDefinition.GetTownCenterZone(player), ResourceType.Food);
+                int woodNodeIdSecond = FindNearbyResourceNodeId(second, DryArabiaTest01MapDefinition.GetTownCenterZone(player), ResourceType.Wood);
+                int splitFirst = villagersFirst.Length >= 2 ? villagersFirst.Length / 2 : 1;
+                int splitSecond = villagersSecond.Length >= 2 ? villagersSecond.Length / 2 : 1;
+                int[] groupAFirst = villagersFirst.Take(splitFirst).ToArray();
+                int[] groupBFirst = villagersFirst.Skip(splitFirst).ToArray();
+                int[] groupASecond = villagersSecond.Take(splitSecond).ToArray();
+                int[] groupBSecond = villagersSecond.Skip(splitSecond).ToArray();
+
+                firstBuffer.Add(new CommandEnvelope(new CommandHeader(0, player, unchecked((uint)(player * 2)), CommandType.GatherResource), new GatherResourceCommand(foodNodeIdFirst, groupAFirst)));
+                secondBuffer.Add(new CommandEnvelope(new CommandHeader(0, player, unchecked((uint)(player * 2)), CommandType.GatherResource), new GatherResourceCommand(foodNodeIdSecond, groupASecond)));
+                if (groupBFirst.Length > 0 && groupBSecond.Length > 0)
+                {
+                    firstBuffer.Add(new CommandEnvelope(new CommandHeader(0, player, unchecked((uint)(player * 2 + 1)), CommandType.GatherResource), new GatherResourceCommand(woodNodeIdFirst, groupBFirst)));
+                    secondBuffer.Add(new CommandEnvelope(new CommandHeader(0, player, unchecked((uint)(player * 2 + 1)), CommandType.GatherResource), new GatherResourceCommand(woodNodeIdSecond, groupBSecond)));
+                }
+            }
+
+            var runner = new TickRunner();
+            for (int tick = 0; tick < 260; tick++)
+            {
+                runner.AdvanceOneTick(first, rules, firstBuffer);
+                runner.AdvanceOneTick(second, rules, secondBuffer);
+                AssertNoLiveUnitStacking(first, "six-player mixed-pop pressure should not stack");
+                AssertNoDuplicateFinalPurposeReservations(first, "six-player mixed-pop pressure should avoid duplicate reservations");
+            }
+
+            AssertEqual(first.LastChecksum, second.LastChecksum, "six-player mixed-pop pressure should remain deterministic");
+        }
+
+        private static void RunWorkerPressureScenario(ulong seed, int totalWorkers, int ticks, string label)
+        {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState state = CreateOccupancyState(3042);
+            GameState state = CreateOccupancyState(seed);
             AddCompletedTownCenter(state, 0, FixedVector2.FromInts(20, 20));
             int foodAreaId = AddTestResourceArea(state, GatherProfileId.BerryBush, FixedVector2.FromInts(12, 15));
             int woodAreaId = AddTestResourceArea(state, GatherProfileId.Tree, FixedVector2.FromInts(30, 15));
             int goldAreaId = AddTestResourceArea(state, GatherProfileId.GoldVeinSmall, FixedVector2.FromInts(21, 31));
-            int foodNodeId = AddTestResourceNodeToArea(state, foodAreaId, GatherProfileId.BerryBush, FixedVector2.FromInts(12, 15), 500);
-            int woodNodeId = AddTestResourceNodeToArea(state, woodAreaId, GatherProfileId.Tree, FixedVector2.FromInts(30, 15), 500);
-            int goldNodeId = AddTestResourceNodeToArea(state, goldAreaId, GatherProfileId.GoldVeinSmall, FixedVector2.FromInts(21, 31), 500);
-            int[] foodWorkers = CreateGridOfVillagers(state, 10, 15, 21, 5);
-            int[] woodWorkers = CreateGridOfVillagers(state, 10, 23, 21, 5);
-            int[] goldWorkers = CreateGridOfVillagers(state, 10, 19, 25, 5);
+            int foodNodeId = AddTestResourceNodeToArea(state, foodAreaId, GatherProfileId.BerryBush, FixedVector2.FromInts(12, 15), 2000);
+            int woodNodeId = AddTestResourceNodeToArea(state, woodAreaId, GatherProfileId.Tree, FixedVector2.FromInts(30, 15), 2000);
+            int goldNodeId = AddTestResourceNodeToArea(state, goldAreaId, GatherProfileId.GoldVeinSmall, FixedVector2.FromInts(21, 31), 2000);
+
+            int foodCount = totalWorkers / 3;
+            int woodCount = totalWorkers / 3;
+            int goldCount = totalWorkers - foodCount - woodCount;
+            int rowWidth = totalWorkers >= 90 ? 12 : 8;
+            int[] foodWorkers = CreateGridOfVillagers(state, foodCount, 8, 8, rowWidth);
+            int[] woodWorkers = CreateGridOfVillagers(state, woodCount, 36, 8, rowWidth);
+            int[] goldWorkers = CreateGridOfVillagers(state, goldCount, 20, 36, rowWidth);
             var buffer = new CommandBuffer();
             buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(foodNodeId, foodWorkers)));
             buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 1, CommandType.GatherResource), new GatherResourceCommand(woodNodeId, woodWorkers)));
@@ -3447,16 +3521,16 @@ namespace RtsGame.Tests
             int initialWood = state.PlayerStates.Players[0].Resources.Wood;
             int initialGold = state.PlayerStates.Players[0].Resources.Gold;
             var runner = new TickRunner();
-            for (int tick = 0; tick < 240; tick++)
+            for (int tick = 0; tick < ticks; tick++)
             {
                 runner.AdvanceOneTick(state, rules, buffer);
-                AssertNoLiveUnitStacking(state, "thirty workers across resources should not stack");
-                AssertNoDuplicateFinalPurposeReservations(state, "thirty workers across resources should not duplicate final-purpose reservations");
+                AssertNoLiveUnitStacking(state, label + " should not stack");
+                AssertNoDuplicateFinalPurposeReservations(state, label + " should not duplicate final-purpose reservations");
             }
 
-            AssertEqual(true, state.PlayerStates.Players[0].Resources.Food > initialFood || AnyWorkerHasResourceIntent(state, foodWorkers), "food workers should make progress or keep gather intent");
-            AssertEqual(true, state.PlayerStates.Players[0].Resources.Wood > initialWood || AnyWorkerHasResourceIntent(state, woodWorkers), "wood workers should make progress or keep gather intent");
-            AssertEqual(true, state.PlayerStates.Players[0].Resources.Gold > initialGold || AnyWorkerHasResourceIntent(state, goldWorkers), "gold workers should make progress or keep gather intent");
+            AssertEqual(true, state.PlayerStates.Players[0].Resources.Food > initialFood || AnyWorkerHasResourceIntent(state, foodWorkers), label + " food workers should make progress or keep gather intent");
+            AssertEqual(true, state.PlayerStates.Players[0].Resources.Wood > initialWood || AnyWorkerHasResourceIntent(state, woodWorkers), label + " wood workers should make progress or keep gather intent");
+            AssertEqual(true, state.PlayerStates.Players[0].Resources.Gold > initialGold || AnyWorkerHasResourceIntent(state, goldWorkers), label + " gold workers should make progress or keep gather intent");
         }
 
         private static void TwoUnitsAttemptingSameTileReceiveSlots()
@@ -9812,3 +9886,4 @@ namespace RtsGame.Tests
         }
     }
 }
+

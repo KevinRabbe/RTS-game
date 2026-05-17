@@ -99,7 +99,7 @@ namespace RtsGame.Sim.Systems
                 if (IsNoProgressTimedOut(state, unit))
                 {
                     unit.HasMoveTarget = false;
-                    SpatialRules.ClearInteractionReservation(unit);
+                    SpatialRules.ClearInteractionReservation(state, unit);
                 }
 
                 if (ShouldKeepCurrentApproachTarget(state, interactionTiles, unit))
@@ -154,7 +154,7 @@ namespace RtsGame.Sim.Systems
             {
                 if (hasExcludedTile)
                 {
-                    SpatialRules.ClearInteractionReservation(unit);
+                    SpatialRules.ClearInteractionReservation(state, unit);
                 }
                 return false;
             }
@@ -198,7 +198,7 @@ namespace RtsGame.Sim.Systems
                 if (entityRef.Index >= 0 && entityRef.Index < state.EntityState.Units.Count)
                 {
                     state.EntityState.Units[entityRef.Index].CurrentBuildTargetId = 0;
-                    SpatialRules.ClearInteractionReservation(state.EntityState.Units[entityRef.Index]);
+                    SpatialRules.ClearInteractionReservation(state, state.EntityState.Units[entityRef.Index]);
                     state.EntityState.Units[entityRef.Index].TaskPhase = WorkerTaskPhase.Idle;
                 }
             }
@@ -220,3 +220,4 @@ namespace RtsGame.Sim.Systems
         }
     }
 }
+

@@ -244,6 +244,22 @@ Every future simulation issue should answer:
 
 If the answer is unclear, narrow the feature before implementation.
 
+## Active Hardening Sequence
+
+Current implementation sequence for scale-first hardening:
+
+1. `S-18` Spatial/reservation index baseline for hot occupancy and blocker checks.
+2. `S-19` Deterministic pressure scenarios (`10/20/50/120` workers + `6-player` mixed-pop).
+3. `S-20` Repath/retry budgeting (bounded recompute, no per-tick churn).
+4. `S-21` TC/resource hotspot traffic hardening with deterministic congestion-aware slot scoring.
+
+Each step must pass:
+
+- Godot client build
+- test project build
+- full fail-fast test run
+- `chaos-v4` deterministic stress
+
 ## Prepared Future Systems
 
 This architecture prepares the next slices for:

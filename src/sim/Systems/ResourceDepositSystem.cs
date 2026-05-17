@@ -29,7 +29,7 @@ namespace RtsGame.Sim.Systems
                     if (IsNoProgressTimedOut(state, unit))
                     {
                         unit.HasMoveTarget = false;
-                        SpatialRules.ClearInteractionReservation(unit);
+                        SpatialRules.ClearInteractionReservation(state, unit);
                     }
 
                     if (ShouldKeepCurrentApproachTarget(state, unit, dropOff))
@@ -54,7 +54,7 @@ namespace RtsGame.Sim.Systems
 
                 unit.TaskPhase = WorkerTaskPhase.Depositing;
                 unit.HasMoveTarget = false;
-                SpatialRules.ClearInteractionReservation(unit);
+                SpatialRules.ClearInteractionReservation(state, unit);
                 state.PlayerStates.Players[unit.OwnerPlayerIndex].Resources.Add(unit.CarriedResourceType, unit.CarriedAmount);
                 unit.CarriedAmount = 0;
                 unit.CarriedResourceType = ResourceType.None;
@@ -113,7 +113,7 @@ namespace RtsGame.Sim.Systems
             {
                 if (hasExcludedTile)
                 {
-                    SpatialRules.ClearInteractionReservation(unit);
+                    SpatialRules.ClearInteractionReservation(state, unit);
                 }
                 return false;
             }
@@ -147,3 +147,4 @@ namespace RtsGame.Sim.Systems
 
     }
 }
+

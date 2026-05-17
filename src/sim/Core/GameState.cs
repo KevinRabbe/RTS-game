@@ -17,6 +17,7 @@ namespace RtsGame.Sim.Core
         public VisibilityState VisibilityState { get; }
         public RankingState RankingState { get; }
         public MatchResultState MatchResultState { get; }
+        public SpatialTileIndex SpatialTileIndex { get; }
         public SimDebugCounters DebugCounters { get; }
         public ulong LastChecksum { get; set; }
 
@@ -33,6 +34,7 @@ namespace RtsGame.Sim.Core
             VisibilityState = new VisibilityState(playerCount, GameData.MapWidthTiles, GameData.MapHeightTiles);
             RankingState = new RankingState(playerCount);
             MatchResultState = new MatchResultState();
+            SpatialTileIndex = new SpatialTileIndex();
             DebugCounters = new SimDebugCounters();
             LastChecksum = 0UL;
         }

@@ -40,7 +40,7 @@ namespace RtsGame.Sim.Systems
                 unit.CurrentBuildTargetId = 0;
                 unit.CurrentResourceAreaId = 0;
                 unit.CurrentResourceNodeId = 0;
-                SpatialRules.ClearInteractionReservation(unit);
+                SpatialRules.ClearInteractionReservation(state, unit);
                 unit.TaskPhase = WorkerTaskPhase.Idle;
                 unit.CarriedResourceType = ResourceType.None;
                 unit.CarriedAmount = 0;
@@ -71,3 +71,4 @@ namespace RtsGame.Sim.Systems
         }
     }
 }
+
