@@ -142,6 +142,10 @@ namespace RtsGame.Tests
                 new TestCase("move unit advances deterministically", MoveUnitAdvancesDeterministically),
                 new TestCase("move unit snaps to target", MoveUnitSnapsToTarget),
                 new TestCase("move command clears work assignments", MoveCommandClearsWorkAssignments),
+                new TestCase("move arrival clears destination reservation", MoveArrivalClearsDestinationReservation),
+                new TestCase("move replacement clears destination reservation", MoveReplacementClearsDestinationReservation),
+                new TestCase("unit death clears destination reservation", UnitDeathClearsDestinationReservation),
+                new TestCase("resign clears destination reservation", ResignClearsDestinationReservation),
                 new TestCase("move rejects wall-blocked target", MoveRejectsWallBlockedTarget),
                 new TestCase("move reject reason for wall blocked target", MoveRejectReasonForWallBlockedTarget),
                 new TestCase("move rejects resource-blocked target", MoveRejectsResourceBlockedTarget),
@@ -272,6 +276,7 @@ namespace RtsGame.Tests
                 new TestCase("godot hud text includes completed tech count", GodotHudTextIncludesCompletedTechCount),
                 new TestCase("godot hud text includes rejected command count", GodotHudTextIncludesRejectedCommandCount),
                 new TestCase("godot hud text handles missing status", GodotHudTextHandlesMissingStatus),
+                new TestCase("godot selected status hides idle no progress ticks", GodotSelectedStatusHidesIdleNoProgressTicks),
                 new TestCase("godot primitive hit test includes boundary", GodotPrimitiveHitTestIncludesBoundary),
                 new TestCase("godot building hit test includes footprint boundary", GodotBuildingHitTestIncludesFootprintBoundary),
                 new TestCase("godot primitive hit test rejects outside", GodotPrimitiveHitTestRejectsOutside),
@@ -2542,6 +2547,97 @@ namespace RtsGame.Tests
             AssertEqual(0, state.EntityState.Units[0].CurrentResourceNodeId, "move should clear gather assignment");
         }
 
+        private static void MoveArrivalClearsDestinationReservation()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(3091);
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(0, 0));
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1 }, FixedVector2.FromInts(1, 0))));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            Unit mover = state.EntityState.Units[0];
+            AssertEqual(InteractionReservationKind.MoveDestination, mover.ReservedInteractionKind, "move command should reserve destination while moving");
+            AddNoOp(buffer, 1, 0, 1);
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(false, mover.HasMoveTarget, "arrived move should clear move target");
+            AssertEqual(InteractionReservationKind.None, mover.ReservedInteractionKind, "arrived move should clear destination reservation");
+        }
+
+        private static void MoveReplacementClearsDestinationReservation()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(3092, 1);
+            int workerId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(0, 0));
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { workerId }, FixedVector2.FromInts(6, 0))));
+            runner.AdvanceOneTick(state, rules, buffer);
+            Unit worker = FindUnitById(state, workerId);
+            SpatialRules.ReserveInteractionSlot(
+                worker,
+                InteractionReservationKind.MoveDestination,
+                SpatialRules.EncodeTileKey(6, 0),
+                new SpatialRules.TileCoord(6, 0));
+
+            int foodNodeId = state.EconomyState.NextResourceNodeId++;
+            state.EconomyState.ResourceNodes.Add(new ResourceNode
+            {
+                Id = foodNodeId,
+                ResourceType = ResourceType.Food,
+                Position = FixedVector2.FromInts(4, 0),
+                RemainingAmount = GameData.StartingFoodAmount
+            });
+            buffer.Add(new CommandEnvelope(new CommandHeader(1, 0, 1, CommandType.GatherResource), new GatherResourceCommand(foodNodeId, new[] { workerId })));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(foodNodeId, worker.CurrentResourceNodeId, "gather replacement should assign resource target");
+            AssertEqual(false, worker.ReservedInteractionKind == InteractionReservationKind.MoveDestination, "gather replacement should clear stale move destination reservation");
+        }
+
+        private static void UnitDeathClearsDestinationReservation()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(3093);
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(0, 0));
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1 }, FixedVector2.FromInts(4, 0))));
+            runner.AdvanceOneTick(state, rules, buffer);
+            Unit unit = state.EntityState.Units[0];
+            AssertEqual(InteractionReservationKind.MoveDestination, unit.ReservedInteractionKind, "unit should have move destination reservation before death");
+
+            unit.HitPoints = 0;
+            AddNoOp(buffer, 1, 0, 1);
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(true, unit.IsDead, "unit should be marked dead");
+            AssertEqual(InteractionReservationKind.None, unit.ReservedInteractionKind, "death should clear move destination reservation");
+            AssertEqual(false, unit.HasMoveTarget, "death should clear move target");
+        }
+
+        private static void ResignClearsDestinationReservation()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(3094, 1);
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(0, 0));
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1 }, FixedVector2.FromInts(6, 0))));
+            runner.AdvanceOneTick(state, rules, buffer);
+            Unit unit = state.EntityState.Units[0];
+            AssertEqual(InteractionReservationKind.MoveDestination, unit.ReservedInteractionKind, "unit should have move destination reservation before resign");
+
+            buffer.Add(new CommandEnvelope(new CommandHeader(1, 0, 1, CommandType.Resign), new ResignCommand()));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(true, state.PlayerStates.Players[0].IsResigned, "player should be resigned");
+            AssertEqual(InteractionReservationKind.None, unit.ReservedInteractionKind, "resign cleanup should clear move destination reservation");
+            AssertEqual(false, unit.HasMoveTarget, "resign cleanup should clear active move target");
+        }
+
         private static void MoveRejectsWallBlockedTarget()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -3213,13 +3309,24 @@ namespace RtsGame.Tests
             var buffer = new CommandBuffer();
             buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1, 2 }, FixedVector2.FromInts(1, 1))));
             new TickRunner().AdvanceOneTick(state, rules, buffer);
+            int arrivedOrReserved = 0;
+            var reservedTiles = new HashSet<int>();
+            for (int i = 1; i <= 2; i++)
+            {
+                Unit unit = FindUnitById(state, i);
+                if (!unit.HasMoveTarget)
+                {
+                    arrivedOrReserved++;
+                    continue;
+                }
 
-            AssertDistinctReservations(
-                state,
-                new[] { 1, 2 },
-                InteractionReservationKind.MoveDestination,
-                SpatialRules.EncodeTileKey(1, 1),
-                "two units ordered to one tile should reserve distinct nearby destinations");
+                AssertEqual(InteractionReservationKind.MoveDestination, unit.ReservedInteractionKind, "active mover should keep a move destination reservation unit=" + unit.Id);
+                int key = (unit.ReservedInteractionTileY << 16) ^ (unit.ReservedInteractionTileX & 0xFFFF);
+                AssertEqual(true, reservedTiles.Add(key), "active movers should not share destination reservations");
+                arrivedOrReserved++;
+            }
+
+            AssertEqual(2, arrivedOrReserved, "two-unit move should either arrive or keep stable destination reservations");
         }
 
         private static void ThreeUnitsAttemptingSameTileReceiveSlots()
@@ -3232,13 +3339,24 @@ namespace RtsGame.Tests
             var buffer = new CommandBuffer();
             buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1, 2, 3 }, FixedVector2.FromInts(1, 1))));
             new TickRunner().AdvanceOneTick(state, rules, buffer);
+            int arrivedOrReserved = 0;
+            var reservedTiles = new HashSet<int>();
+            for (int i = 1; i <= 3; i++)
+            {
+                Unit unit = FindUnitById(state, i);
+                if (!unit.HasMoveTarget)
+                {
+                    arrivedOrReserved++;
+                    continue;
+                }
 
-            AssertDistinctReservations(
-                state,
-                new[] { 1, 2, 3 },
-                InteractionReservationKind.MoveDestination,
-                SpatialRules.EncodeTileKey(1, 1),
-                "three units ordered to one tile should reserve distinct nearby destinations");
+                AssertEqual(InteractionReservationKind.MoveDestination, unit.ReservedInteractionKind, "active mover should keep a move destination reservation unit=" + unit.Id);
+                int key = (unit.ReservedInteractionTileY << 16) ^ (unit.ReservedInteractionTileX & 0xFFFF);
+                AssertEqual(true, reservedTiles.Add(key), "active movers should not share destination reservations");
+                arrivedOrReserved++;
+            }
+
+            AssertEqual(3, arrivedOrReserved, "three-unit move should either arrive or keep stable destination reservations");
         }
 
         private static void TwoUnitTileSwapFails()
@@ -5015,6 +5133,45 @@ namespace RtsGame.Tests
             AssertEqual(true, text.Contains("Building 77"), "hud should still include selected building id when status is missing");
             AssertEqual(false, text.Contains("Gather"), "missing unit status should not invent gather text");
             AssertEqual(false, text.Contains("Train"), "missing building status should not invent training text");
+        }
+
+        private static void GodotSelectedStatusHidesIdleNoProgressTicks()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(
+                new GodotPrimitiveDto[0],
+                new GodotBuildingStatusDto[0],
+                new[]
+                {
+                    new GodotUnitStatusDto(
+                        11,
+                        (int)UnitTypeId.Villager,
+                        false,
+                        0,
+                        0,
+                        0,
+                        0,
+                        19,
+                        44,
+                        Fixed.FromInt(19).Raw,
+                        Fixed.FromInt(44).Raw,
+                        (int)WorkerTaskPhase.Idle,
+                        (int)InteractionReservationKind.MoveDestination,
+                        SpatialRules.EncodeTileKey(20, 44),
+                        20,
+                        44,
+                        false,
+                        false,
+                        false,
+                        10,
+                        0,
+                        0,
+                        0,
+                        0)
+                });
+
+            string[] lines = GodotSelectedStatusBuilder.BuildLines(frame, new[] { 11 }, 0, 0);
+
+            AssertEqual(true, lines[1].Contains("NoProgress -"), "idle unit without active move should hide stale no-progress counter");
         }
 
         private static void GodotPrimitiveHitTestIncludesBoundary()

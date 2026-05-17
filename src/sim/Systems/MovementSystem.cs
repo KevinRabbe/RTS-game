@@ -349,6 +349,7 @@ namespace RtsGame.Sim.Systems
                 {
                     unit.HasMoveTarget = false;
                     unit.TaskPhase = GetPhaseAfterClearedMove(unit.TaskPhase);
+                    ClearMoveDestinationReservation(unit);
                     continue;
                 }
 
@@ -369,7 +370,16 @@ namespace RtsGame.Sim.Systems
                 {
                     unit.HasMoveTarget = false;
                     unit.TaskPhase = GetPhaseAfterArrivedMove(unit.TaskPhase);
+                    ClearMoveDestinationReservation(unit);
                 }
+            }
+        }
+
+        private static void ClearMoveDestinationReservation(Unit unit)
+        {
+            if (unit.ReservedInteractionKind == InteractionReservationKind.MoveDestination)
+            {
+                SpatialRules.ClearInteractionReservation(unit);
             }
         }
 
