@@ -74,6 +74,7 @@ namespace RtsGame.Sim.Core
                 ? new SpatialRules.TileCoord(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY)
                 : default;
 
+            bool allowExcludedFallback = !hasExcludedTile;
             return SpatialRules.TryReserveNearestReachableInteractionTile(
                 state,
                 unit,
@@ -82,6 +83,7 @@ namespace RtsGame.Sim.Core
                 interactionTiles,
                 hasExcludedTile,
                 excludedTile,
+                allowExcludedFallback,
                 out _);
         }
 

@@ -104,6 +104,7 @@ namespace RtsGame.Tests
                 new TestCase("multiple full gold carriers reserve distinct dropoff slots", MultipleFullGoldCarriersReserveDistinctDropoffSlots),
                 new TestCase("multiple full carriers dropping at same tc do not stack", MultipleFullCarriersDroppingAtSameTcDoNotStack),
                 new TestCase("multiple full carriers dropping at same tc deposit cleanly", MultipleFullCarriersDroppingAtSameTcDepositCleanly),
+                new TestCase("stale dropoff slot timeout clears and reassigns", StaleDropoffSlotTimeoutClearsAndReassigns),
                 new TestCase("worker in dropoff range deposits without move rewrite", WorkerInDropoffRangeDepositsWithoutMoveRewrite),
                 new TestCase("villager deposits from diagonal town center interaction tile", VillagerDepositsFromDiagonalTownCenterInteractionTile),
                 new TestCase("villager resumes resource loop after deposit", VillagerResumesResourceLoopAfterDeposit),
@@ -2502,7 +2503,8 @@ namespace RtsGame.Tests
         private static void MoveUnitAdvancesDeterministically()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
-            var state = GameInitializer.CreateNomadStart(1, 1);
+            GameState state = CreateOccupancyState(3001, 1);
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(0, 0));
             var buffer = new CommandBuffer();
             var runner = new TickRunner();
             buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1 }, FixedVector2.FromInts(2, 0))));
@@ -3020,6 +3022,31 @@ namespace RtsGame.Tests
                 runner.AdvanceOneTick(state, rules, buffer);
                 AssertNoLiveUnitStacking(state, "ten unit group move should not stack");
             }
+        }
+
+        private static void StaleDropoffSlotTimeoutClearsAndReassigns()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(3096, 1);
+            int unitId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(20, 6));
+            int tcId = AddCompletedTownCenter(state, 0, FixedVector2.FromInts(20, 10));
+            Unit worker = FindUnitById(state, unitId);
+            worker.CarriedResourceType = ResourceType.Wood;
+            worker.CarriedAmount = GameData.VillagerCarryCapacity;
+            worker.TaskPhase = WorkerTaskPhase.MovingToDropoffSlot;
+            worker.HasMoveTarget = true;
+            worker.MoveTarget = FixedVector2.FromInts(20, 8);
+            worker.LastMovedTick = 0;
+            SpatialRules.ReserveInteractionSlot(worker, InteractionReservationKind.Dropoff, tcId, new SpatialRules.TileCoord(20, 8));
+            state.Tick = GameData.InteractionTargetRetargetBlockedTicks + 1;
+
+            AddCompletedWall(state, 0, FixedVector2.FromInts(20, 8));
+
+            new ResourceDepositSystem().Run(state, rules, new TickCommandContext(new List<CommandEnvelope>()));
+
+            AssertEqual(true, worker.TaskPhase == WorkerTaskPhase.MovingToDropoffSlot || worker.TaskPhase == WorkerTaskPhase.BlockedWaiting, "worker should keep dropoff intent after stale timeout");
+            AssertEqual(false, worker.ReservedInteractionKind == InteractionReservationKind.MoveDestination, "dropoff stale recovery should not leave move-destination reservation");
+            AssertEqual(false, worker.ReservedInteractionKind == InteractionReservationKind.Dropoff && worker.ReservedInteractionTileX == 20 && worker.ReservedInteractionTileY == 8, "stale blocked dropoff slot should be released or replaced");
         }
 
         private static void TwentyUnitGroupMoveSettlesOrWaitsWithoutStacking()

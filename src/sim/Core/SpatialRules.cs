@@ -282,6 +282,7 @@ namespace RtsGame.Sim.Core
                 interactionTiles,
                 false,
                 default,
+                true,
                 out selected);
         }
 
@@ -293,6 +294,29 @@ namespace RtsGame.Sim.Core
             List<TileCoord> interactionTiles,
             bool hasExcludedTile,
             TileCoord excludedTile,
+            out TileCoord selected)
+        {
+            return TryReserveNearestReachableInteractionTile(
+                state,
+                unit,
+                kind,
+                targetId,
+                interactionTiles,
+                hasExcludedTile,
+                excludedTile,
+                true,
+                out selected);
+        }
+
+        public static bool TryReserveNearestReachableInteractionTile(
+            GameState state,
+            Unit unit,
+            InteractionReservationKind kind,
+            int targetId,
+            List<TileCoord> interactionTiles,
+            bool hasExcludedTile,
+            TileCoord excludedTile,
+            bool allowExcludedFallback,
             out TileCoord selected)
         {
             if (TryReserveNearestReachableInteractionTileCore(
@@ -308,7 +332,7 @@ namespace RtsGame.Sim.Core
                 return true;
             }
 
-            if (!hasExcludedTile)
+            if (!hasExcludedTile || !allowExcludedFallback)
             {
                 return false;
             }
@@ -359,7 +383,8 @@ namespace RtsGame.Sim.Core
             selected = default;
             int unitTileX = GetTileX(unit.Position);
             int unitTileY = GetTileY(unit.Position);
-            int bestScore = int.MaxValue;
+            int bestPathCost = int.MaxValue;
+            int bestDistance = int.MaxValue;
             bool found = false;
             for (int i = 0; i < interactionTiles.Count; i++)
             {
@@ -374,19 +399,21 @@ namespace RtsGame.Sim.Core
                     continue;
                 }
 
-                if (!DeterministicPathfinder.TryFindNextTile(state, unitTileX, unitTileY, tile.X, tile.Y, out _, out _))
+                if (!DeterministicPathfinder.TryFindPathCost(state, unitTileX, unitTileY, tile.X, tile.Y, out int pathCost))
                 {
                     continue;
                 }
 
-                int score = Abs(unitTileX - tile.X) + Abs(unitTileY - tile.Y);
+                int distance = Abs(unitTileX - tile.X) + Abs(unitTileY - tile.Y);
                 if (!found
-                    || score < bestScore
-                    || (score == bestScore && CompareTiles(tile, selected) < 0)
-                    || (score == bestScore && CompareTiles(tile, selected) == 0 && targetId < unit.ReservedInteractionTargetId))
+                    || pathCost < bestPathCost
+                    || (pathCost == bestPathCost && distance < bestDistance)
+                    || (pathCost == bestPathCost && distance == bestDistance && CompareTiles(tile, selected) < 0)
+                    || (pathCost == bestPathCost && distance == bestDistance && CompareTiles(tile, selected) == 0 && targetId < unit.ReservedInteractionTargetId))
                 {
                     selected = tile;
-                    bestScore = score;
+                    bestPathCost = pathCost;
+                    bestDistance = distance;
                     found = true;
                 }
             }
@@ -514,6 +541,7 @@ namespace RtsGame.Sim.Core
             selected = default;
             int unitTileX = GetTileX(unit.Position);
             int unitTileY = GetTileY(unit.Position);
+            int bestPathCost = int.MaxValue;
             int bestTargetDistance = int.MaxValue;
             int bestUnitDistance = int.MaxValue;
             bool found = false;
@@ -539,7 +567,7 @@ namespace RtsGame.Sim.Core
                             continue;
                         }
 
-                        if (!DeterministicPathfinder.TryFindNextTile(state, unitTileX, unitTileY, x, y, out _, out _))
+                        if (!DeterministicPathfinder.TryFindPathCost(state, unitTileX, unitTileY, x, y, out int pathCost))
                         {
                             continue;
                         }
@@ -549,10 +577,12 @@ namespace RtsGame.Sim.Core
                         var candidate = new TileCoord(x, y);
                         if (!found
                             || targetDistance < bestTargetDistance
-                            || (targetDistance == bestTargetDistance && unitDistance < bestUnitDistance)
-                            || (targetDistance == bestTargetDistance && unitDistance == bestUnitDistance && CompareTiles(candidate, selected) < 0))
+                            || (targetDistance == bestTargetDistance && pathCost < bestPathCost)
+                            || (targetDistance == bestTargetDistance && pathCost == bestPathCost && unitDistance < bestUnitDistance)
+                            || (targetDistance == bestTargetDistance && pathCost == bestPathCost && unitDistance == bestUnitDistance && CompareTiles(candidate, selected) < 0))
                         {
                             selected = candidate;
+                            bestPathCost = pathCost;
                             bestTargetDistance = targetDistance;
                             bestUnitDistance = unitDistance;
                             found = true;

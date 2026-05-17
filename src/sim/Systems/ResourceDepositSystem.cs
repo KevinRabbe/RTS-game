@@ -26,6 +26,12 @@ namespace RtsGame.Sim.Systems
 
                 if (!SpatialRules.IsUnitInBuildingInteractionRange(unit, dropOff))
                 {
+                    if (IsNoProgressTimedOut(state, unit))
+                    {
+                        unit.HasMoveTarget = false;
+                        SpatialRules.ClearInteractionReservation(unit);
+                    }
+
                     if (ShouldKeepCurrentApproachTarget(state, unit, dropOff))
                     {
                         unit.TaskPhase = WorkerTaskPhase.MovingToDropoffSlot;
@@ -93,6 +99,7 @@ namespace RtsGame.Sim.Systems
             SpatialRules.TileCoord excludedTile = hasExcludedTile
                 ? new SpatialRules.TileCoord(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY)
                 : default;
+            bool allowExcludedFallback = !hasExcludedTile;
             if (!SpatialRules.TryReserveNearestReachableInteractionTile(
                 state,
                 unit,
@@ -101,8 +108,13 @@ namespace RtsGame.Sim.Systems
                 interactionTiles,
                 hasExcludedTile,
                 excludedTile,
+                allowExcludedFallback,
                 out SpatialRules.TileCoord selected))
             {
+                if (hasExcludedTile)
+                {
+                    SpatialRules.ClearInteractionReservation(unit);
+                }
                 return false;
             }
 
@@ -120,6 +132,17 @@ namespace RtsGame.Sim.Systems
                 InteractionReservationKind.Dropoff,
                 dropOff.Id,
                 interactionTiles);
+        }
+
+        private static bool IsNoProgressTimedOut(GameState state, Unit unit)
+        {
+            if (!unit.HasMoveTarget)
+            {
+                return false;
+            }
+
+            int blockedTicks = unit.LastMovedTick < 0 ? int.MaxValue : state.Tick - unit.LastMovedTick;
+            return blockedTicks >= GameData.InteractionTargetRetargetBlockedTicks;
         }
 
     }

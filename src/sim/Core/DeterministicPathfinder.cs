@@ -88,6 +88,82 @@ namespace RtsGame.Sim.Core
             return false;
         }
 
+        public static bool TryFindPathCost(GameState state, int startX, int startY, int targetX, int targetY, out int cost)
+        {
+            cost = 0;
+            int width = state.MapState.WidthTiles;
+            int height = state.MapState.HeightTiles;
+            if (!IsInBounds(startX, startY, width, height) || !IsInBounds(targetX, targetY, width, height))
+            {
+                return false;
+            }
+
+            if (startX == targetX && startY == targetY)
+            {
+                return true;
+            }
+
+            if (SpatialRules.IsTileBlockedForUnitMovement(state, targetX, targetY))
+            {
+                return false;
+            }
+
+            int tileCount = width * height;
+            var open = new bool[tileCount];
+            var closed = new bool[tileCount];
+            var gCost = new int[tileCount];
+            var hCost = new int[tileCount];
+            for (int i = 0; i < tileCount; i++)
+            {
+                gCost[i] = int.MaxValue;
+            }
+
+            int startIndex = ToIndex(startX, startY, width);
+            int targetIndex = ToIndex(targetX, targetY, width);
+            gCost[startIndex] = 0;
+            hCost[startIndex] = Heuristic(startX, startY, targetX, targetY);
+            open[startIndex] = true;
+
+            while (TrySelectOpen(open, closed, gCost, hCost, out int currentIndex))
+            {
+                if (currentIndex == targetIndex)
+                {
+                    cost = gCost[currentIndex];
+                    return true;
+                }
+
+                open[currentIndex] = false;
+                closed[currentIndex] = true;
+                int currentX = currentIndex % width;
+                int currentY = currentIndex / width;
+                for (int neighbor = 0; neighbor < NeighborOffsetX.Length; neighbor++)
+                {
+                    int neighborX = currentX + NeighborOffsetX[neighbor];
+                    int neighborY = currentY + NeighborOffsetY[neighbor];
+                    if (!IsInBounds(neighborX, neighborY, width, height) || SpatialRules.IsTileBlockedForUnitMovement(state, neighborX, neighborY))
+                    {
+                        continue;
+                    }
+
+                    int neighborIndex = ToIndex(neighborX, neighborY, width);
+                    if (closed[neighborIndex])
+                    {
+                        continue;
+                    }
+
+                    int tentativeG = gCost[currentIndex] + CardinalCost;
+                    if (!open[neighborIndex] || tentativeG < gCost[neighborIndex])
+                    {
+                        gCost[neighborIndex] = tentativeG;
+                        hCost[neighborIndex] = Heuristic(neighborX, neighborY, targetX, targetY);
+                        open[neighborIndex] = true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
         private static bool TryResolveNextStep(int[] parent, int targetIndex, int startIndex, int width, out int nextX, out int nextY)
         {
             int current = targetIndex;
