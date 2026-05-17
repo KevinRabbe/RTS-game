@@ -385,6 +385,11 @@ namespace RtsGame.Tests
                 new TestCase("villager paths to tc interaction tile from right", VillagerPathsToTcInteractionTileFromRight),
                 new TestCase("worker loop remains unstuck over long dry arabia run", WorkerLoopRemainsUnstuckOverLongDryArabiaRun),
                 new TestCase("dry arabia tc build assignment progresses and updates population", DryArabiaTcBuildAssignmentProgressesAndUpdatesPopulation),
+                new TestCase("playability invariant five villagers build assignment trace", PlayabilityInvariantFiveVillagersBuildAssignmentTrace),
+                new TestCase("playability invariant mixed resource workers shared tc trace", PlayabilityInvariantMixedResourceWorkersSharedTcTrace),
+                new TestCase("playability invariant ten workers around tc movement trace", PlayabilityInvariantTenWorkersAroundTcMovementTrace),
+                new TestCase("playability invariant trained villagers gather trace", PlayabilityInvariantTrainedVillagersGatherTrace),
+                new TestCase("playability invariant depletion continuation pressure trace", PlayabilityInvariantDepletionContinuationPressureTrace),
                 new TestCase("under construction wall can be destroyed", UnderConstructionWallCanBeDestroyed),
                 new TestCase("wall replay determinism", WallReplayDeterminism),
                 new TestCase("wall lockstep", WallLockstep),
@@ -6585,6 +6590,287 @@ namespace RtsGame.Tests
             AssertEqual(5, state.PlayerStates.Players[0].PopulationUsed, "population used should remain 5/10 after completion");
         }
 
+        private static void PlayabilityInvariantFiveVillagersBuildAssignmentTrace()
+        {
+            GameRules rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(27101, 1);
+            while (state.EntityState.Units.Count < 5)
+            {
+                int offset = state.EntityState.Units.Count;
+                EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(8 + offset, 8));
+            }
+
+            int[] unitIds = new int[5];
+            int foundVillagers = 0;
+            for (int i = 0; i < state.EntityState.Units.Count && foundVillagers < 5; i++)
+            {
+                Unit unit = state.EntityState.Units[i];
+                if (unit.OwnerPlayerIndex == 0 && unit.UnitTypeId == UnitTypeId.Villager)
+                {
+                    unitIds[foundVillagers++] = unit.Id;
+                }
+            }
+
+            AssertEqual(5, foundVillagers, "test setup should provide five villagers");
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            int startRejected = state.DebugCounters.RejectedCommandCount;
+            var traces = new Queue<string>();
+            state.PlayerStates.Players[0].Resources.Wood = GameData.WallWoodCost;
+
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 0, CommandType.PlaceWall), new PlaceWallCommand(FixedVector2.FromInts(14, 10))));
+            runner.AdvanceOneTick(state, rules, buffer);
+            int wallId = state.EntityState.Buildings[state.EntityState.Buildings.Count - 1].Id;
+            Building foundation = state.EntityState.Buildings[state.EntityState.EntityLookup[wallId].Index];
+
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 1, CommandType.AssignBuild), new AssignBuildCommand(wallId, unitIds)));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            bool sawBuilderIntent = false;
+            for (int tick = 0; tick < 180; tick++)
+            {
+                AddNoOp(buffer, state.Tick, 0, (uint)(40000 + tick));
+                runner.AdvanceOneTick(state, rules, buffer);
+                CaptureWorkerTraceTick(state, unitIds, traces, 40);
+                AssertNoLiveUnitStacking(state, BuildTraceFailureMessage("build invariant stacking", traces));
+                AssertNoDuplicateFinalPurposeReservations(state, BuildTraceFailureMessage("build invariant reservations", traces));
+                for (int i = 0; i < unitIds.Length; i++)
+                {
+                    Unit loopUnit = FindUnitById(state, unitIds[i]);
+                    if (loopUnit.CurrentBuildTargetId == wallId)
+                    {
+                        sawBuilderIntent = true;
+                    }
+                }
+            }
+
+            AssertEqual(true, sawBuilderIntent, BuildTraceFailureMessage("at least one builder should keep build intent during the scenario", traces));
+            AssertEqual(true, foundation.BuildProgressTicks > 0, BuildTraceFailureMessage("foundation should gain build progress", traces));
+            AssertEqual(true, state.DebugCounters.RejectedCommandCount - startRejected <= 1, BuildTraceFailureMessage("legal build assignment should not spam rejections", traces));
+            AssertNoEndlessWorkerPhase(state, unitIds, WorkerTaskPhase.MovingToBuildSlot, 180, BuildTraceFailureMessage("builders stuck in moving-to-build phase", traces));
+        }
+
+        private static void PlayabilityInvariantMixedResourceWorkersSharedTcTrace()
+        {
+            GameRules rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = GameInitializer.CreateDryArabiaTest01(27102);
+            TickRunner runner = new TickRunner();
+            CommandBuffer buffer = new CommandBuffer();
+            var traces = new Queue<string>();
+            int startRejected = state.DebugCounters.RejectedCommandCount;
+            FixedVector2 tcPos = DryArabiaTest01MapDefinition.GetTownCenterZone(0);
+
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.PlaceTownCenter), new PlaceTownCenterCommand(tcPos)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+            runner.AdvanceOneTick(state, rules, buffer);
+            int tcId = FindUnderConstructionBuildingId(state, 0, BuildingTypeId.TownCenter);
+
+            for (int i = 0; i < 180; i++)
+            {
+                AddNoOp(buffer, state.Tick, 0, (uint)(41000 + i * 2));
+                AddNoOp(buffer, state.Tick, 1, (uint)(41001 + i * 2));
+                runner.AdvanceOneTick(state, rules, buffer);
+                if (!state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index].IsUnderConstruction)
+                {
+                    break;
+                }
+            }
+
+            while (GetPlayerVillagerIds(state, 0).Length < 5)
+            {
+                int index = state.EntityState.Units.Count;
+                EntityFactory.CreateUnit(
+                    state,
+                    0,
+                    UnitTypeId.Villager,
+                    FixedVector2.FromInts(tcPos.X.FloorToInt() - 3 + (index % 3), tcPos.Y.FloorToInt() + 5 + (index % 2)));
+            }
+            int[] workers = GetPlayerVillagerIds(state, 0);
+
+            int foodId = FindFirstResourceNodeIdByType(state, ResourceType.Food);
+            int goldId = FindFirstResourceNodeIdByType(state, ResourceType.Gold);
+            int woodId = FindFirstResourceNodeIdByType(state, ResourceType.Wood);
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 2, CommandType.GatherResource), new GatherResourceCommand(foodId, new[] { workers[0], workers[1] })));
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 3, CommandType.GatherResource), new GatherResourceCommand(goldId, new[] { workers[2], workers[3] })));
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 4, CommandType.GatherResource), new GatherResourceCommand(woodId, new[] { workers[4] })));
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 1, 2, CommandType.NoOp), new NoOpCommand()));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            int startingFood = state.PlayerStates.Players[0].Resources.Food;
+            int startingGold = state.PlayerStates.Players[0].Resources.Gold;
+            int startingWood = state.PlayerStates.Players[0].Resources.Wood;
+            bool sawCarriedResources = false;
+            for (int tick = 0; tick < 900; tick++)
+            {
+                AddNoOp(buffer, state.Tick, 0, (uint)(42000 + tick * 2));
+                AddNoOp(buffer, state.Tick, 1, (uint)(42001 + tick * 2));
+                runner.AdvanceOneTick(state, rules, buffer);
+                CaptureWorkerTraceTick(state, workers, traces, 50);
+                AssertNoLiveUnitStacking(state, BuildTraceFailureMessage("mixed-resource stacking invariant", traces));
+                AssertNoDuplicateFinalPurposeReservations(state, BuildTraceFailureMessage("mixed-resource reservation invariant", traces));
+                for (int i = 0; i < workers.Length; i++)
+                {
+                    Unit loopUnit = FindUnitById(state, workers[i]);
+                    if (loopUnit.CarriedAmount > 0)
+                    {
+                        sawCarriedResources = true;
+                    }
+                }
+            }
+
+            bool anyStockpileProgress =
+                state.PlayerStates.Players[0].Resources.Food > startingFood
+                || state.PlayerStates.Players[0].Resources.Gold > startingGold
+                || state.PlayerStates.Players[0].Resources.Wood > startingWood;
+            AssertEqual(true, anyStockpileProgress || sawCarriedResources, BuildTraceFailureMessage("mixed workers should make gather/deposit progress evidence", traces));
+            AssertEqual(true, state.DebugCounters.RejectedCommandCount - startRejected <= 2, BuildTraceFailureMessage("legal gather commands should not spam rejections", traces));
+            AssertNoEndlessWorkerPhase(state, workers, WorkerTaskPhase.MovingToResourceSlot, 900, BuildTraceFailureMessage("workers stuck moving-to-resource", traces));
+            AssertNoEndlessWorkerPhase(state, workers, WorkerTaskPhase.MovingToDropoffSlot, 900, BuildTraceFailureMessage("workers stuck moving-to-dropoff", traces));
+        }
+
+        private static void PlayabilityInvariantTenWorkersAroundTcMovementTrace()
+        {
+            GameRules rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(27103, 1);
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(20, 20));
+            while (state.EntityState.Units.Count < 10)
+            {
+                int i = state.EntityState.Units.Count;
+                EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(16 + (i % 5), 24 + (i / 5)));
+            }
+
+            int[] unitIds = new int[10];
+            for (int i = 0; i < 10; i++)
+            {
+                unitIds[i] = state.EntityState.Units[i].Id;
+            }
+
+            TickRunner runner = new TickRunner();
+            CommandBuffer buffer = new CommandBuffer();
+            var traces = new Queue<string>();
+            int startRejected = state.DebugCounters.RejectedCommandCount;
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(unitIds, FixedVector2.FromInts(20, 18))));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            for (int tick = 0; tick < 240; tick++)
+            {
+                AddNoOp(buffer, state.Tick, 0, (uint)(43000 + tick));
+                runner.AdvanceOneTick(state, rules, buffer);
+                CaptureWorkerTraceTick(state, unitIds, traces, 40);
+                AssertNoLiveUnitStacking(state, BuildTraceFailureMessage("ten-worker move stacking invariant", traces));
+            }
+
+            int arrivedOrWaiting = 0;
+            for (int i = 0; i < unitIds.Length; i++)
+            {
+                Unit unit = FindUnitById(state, unitIds[i]);
+                if (!unit.HasMoveTarget || unit.TaskPhase == WorkerTaskPhase.BlockedWaiting || unit.ReservedInteractionKind == InteractionReservationKind.MoveDestination)
+                {
+                    arrivedOrWaiting++;
+                }
+            }
+
+            AssertEqual(true, arrivedOrWaiting >= 8, BuildTraceFailureMessage("most workers should settle or wait cleanly around tc movement", traces));
+            AssertEqual(true, state.DebugCounters.RejectedCommandCount - startRejected <= 1, BuildTraceFailureMessage("legal group move should not spam rejections", traces));
+        }
+
+        private static void PlayabilityInvariantTrainedVillagersGatherTrace()
+        {
+            GameRules rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateSingleNodeResourceAreaState(27104, GatherProfileId.BerryBush, out _, out _);
+            int tcId = AddCompletedTownCenter(state, 0, FixedVector2.FromInts(10, 10));
+            state.PlayerStates.Players[0].Resources.Food = 500;
+            TickRunner runner = new TickRunner();
+            CommandBuffer buffer = new CommandBuffer();
+            var traces = new Queue<string>();
+
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 0, CommandType.TrainUnit), new TrainUnitCommand(tcId, UnitTypeId.Villager)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 1, CommandType.TrainUnit), new TrainUnitCommand(tcId, UnitTypeId.Villager)));
+            runner.AdvanceOneTick(state, rules, buffer);
+            int initialCount = state.EntityState.Units.Count;
+
+            for (int tick = 0; tick < 800 && state.EntityState.Units.Count < initialCount + 2; tick++)
+            {
+                AddNoOp(buffer, state.Tick, 0, (uint)(44000 + tick));
+                runner.AdvanceOneTick(state, rules, buffer);
+            }
+
+            AssertEqual(true, state.EntityState.Units.Count >= initialCount + 2, "trained villagers should spawn in bounded ticks");
+            int foodId = FindFirstResourceNodeIdByType(state, ResourceType.Food);
+            int[] trainedIds = new[] { state.EntityState.Units[initialCount].Id, state.EntityState.Units[initialCount + 1].Id };
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 2, CommandType.GatherResource), new GatherResourceCommand(foodId, trainedIds)));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            bool intentRetained = false;
+            for (int tick = 0; tick < 700; tick++)
+            {
+                AddNoOp(buffer, state.Tick, 0, (uint)(45000 + tick));
+                runner.AdvanceOneTick(state, rules, buffer);
+                CaptureWorkerTraceTick(state, trainedIds, traces, 40);
+                for (int i = 0; i < trainedIds.Length; i++)
+                {
+                    Unit loopUnit = FindUnitById(state, trainedIds[i]);
+                    if (loopUnit.CurrentResourceAreaId != 0 || loopUnit.CurrentResourceNodeId != 0 || loopUnit.TaskPhase == WorkerTaskPhase.BlockedWaiting)
+                    {
+                        intentRetained = true;
+                    }
+                }
+            }
+
+            AssertEqual(true, intentRetained, BuildTraceFailureMessage("trained villagers should retain gather intent even under congestion", traces));
+            AssertNoLiveUnitStacking(state, BuildTraceFailureMessage("trained villagers stacking invariant", traces));
+        }
+
+        private static void PlayabilityInvariantDepletionContinuationPressureTrace()
+        {
+            GameRules rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateTwoNodeResourceAreaState(27105, GatherProfileId.Tree, out int firstNodeId, out int secondNodeId, out int areaId);
+            while (state.EntityState.Units.Count < 3)
+            {
+                int idx = state.EntityState.Units.Count;
+                EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(3 + idx, 0));
+            }
+
+            ResourceNode firstNode = FindResourceNodeById(state, firstNodeId);
+            firstNode.RemainingAmount = GameData.VillagerCarryCapacity;
+            TickRunner runner = new TickRunner();
+            CommandBuffer buffer = new CommandBuffer();
+            int[] unitIds = new int[3];
+            for (int i = 0; i < 3; i++)
+            {
+                unitIds[i] = state.EntityState.Units[i].Id;
+            }
+            var traces = new Queue<string>();
+
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 0, CommandType.GatherResource), new GatherResourceCommand(firstNodeId, unitIds)));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            for (int tick = 0; tick < 700; tick++)
+            {
+                AddNoOp(buffer, state.Tick, 0, (uint)(46000 + tick));
+                runner.AdvanceOneTick(state, rules, buffer);
+                CaptureWorkerTraceTick(state, unitIds, traces, 50);
+                AssertNoLiveUnitStacking(state, BuildTraceFailureMessage("depletion continuation stacking invariant", traces));
+                AssertNoDuplicateFinalPurposeReservations(state, BuildTraceFailureMessage("depletion continuation reservation invariant", traces));
+            }
+
+            ResourceNode secondNode = FindResourceNodeById(state, secondNodeId);
+            AssertEqual(true, firstNode.IsDepleted, BuildTraceFailureMessage("first node should deplete under pressure", traces));
+            bool areaOrNodeRetained = false;
+            for (int i = 0; i < unitIds.Length; i++)
+            {
+                Unit unit = FindUnitById(state, unitIds[i]);
+                areaOrNodeRetained = areaOrNodeRetained
+                    || unit.CurrentResourceAreaId == areaId
+                    || unit.CurrentResourceNodeId == secondNodeId
+                    || (unit.CarriedResourceType == ResourceType.Wood && unit.CarriedAmount > 0);
+            }
+
+            bool secondNodeTouched = secondNode.RemainingAmount < GameData.StartingWoodAmount || secondNode.IsDepleted;
+            AssertEqual(true, secondNodeTouched || areaOrNodeRetained, BuildTraceFailureMessage("workers should continue or retain valid area intent after first depletion", traces));
+            AssertEqual(true, areaOrNodeRetained, BuildTraceFailureMessage("workers should retain area intent or continue on next node", traces));
+        }
+
         private static void UnderConstructionWallCanBeDestroyed()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(2);
@@ -7478,6 +7764,65 @@ namespace RtsGame.Tests
                 int tileY = SpatialRules.GetTileY(unit.Position);
                 int key = (tileY << 16) ^ (tileX & 0xFFFF);
                 AssertEqual(true, occupied.Add(key), message + " at " + tileX + "," + tileY);
+            }
+        }
+
+        private static void CaptureWorkerTraceTick(GameState state, int[] unitIds, Queue<string> traces, int maxEntries)
+        {
+            for (int i = 0; i < unitIds.Length; i++)
+            {
+                Unit unit = FindUnitById(state, unitIds[i]);
+                int tileX = SpatialRules.GetTileX(unit.Position);
+                int tileY = SpatialRules.GetTileY(unit.Position);
+                int moveTileX = unit.HasMoveTarget ? SpatialRules.GetTileX(unit.MoveTarget) : -1;
+                int moveTileY = unit.HasMoveTarget ? SpatialRules.GetTileY(unit.MoveTarget) : -1;
+                string line =
+                    "t=" + state.Tick
+                    + " u=" + unit.Id
+                    + " tile=(" + tileX + "," + tileY + ")"
+                    + " raw=(" + unit.Position.X.Raw + "," + unit.Position.Y.Raw + ")"
+                    + " phase=" + unit.TaskPhase
+                    + " move=(" + moveTileX + "," + moveTileY + ")"
+                    + " moveRaw=(" + (unit.HasMoveTarget ? unit.MoveTarget.X.Raw.ToString() : "-") + "," + (unit.HasMoveTarget ? unit.MoveTarget.Y.Raw.ToString() : "-") + ")"
+                    + " reserve=" + unit.ReservedInteractionKind + ":" + unit.ReservedInteractionTargetId + "@(" + unit.ReservedInteractionTileX + "," + unit.ReservedInteractionTileY + ")"
+                    + " area=" + unit.CurrentResourceAreaId
+                    + " node=" + unit.CurrentResourceNodeId
+                    + " build=" + unit.CurrentBuildTargetId
+                    + " carry=" + unit.CarriedResourceType + ":" + unit.CarriedAmount
+                    + " lastMoved=" + unit.LastMovedTick
+                    + " cmd=" + state.DebugCounters.LastCommandType
+                    + " cmdAccepted=" + state.DebugCounters.LastCommandAccepted
+                    + " cmdReason=" + state.DebugCounters.LastCommandReason;
+                traces.Enqueue(line);
+                while (traces.Count > maxEntries)
+                {
+                    traces.Dequeue();
+                }
+            }
+        }
+
+        private static string BuildTraceFailureMessage(string header, Queue<string> traces)
+        {
+            if (traces.Count == 0)
+            {
+                return header;
+            }
+
+            return header + Environment.NewLine + string.Join(Environment.NewLine, traces);
+        }
+
+        private static void AssertNoEndlessWorkerPhase(GameState state, int[] unitIds, WorkerTaskPhase phase, int maxNoProgressTicks, string message)
+        {
+            for (int i = 0; i < unitIds.Length; i++)
+            {
+                Unit unit = FindUnitById(state, unitIds[i]);
+                if (unit.TaskPhase != phase)
+                {
+                    continue;
+                }
+
+                int stalledFor = state.Tick - unit.LastMovedTick;
+                AssertEqual(true, stalledFor <= maxNoProgressTicks, message + " unit=" + unit.Id + " phase=" + phase + " stalled=" + stalledFor);
             }
         }
 
