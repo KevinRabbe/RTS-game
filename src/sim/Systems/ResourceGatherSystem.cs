@@ -36,6 +36,13 @@ namespace RtsGame.Sim.Systems
                 }
 
                 int carryRoom = GameData.VillagerCarryCapacity - unit.CarriedAmount;
+                if (unit.CurrentResourceAreaId != 0
+                    && TryResolveAreaNodeInRange(state, unit, unit.CurrentResourceAreaId, out ResourceNode? inRangeNode))
+                {
+                    node = inRangeNode!;
+                    unit.CurrentResourceNodeId = node.Id;
+                }
+
                 if (!SpatialRules.IsUnitInResourceInteractionRange(unit, node))
                 {
                     if (ShouldKeepCurrentApproachTarget(state, unit, node))
@@ -61,6 +68,7 @@ namespace RtsGame.Sim.Systems
                     }
 
                     unit.TaskPhase = WorkerTaskPhase.BlockedWaiting;
+                    unit.HasMoveTarget = false;
                     continue;
                 }
 
@@ -142,6 +150,29 @@ namespace RtsGame.Sim.Systems
                 resourceAreaId,
                 unit.CurrentResourceNodeId,
                 out selectedNode);
+        }
+
+        private static bool TryResolveAreaNodeInRange(GameState state, Unit unit, int resourceAreaId, out ResourceNode? selectedNode)
+        {
+            selectedNode = null;
+            for (int i = 0; i < state.EconomyState.ResourceNodes.Count; i++)
+            {
+                ResourceNode candidate = state.EconomyState.ResourceNodes[i];
+                if (candidate.IsDepleted || candidate.ResourceAreaId != resourceAreaId)
+                {
+                    continue;
+                }
+
+                if (!SpatialRules.IsUnitInResourceInteractionRange(unit, candidate))
+                {
+                    continue;
+                }
+
+                selectedNode = candidate;
+                return true;
+            }
+
+            return false;
         }
 
         private static void ClearExhaustedGatherIntent(Unit unit)

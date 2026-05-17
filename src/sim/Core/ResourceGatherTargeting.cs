@@ -74,7 +74,9 @@ namespace RtsGame.Sim.Core
                 ? new SpatialRules.TileCoord(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY)
                 : default;
 
-            bool allowExcludedFallback = !hasExcludedTile;
+            // Prefer alternate tiles first after timeout, but allow deterministic
+            // fallback to the excluded tile if no alternative exists.
+            bool allowExcludedFallback = true;
             return SpatialRules.TryReserveNearestReachableInteractionTile(
                 state,
                 unit,

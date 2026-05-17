@@ -92,6 +92,7 @@ namespace RtsGame.Tests
                 new TestCase("multiple workers reserve distinct resource slots", MultipleWorkersReserveDistinctResourceSlots),
                 new TestCase("multiple workers on same resource do not stack", MultipleWorkersOnSameResourceDoNotStack),
                 new TestCase("stale resource slot reservation chooses alternate", StaleResourceSlotReservationChoosesAlternate),
+                new TestCase("stale resource slot reservation falls back when only slot remains", StaleResourceSlotReservationFallsBackWhenOnlySlotRemains),
                 new TestCase("multi worker resource traffic makes progress", MultiWorkerResourceTrafficMakesProgress),
                 new TestCase("worker in resource range gathers without move rewrite", WorkerInResourceRangeGathersWithoutMoveRewrite),
                 new TestCase("villager does not gather outside resource range", VillagerDoesNotGatherOutsideResourceRange),
@@ -1559,6 +1560,46 @@ namespace RtsGame.Tests
             bool changedSlot = worker.ReservedInteractionTileX != staleTile.X || worker.ReservedInteractionTileY != staleTile.Y;
             AssertEqual(true, changedSlot, "timed-out resource reservation should prefer another valid slot before reusing stale tile");
             AssertEqual(true, SpatialRules.IsTileAdjacentToResourceFootprint(node, worker.ReservedInteractionTileX, worker.ReservedInteractionTileY), "alternate resource slot should be adjacent to the resource footprint");
+        }
+
+        private static void StaleResourceSlotReservationFallsBackWhenOnlySlotRemains()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(20931, 1);
+            ResourceNode node = CreateTestResourceNode(state, GatherProfileId.BerryBush, FixedVector2.FromInts(10, 10), GameData.StartingFoodAmount);
+            int workerId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(10, 7));
+            Unit worker = FindUnitById(state, workerId);
+            SpatialRules.TileCoord staleTile = new SpatialRules.TileCoord(10, 9);
+            List<SpatialRules.TileCoord> interactionTiles = SpatialRules.EnumerateResourceInteractionTiles(state, node);
+            for (int i = 0; i < interactionTiles.Count; i++)
+            {
+                SpatialRules.TileCoord tile = interactionTiles[i];
+                if (tile.X == staleTile.X && tile.Y == staleTile.Y)
+                {
+                    continue;
+                }
+
+                EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(tile.X, tile.Y));
+            }
+
+            worker.CurrentResourceNodeId = node.Id;
+            worker.CurrentResourceAreaId = node.ResourceAreaId;
+            worker.TaskPhase = WorkerTaskPhase.MovingToResourceSlot;
+            worker.HasMoveTarget = true;
+            worker.MoveTarget = FixedVector2.FromInts(staleTile.X, staleTile.Y);
+            worker.LastMovedTick = 0;
+            SpatialRules.ReserveInteractionSlot(worker, InteractionReservationKind.ResourceNode, node.Id, staleTile);
+            state.Tick = GameData.InteractionTargetRetargetBlockedTicks + 1;
+
+            new ResourceGatherSystem().Run(state, rules, new TickCommandContext(new List<CommandEnvelope>()));
+
+            AssertEqual(node.Id, worker.CurrentResourceNodeId, "fallback should preserve resource node intent");
+            AssertEqual(InteractionReservationKind.ResourceNode, worker.ReservedInteractionKind, "fallback should keep a resource reservation");
+            AssertEqual(node.Id, worker.ReservedInteractionTargetId, "fallback should keep reservation target");
+            AssertEqual(staleTile.X, worker.ReservedInteractionTileX, "fallback should reuse the only viable slot");
+            AssertEqual(staleTile.Y, worker.ReservedInteractionTileY, "fallback should reuse the only viable slot");
+            AssertEqual(true, worker.HasMoveTarget, "fallback should keep movement toward viable slot");
+            AssertEqual(WorkerTaskPhase.MovingToResourceSlot, worker.TaskPhase, "worker should continue moving toward the viable slot");
         }
 
         private static void MultiWorkerResourceTrafficMakesProgress()
