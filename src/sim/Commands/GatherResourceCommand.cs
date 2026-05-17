@@ -103,6 +103,8 @@ namespace RtsGame.Sim.Commands
                     unit,
                     clickedNode.ResourceAreaId,
                     clickedNode.Id,
+                    false,
+                    true,
                     out ResourceNode? selectedNode))
                 {
                     unit.CurrentResourceNodeId = selectedNode!.Id;

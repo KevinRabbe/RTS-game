@@ -36,13 +36,6 @@ namespace RtsGame.Sim.Systems
                 }
 
                 int carryRoom = GameData.VillagerCarryCapacity - unit.CarriedAmount;
-                if (unit.CurrentResourceAreaId != 0
-                    && TryResolveAreaNodeInRange(state, unit, unit.CurrentResourceAreaId, out ResourceNode? inRangeNode))
-                {
-                    node = inRangeNode!;
-                    unit.CurrentResourceNodeId = node.Id;
-                }
-
                 if (!SpatialRules.IsUnitInResourceInteractionRange(unit, node))
                 {
                     if (ShouldKeepCurrentApproachTarget(state, unit, node))
@@ -58,6 +51,8 @@ namespace RtsGame.Sim.Systems
                         unit,
                         node.ResourceAreaId,
                         node.Id,
+                        true,
+                        ShouldAllowAreaFallback(state, unit, node),
                         out ResourceNode? selectedNode))
                     {
                         unit.CurrentResourceNodeId = selectedNode!.Id;
@@ -149,30 +144,9 @@ namespace RtsGame.Sim.Systems
                 unit,
                 resourceAreaId,
                 unit.CurrentResourceNodeId,
+                false,
+                true,
                 out selectedNode);
-        }
-
-        private static bool TryResolveAreaNodeInRange(GameState state, Unit unit, int resourceAreaId, out ResourceNode? selectedNode)
-        {
-            selectedNode = null;
-            for (int i = 0; i < state.EconomyState.ResourceNodes.Count; i++)
-            {
-                ResourceNode candidate = state.EconomyState.ResourceNodes[i];
-                if (candidate.IsDepleted || candidate.ResourceAreaId != resourceAreaId)
-                {
-                    continue;
-                }
-
-                if (!SpatialRules.IsUnitInResourceInteractionRange(unit, candidate))
-                {
-                    continue;
-                }
-
-                selectedNode = candidate;
-                return true;
-            }
-
-            return false;
         }
 
         private static void ClearExhaustedGatherIntent(Unit unit)
@@ -206,6 +180,15 @@ namespace RtsGame.Sim.Systems
                 InteractionReservationKind.ResourceNode,
                 node.Id,
                 interactionTiles);
+        }
+
+        private static bool ShouldAllowAreaFallback(GameState state, Unit unit, ResourceNode node)
+        {
+            return SpatialRules.IsInteractionReservationTimedOut(
+                state,
+                unit,
+                InteractionReservationKind.ResourceNode,
+                node.Id);
         }
 
         private static int Min(int a, int b, int c)

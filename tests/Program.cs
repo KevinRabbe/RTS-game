@@ -112,6 +112,8 @@ namespace RtsGame.Tests
                 new TestCase("villager returns to same food target after deposit", VillagerReturnsToSameFoodTargetAfterDeposit),
                 new TestCase("villager returns to same wood target after deposit", VillagerReturnsToSameWoodTargetAfterDeposit),
                 new TestCase("villager returns to same gold target after deposit", VillagerReturnsToSameGoldTargetAfterDeposit),
+                new TestCase("villager keeps explicitly assigned gold node across deposit loop", VillagerKeepsExplicitlyAssignedGoldNodeAcrossDepositLoop),
+                new TestCase("explicit gather retarget switches assigned node", ExplicitGatherRetargetSwitchesAssignedNode),
                 new TestCase("gather keeps assigned resource when nearer same type exists", GatherKeepsAssignedResourceWhenNearerSameTypeExists),
                 new TestCase("gather move target remains stable while approaching", GatherMoveTargetRemainsStableWhileApproaching),
                 new TestCase("worker gather loop diagnostics stay stable", WorkerGatherLoopDiagnosticsStayStable),
@@ -1947,6 +1949,65 @@ namespace RtsGame.Tests
         private static void VillagerReturnsToSameGoldTargetAfterDeposit()
         {
             AssertVillagerReturnsToSameTargetAfterDeposit(ResourceType.Gold, 2069);
+        }
+
+        private static void VillagerKeepsExplicitlyAssignedGoldNodeAcrossDepositLoop()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(20701, 1);
+            int workerId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(25, 10));
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(10, 10));
+            int areaId = AddTestResourceArea(state, GatherProfileId.GoldVeinSmall, FixedVector2.FromInts(18, 10));
+            int nearGoldNodeId = AddTestResourceNodeToArea(state, areaId, GatherProfileId.GoldVeinSmall, FixedVector2.FromInts(12, 10), GameData.StartingGoldAmount);
+            int assignedGoldNodeId = AddTestResourceNodeToArea(state, areaId, GatherProfileId.GoldVeinSmall, FixedVector2.FromInts(24, 10), GameData.StartingGoldAmount);
+
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(assignedGoldNodeId, new[] { workerId })));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            for (int tick = 1; tick <= 220; tick++)
+            {
+                AddNoOp(buffer, tick, 0, (uint)(9700 + tick));
+                runner.AdvanceOneTick(state, rules, buffer);
+            }
+
+            Unit worker = FindUnitById(state, workerId);
+            ResourceNode nearGold = FindResourceNodeById(state, nearGoldNodeId);
+            AssertEqual(assignedGoldNodeId, worker.CurrentResourceNodeId, "worker should return to explicitly assigned gold node after dropoff");
+            AssertEqual(GameData.StartingGoldAmount, nearGold.RemainingAmount, "worker should not switch to nearer sibling gold node while assigned node remains valid");
+        }
+
+        private static void ExplicitGatherRetargetSwitchesAssignedNode()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(20702, 1);
+            int workerId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(25, 10));
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(10, 10));
+            int areaId = AddTestResourceArea(state, GatherProfileId.GoldVeinSmall, FixedVector2.FromInts(18, 10));
+            int nearGoldNodeId = AddTestResourceNodeToArea(state, areaId, GatherProfileId.GoldVeinSmall, FixedVector2.FromInts(12, 10), GameData.StartingGoldAmount);
+            int farGoldNodeId = AddTestResourceNodeToArea(state, areaId, GatherProfileId.GoldVeinSmall, FixedVector2.FromInts(24, 10), GameData.StartingGoldAmount);
+
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(farGoldNodeId, new[] { workerId })));
+            runner.AdvanceOneTick(state, rules, buffer);
+            for (int tick = 1; tick <= 80; tick++)
+            {
+                AddNoOp(buffer, tick, 0, (uint)(9800 + tick));
+                runner.AdvanceOneTick(state, rules, buffer);
+            }
+
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 900, CommandType.GatherResource), new GatherResourceCommand(nearGoldNodeId, new[] { workerId })));
+            runner.AdvanceOneTick(state, rules, buffer);
+            for (int tick = 0; tick < 100; tick++)
+            {
+                AddNoOp(buffer, state.Tick, 0, (uint)(9900 + tick));
+                runner.AdvanceOneTick(state, rules, buffer);
+            }
+
+            Unit worker = FindUnitById(state, workerId);
+            AssertEqual(nearGoldNodeId, worker.CurrentResourceNodeId, "explicit gather retarget should switch worker to the newly clicked node");
         }
 
         private static void GatherKeepsAssignedResourceWhenNearerSameTypeExists()

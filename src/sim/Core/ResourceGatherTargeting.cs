@@ -10,11 +10,27 @@ namespace RtsGame.Sim.Core
             Unit unit,
             int resourceAreaId,
             int preferredNodeId,
+            bool preferPreferredNodeFirst,
+            bool allowAreaFallback,
             out ResourceNode? selectedNode)
         {
             selectedNode = null;
             List<ResourceNode> candidates = EnumerateCandidateNodes(state, resourceAreaId);
             if (candidates.Count == 0)
+            {
+                return false;
+            }
+
+            if (preferPreferredNodeFirst
+                && preferredNodeId != 0
+                && TryGetNodeById(candidates, preferredNodeId, out ResourceNode? preferredNode)
+                && TryReserveApproachTile(state, unit, preferredNode!))
+            {
+                selectedNode = preferredNode!;
+                return true;
+            }
+
+            if (!allowAreaFallback)
             {
                 return false;
             }
@@ -130,6 +146,21 @@ namespace RtsGame.Sim.Core
             }
 
             return count;
+        }
+
+        private static bool TryGetNodeById(List<ResourceNode> candidates, int nodeId, out ResourceNode? node)
+        {
+            node = null;
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                if (candidates[i].Id == nodeId)
+                {
+                    node = candidates[i];
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static int Abs(int value)
