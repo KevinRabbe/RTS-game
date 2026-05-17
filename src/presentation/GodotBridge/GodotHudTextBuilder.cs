@@ -1,5 +1,6 @@
 namespace RtsGame.Presentation.GodotBridge
 {
+    using RtsGame.Sim.Commands;
     using RtsGame.Sim.Data;
 
     public static class GodotHudTextBuilder
@@ -24,7 +25,8 @@ namespace RtsGame.Presentation.GodotBridge
                 + "  Pop " + player.PopulationUsed + "/" + player.PopulationCap
                 + GetResearchStatusText(player)
                 + GetModifierStatusText(player)
-                + "  Rej " + frame.Match.RejectedCommandCount;
+                + "  Rej " + frame.Match.RejectedCommandCount
+                + GetLastCommandStatusText(frame.Match);
 
             string lineB = "Selected " + selected
                 + GetSelectedUnitStatusText(frame, selectedUnitIds)
@@ -206,6 +208,51 @@ namespace RtsGame.Presentation.GodotBridge
         private static string GetControlHintText()
         {
             return "  Press H for hotkeys";
+        }
+
+        private static string GetLastCommandStatusText(GodotMatchDto match)
+        {
+            if (match.LastCommandTypeId == 0 && match.LastCommandReasonId == 0 && !match.LastCommandAccepted)
+            {
+                return "";
+            }
+
+            string command = ResolveCommandTypeLabel(match.LastCommandTypeId);
+            string result = match.LastCommandAccepted ? "ok" : "rej";
+            return "  Cmd " + command + " " + result + " r" + match.LastCommandReasonId;
+        }
+
+        private static string ResolveCommandTypeLabel(int commandTypeId)
+        {
+            switch (commandTypeId)
+            {
+                case (int)CommandType.NoOp:
+                    return "NoOp";
+                case (int)CommandType.MoveUnits:
+                    return "MoveUnits";
+                case (int)CommandType.PlaceTownCenter:
+                    return "PlaceTownCenter";
+                case (int)CommandType.PlaceWall:
+                    return "PlaceWall";
+                case (int)CommandType.AssignBuild:
+                    return "AssignBuild";
+                case (int)CommandType.GatherResource:
+                    return "GatherResource";
+                case (int)CommandType.TrainUnit:
+                    return "TrainUnit";
+                case (int)CommandType.Attack:
+                    return "Attack";
+                case (int)CommandType.Resign:
+                    return "Resign";
+                case (int)CommandType.PlaceTradePost:
+                    return "PlaceTradePost";
+                case (int)CommandType.CreateTradeRoute:
+                    return "CreateTradeRoute";
+                case (int)CommandType.ResearchTech:
+                    return "ResearchTech";
+            }
+
+            return "#" + commandTypeId;
         }
 
         private static string ToTrainActionLabel(GodotTrainActionState state)

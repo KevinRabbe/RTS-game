@@ -276,6 +276,7 @@ namespace RtsGame.Tests
                 new TestCase("godot hud text includes completed tech label", GodotHudTextIncludesCompletedTechLabel),
                 new TestCase("godot hud text includes completed tech count", GodotHudTextIncludesCompletedTechCount),
                 new TestCase("godot hud text includes rejected command count", GodotHudTextIncludesRejectedCommandCount),
+                new TestCase("godot hud text includes last command status", GodotHudTextIncludesLastCommandStatus),
                 new TestCase("godot hud text handles missing status", GodotHudTextHandlesMissingStatus),
                 new TestCase("godot selected status hides idle no progress ticks", GodotSelectedStatusHidesIdleNoProgressTicks),
                 new TestCase("godot primitive hit test includes boundary", GodotPrimitiveHitTestIncludesBoundary),
@@ -5144,6 +5145,38 @@ namespace RtsGame.Tests
             string text = GodotHudTextBuilder.Build(frame, new int[0], 0, 0, false);
 
             AssertEqual(true, text.Contains("Rej 3"), "hud should include rejected command count from match dto");
+        }
+
+        private static void GodotHudTextIncludesLastCommandStatus()
+        {
+            GodotFrameDto frame = new GodotFrameDto(
+                1,
+                "DryArabiaTest01",
+                0,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotMatchDto(
+                    false,
+                    -1,
+                    -1,
+                    12,
+                    2,
+                    (int)CommandType.GatherResource,
+                    (int)CommandValidationReason.TargetComplete,
+                    false,
+                    0,
+                    5,
+                    20,
+                    42,
+                    3,
+                    1),
+                new GodotPrimitiveDto[0],
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 0, 0, false);
+
+            AssertEqual(true, text.Contains("Cmd GatherResource rej"), "hud should include last command type and result");
+            AssertEqual(true, text.Contains("r" + (int)CommandValidationReason.TargetComplete), "hud should include last command reason id");
         }
 
         private static void GodotHudTextHandlesMissingStatus()
