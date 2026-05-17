@@ -28,22 +28,22 @@ namespace RtsGame.Sim.Core
                 switch (resourceType)
                 {
                     case ResourceType.Food:
-                        return new[] { FixedVector2.FromInts(30, 48), FixedVector2.FromInts(31, 50) };
+                        return new[] { FixedVector2.FromInts(30, 48), FixedVector2.FromInts(31, 52) };
                     case ResourceType.Wood:
-                        return new[] { FixedVector2.FromInts(21, 54), FixedVector2.FromInts(18, 56) };
+                        return new[] { FixedVector2.FromInts(22, 57), FixedVector2.FromInts(19, 58) };
                     case ResourceType.Gold:
-                        return new[] { FixedVector2.FromInts(18, 47), FixedVector2.FromInts(17, 45) };
+                        return new[] { FixedVector2.FromInts(18, 47), FixedVector2.FromInts(16, 44) };
                 }
             }
 
             switch (resourceType)
             {
                 case ResourceType.Food:
-                    return new[] { FixedVector2.FromInts(98, 48), FixedVector2.FromInts(97, 50) };
+                    return new[] { FixedVector2.FromInts(98, 48), FixedVector2.FromInts(97, 52) };
                 case ResourceType.Wood:
-                    return new[] { FixedVector2.FromInts(107, 54), FixedVector2.FromInts(110, 56) };
+                    return new[] { FixedVector2.FromInts(106, 57), FixedVector2.FromInts(109, 58) };
                 case ResourceType.Gold:
-                    return new[] { FixedVector2.FromInts(110, 47), FixedVector2.FromInts(111, 45) };
+                    return new[] { FixedVector2.FromInts(110, 47), FixedVector2.FromInts(112, 44) };
                 default:
                     return new FixedVector2[0];
             }

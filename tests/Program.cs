@@ -50,6 +50,9 @@ namespace RtsGame.Tests
                 new TestCase("dry arabia test map has valid tc placement zones", DryArabiaTestMapHasValidTcPlacementZones),
                 new TestCase("dry arabia test map has nearby resources", DryArabiaTestMapHasNearbyResources),
                 new TestCase("dry arabia test map resources avoid tc zones", DryArabiaTestMapResourcesAvoidTcZones),
+                new TestCase("dry arabia tc zones have open traffic buffer", DryArabiaTcZonesHaveOpenTrafficBuffer),
+                new TestCase("dry arabia starting resource areas contain nodes", DryArabiaStartingResourceAreasContainNodes),
+                new TestCase("dry arabia starting resource areas have valid interaction slots", DryArabiaStartingResourceAreasHaveValidInteractionSlots),
                 new TestCase("dry arabia tc foundation has reachable interaction ring", DryArabiaTcFoundationHasReachableInteractionRing),
                 new TestCase("dry arabia starting villagers can all receive build assignment", DryArabiaStartingVillagersCanAllReceiveBuildAssignment),
                 new TestCase("dry arabia decorative rock tiles are not sim blockers", DryArabiaDecorativeRockTilesAreNotSimBlockers),
@@ -918,6 +921,61 @@ namespace RtsGame.Tests
                         (tc - state.EconomyState.ResourceNodes[i].Position).LengthSquaredRaw() >= combinedSquaredRaw,
                         "resource " + state.EconomyState.ResourceNodes[i].Id + " should not block player " + player + " TC zone");
                 }
+            }
+        }
+
+        private static void DryArabiaTcZonesHaveOpenTrafficBuffer()
+        {
+            GameState state = GameInitializer.CreateDryArabiaTest01(127);
+            for (int player = 0; player < 2; player++)
+            {
+                FixedVector2 tc = DryArabiaTest01MapDefinition.GetTownCenterZone(player);
+                for (int i = 0; i < state.EconomyState.ResourceNodes.Count; i++)
+                {
+                    ResourceNode node = state.EconomyState.ResourceNodes[i];
+                    if (node.IsDepleted)
+                    {
+                        continue;
+                    }
+
+                    if (state.EconomyState.ResourceAreas.Count > 0)
+                    {
+                        ResourceArea area = FindResourceAreaById(state, node.ResourceAreaId);
+                        if (area.AreaType == ResourceAreaType.None)
+                        {
+                            continue;
+                        }
+                    }
+
+                    long distanceRaw = (tc - node.Position).LengthSquaredRaw();
+                    long minBufferRaw = Fixed.FromInt(4).Raw;
+                    long minBufferSquaredRaw = checked(minBufferRaw * minBufferRaw);
+                    AssertEqual(true, distanceRaw >= minBufferSquaredRaw, "resource " + node.Id + " should keep a wider traffic buffer from player " + player + " TC zone");
+                }
+            }
+        }
+
+        private static void DryArabiaStartingResourceAreasContainNodes()
+        {
+            GameState state = GameInitializer.CreateDryArabiaTest01(128);
+            for (int player = 0; player < 2; player++)
+            {
+                FixedVector2 tc = DryArabiaTest01MapDefinition.GetTownCenterZone(player);
+                AssertEqual(true, HasResourceAreaWithNodeNear(state, tc, ResourceAreaType.BerryPatch, 12), "player " + player + " should have a nearby berry patch with at least one node");
+                AssertEqual(true, HasResourceAreaWithNodeNear(state, tc, ResourceAreaType.Forest, 12), "player " + player + " should have a nearby forest with at least one node");
+                AssertEqual(true, HasResourceAreaWithNodeNear(state, tc, ResourceAreaType.GoldDeposit, 12), "player " + player + " should have a nearby gold deposit with at least one node");
+            }
+        }
+
+        private static void DryArabiaStartingResourceAreasHaveValidInteractionSlots()
+        {
+            GameState state = GameInitializer.CreateDryArabiaTest01(129);
+            for (int player = 0; player < 2; player++)
+            {
+                FixedVector2 tc = DryArabiaTest01MapDefinition.GetTownCenterZone(player);
+                AssertEqual(true, HasResourceInteractionSlotsNear(state, tc, ResourceAreaType.BerryPatch, 12), "player " + player + " nearby berries should expose interaction slots");
+                AssertEqual(true, HasResourceInteractionSlotsNear(state, tc, ResourceAreaType.Forest, 12), "player " + player + " nearby wood should expose interaction slots");
+                AssertEqual(true, HasResourceInteractionSlotsNear(state, tc, ResourceAreaType.GoldDeposit, 12), "player " + player + " nearby gold should expose interaction slots");
             }
         }
 
@@ -7196,7 +7254,7 @@ namespace RtsGame.Tests
         {
             GameState state = GameInitializer.CreateDryArabiaTest01(1264);
             AssertResourceNodeStable(state, 1, ResourceType.Food, 30, 48);
-            AssertResourceNodeStable(state, 3, ResourceType.Wood, 21, 54);
+            AssertResourceNodeStable(state, 3, ResourceType.Wood, 22, 57);
             AssertResourceNodeStable(state, 5, ResourceType.Gold, 18, 47);
 
             GodotClientFacade facade = GodotClientFacade.CreateDryArabiaTest01(1264);
@@ -8343,6 +8401,66 @@ namespace RtsGame.Tests
                 }
 
                 if ((origin - node.Position).LengthSquaredRaw() <= maxSquaredRaw)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasResourceAreaWithNodeNear(GameState state, FixedVector2 origin, ResourceAreaType areaType, int maxDistanceTiles)
+        {
+            long maxRaw = Fixed.FromInt(maxDistanceTiles).Raw;
+            long maxSquaredRaw = checked(maxRaw * maxRaw);
+            for (int i = 0; i < state.EconomyState.ResourceNodes.Count; i++)
+            {
+                ResourceNode node = state.EconomyState.ResourceNodes[i];
+                if (node.IsDepleted)
+                {
+                    continue;
+                }
+
+                ResourceArea area = FindResourceAreaById(state, node.ResourceAreaId);
+                if (area.AreaType != areaType)
+                {
+                    continue;
+                }
+
+                if ((origin - node.Position).LengthSquaredRaw() <= maxSquaredRaw)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasResourceInteractionSlotsNear(GameState state, FixedVector2 origin, ResourceAreaType areaType, int maxDistanceTiles)
+        {
+            long maxRaw = Fixed.FromInt(maxDistanceTiles).Raw;
+            long maxSquaredRaw = checked(maxRaw * maxRaw);
+            for (int i = 0; i < state.EconomyState.ResourceNodes.Count; i++)
+            {
+                ResourceNode node = state.EconomyState.ResourceNodes[i];
+                if (node.IsDepleted)
+                {
+                    continue;
+                }
+
+                ResourceArea area = FindResourceAreaById(state, node.ResourceAreaId);
+                if (area.AreaType != areaType)
+                {
+                    continue;
+                }
+
+                if ((origin - node.Position).LengthSquaredRaw() > maxSquaredRaw)
+                {
+                    continue;
+                }
+
+                List<SpatialRules.TileCoord> slots = SpatialRules.EnumerateResourceInteractionTiles(state, node);
+                if (slots.Count > 0)
                 {
                     return true;
                 }
