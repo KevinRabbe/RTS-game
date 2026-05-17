@@ -93,6 +93,7 @@ namespace RtsGame.Tests
                 new TestCase("multiple workers on same resource do not stack", MultipleWorkersOnSameResourceDoNotStack),
                 new TestCase("stale resource slot reservation chooses alternate", StaleResourceSlotReservationChoosesAlternate),
                 new TestCase("stale resource slot reservation falls back when only slot remains", StaleResourceSlotReservationFallsBackWhenOnlySlotRemains),
+                new TestCase("interaction reservation scoring prefers less congested tile", InteractionReservationScoringPrefersLessCongestedTile),
                 new TestCase("multi worker resource traffic makes progress", MultiWorkerResourceTrafficMakesProgress),
                 new TestCase("worker in resource range gathers without move rewrite", WorkerInResourceRangeGathersWithoutMoveRewrite),
                 new TestCase("villager does not gather outside resource range", VillagerDoesNotGatherOutsideResourceRange),
@@ -1607,6 +1608,35 @@ namespace RtsGame.Tests
             AssertEqual(staleTile.Y, worker.ReservedInteractionTileY, "fallback should reuse the only viable slot");
             AssertEqual(true, worker.HasMoveTarget, "fallback should keep movement toward viable slot");
             AssertEqual(WorkerTaskPhase.MovingToResourceSlot, worker.TaskPhase, "worker should continue moving toward the viable slot");
+        }
+
+        private static void InteractionReservationScoringPrefersLessCongestedTile()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(3121, 1);
+            int workerId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(10, 10));
+            Unit worker = FindUnitById(state, workerId);
+            var tiles = new List<SpatialRules.TileCoord>
+            {
+                new SpatialRules.TileCoord(12, 10),
+                new SpatialRules.TileCoord(10, 12)
+            };
+
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(12, 9), false);
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(13, 10), false);
+            new TickRunner().AdvanceOneTick(state, rules, new CommandBuffer());
+
+            bool reserved = SpatialRules.TryReserveNearestReachableInteractionTile(
+                state,
+                worker,
+                InteractionReservationKind.ResourceNode,
+                99,
+                tiles,
+                out SpatialRules.TileCoord selected);
+
+            AssertEqual(true, reserved, "scoring should reserve one of the candidate slots");
+            AssertEqual(10, selected.X, "scoring should prefer less congested slot x");
+            AssertEqual(12, selected.Y, "scoring should prefer less congested slot y");
         }
 
         private static void MultiWorkerResourceTrafficMakesProgress()

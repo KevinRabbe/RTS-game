@@ -385,6 +385,7 @@ namespace RtsGame.Sim.Core
             int unitTileY = GetTileY(unit.Position);
             int bestPathCost = int.MaxValue;
             int bestDistance = int.MaxValue;
+            int bestCongestion = int.MaxValue;
             bool found = false;
             for (int i = 0; i < interactionTiles.Count; i++)
             {
@@ -405,15 +406,18 @@ namespace RtsGame.Sim.Core
                 }
 
                 int distance = Abs(unitTileX - tile.X) + Abs(unitTileY - tile.Y);
+                int congestion = CountNearbyTraffic(state, unit, tile.X, tile.Y);
                 if (!found
                     || pathCost < bestPathCost
                     || (pathCost == bestPathCost && distance < bestDistance)
-                    || (pathCost == bestPathCost && distance == bestDistance && CompareTiles(tile, selected) < 0)
-                    || (pathCost == bestPathCost && distance == bestDistance && CompareTiles(tile, selected) == 0 && targetId < unit.ReservedInteractionTargetId))
+                    || (pathCost == bestPathCost && distance == bestDistance && congestion < bestCongestion)
+                    || (pathCost == bestPathCost && distance == bestDistance && congestion == bestCongestion && CompareTiles(tile, selected) < 0)
+                    || (pathCost == bestPathCost && distance == bestDistance && congestion == bestCongestion && CompareTiles(tile, selected) == 0 && targetId < unit.ReservedInteractionTargetId))
                 {
                     selected = tile;
                     bestPathCost = pathCost;
                     bestDistance = distance;
+                    bestCongestion = congestion;
                     found = true;
                 }
             }
@@ -786,6 +790,29 @@ namespace RtsGame.Sim.Core
             }
 
             return false;
+        }
+
+        private static int CountNearbyTraffic(GameState state, Unit unit, int tileX, int tileY)
+        {
+            int count = 0;
+            for (int y = tileY - 1; y <= tileY + 1; y++)
+            {
+                for (int x = tileX - 1; x <= tileX + 1; x++)
+                {
+                    if (x == tileX && y == tileY)
+                    {
+                        continue;
+                    }
+
+                    if (IsTileOccupiedByLiveUnit(state, x, y, unit.Id)
+                        || IsTileReservedByLiveUnit(state, x, y, unit.Id))
+                    {
+                        count++;
+                    }
+                }
+            }
+
+            return count;
         }
 
         public static int EncodeTileKey(int tileX, int tileY)
