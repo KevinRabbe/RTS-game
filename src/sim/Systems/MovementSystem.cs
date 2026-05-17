@@ -51,7 +51,7 @@ namespace RtsGame.Sim.Systems
                 int intendedNextTileY = targetTileY;
                 if (currentTileX != targetTileX || currentTileY != targetTileY)
                 {
-                    if (!DeterministicPathfinder.TryFindNextTile(state, currentTileX, currentTileY, targetTileX, targetTileY, out int nextTileX, out int nextTileY))
+                    if (!state.PathQueries.TryNextStep(state, unit.Id, currentTileX, currentTileY, targetTileX, targetTileY, state.Tick, out int nextTileX, out int nextTileY))
                     {
                         if (IsWorkerTaskMovementPhase(unit.TaskPhase))
                         {
@@ -161,7 +161,7 @@ namespace RtsGame.Sim.Systems
                     continue;
                 }
 
-                if (!DeterministicPathfinder.TryFindNextTile(state, candidateX, candidateY, targetTileX, targetTileY, out _, out _))
+                if (!state.PathQueries.TryNextStep(state, unit.Id, candidateX, candidateY, targetTileX, targetTileY, state.Tick, out _, out _))
                 {
                     continue;
                 }
@@ -365,7 +365,13 @@ namespace RtsGame.Sim.Systems
                 }
 
                 unit.Position = plans[i].NextPosition;
-                unit.LastMovedTick = state.Tick;
+                // Command-move no-progress should require tile-level progress to avoid sub-tile jitter resets.
+                // Worker task movement keeps existing behavior because task systems already own bounded retarget logic.
+                bool shouldRecordProgressTick = state.MovementProgressPolicy.ShouldRecordProgressTick(unit, plans[i].EntersNewTile, plans[i].WillReachTarget);
+                if (shouldRecordProgressTick)
+                {
+                    unit.LastMovedTick = state.Tick;
+                }
                 if (plans[i].WillReachTarget)
                 {
                     unit.HasMoveTarget = false;
@@ -405,8 +411,7 @@ namespace RtsGame.Sim.Systems
                 return unit.TaskPhase;
             }
 
-            int blockedTicks = unit.LastMovedTick < 0 ? int.MaxValue : state.Tick - unit.LastMovedTick;
-            return blockedTicks >= GameData.InteractionTargetRetargetBlockedTicks ? WorkerTaskPhase.BlockedWaiting : unit.TaskPhase;
+            return state.MovementProgressPolicy.IsNoProgressTimedOut(state, unit) ? WorkerTaskPhase.BlockedWaiting : unit.TaskPhase;
         }
 
         private static WorkerTaskPhase GetPhaseAfterArrivedMove(WorkerTaskPhase phase)
@@ -596,4 +601,5 @@ namespace RtsGame.Sim.Systems
         }
     }
 }
+
 

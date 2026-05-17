@@ -18,6 +18,10 @@ namespace RtsGame.Sim.Core
         public RankingState RankingState { get; }
         public MatchResultState MatchResultState { get; }
         public SpatialTileIndex SpatialTileIndex { get; }
+        public ISpatialIndexService SpatialIndex { get; }
+        public IPathQueryService PathQueries { get; }
+        public ITrafficReservationService TrafficReservations { get; }
+        public IMovementProgressPolicy MovementProgressPolicy { get; }
         public SimDebugCounters DebugCounters { get; }
         public ulong LastChecksum { get; set; }
 
@@ -35,6 +39,10 @@ namespace RtsGame.Sim.Core
             RankingState = new RankingState(playerCount);
             MatchResultState = new MatchResultState();
             SpatialTileIndex = new SpatialTileIndex();
+            SpatialIndex = new SpatialIndexService();
+            PathQueries = new DeterministicPathQueryService();
+            TrafficReservations = new DeterministicTrafficReservationService();
+            MovementProgressPolicy = new DefaultMovementProgressPolicy();
             DebugCounters = new SimDebugCounters();
             LastChecksum = 0UL;
         }
@@ -54,5 +62,9 @@ namespace RtsGame.Sim.Core
         public int LastCommandTargetTileY { get; set; }
         public int LastCommandUnitCount { get; set; }
         public int LastCommandFirstUnitId { get; set; }
+        public int PathFindNextCalls { get; set; }
+        public int PathFindCostCalls { get; set; }
+        public int ReservationRetargetCount { get; set; }
+        public int ReservationReleaseCount { get; set; }
     }
 }

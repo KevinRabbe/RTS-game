@@ -39,6 +39,10 @@ namespace RtsGame.Sim.Core
 
         public void AdvanceOneTick(GameState state, GameRules rules, CommandBuffer commandBuffer)
         {
+            state.DebugCounters.PathFindNextCalls = 0;
+            state.DebugCounters.PathFindCostCalls = 0;
+            state.DebugCounters.ReservationRetargetCount = 0;
+            state.DebugCounters.ReservationReleaseCount = 0;
             var context = new TickCommandContext(commandBuffer.GetCommandsForTick(state.Tick));
             for (int i = 0; i < _systems.Length; i++)
             {

@@ -167,7 +167,7 @@ namespace RtsGame.Sim.Commands
                     continue;
                 }
 
-                if (DeterministicPathfinder.TryFindNextTile(state, unitTileX, unitTileY, tile.X, tile.Y, out _, out _))
+                if (state.PathQueries.TryNextStep(state, unit.Id, unitTileX, unitTileY, tile.X, tile.Y, state.Tick, out _, out _))
                 {
                     return true;
                 }
@@ -235,4 +235,5 @@ namespace RtsGame.Sim.Commands
 
     }
 }
+
 

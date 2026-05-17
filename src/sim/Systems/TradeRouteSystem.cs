@@ -103,7 +103,7 @@ namespace RtsGame.Sim.Systems
                     continue;
                 }
 
-                if (!DeterministicPathfinder.TryFindNextTile(state, unitTileX, unitTileY, tile.X, tile.Y, out _, out _))
+                if (!state.PathQueries.TryNextStep(state, cart.Id, unitTileX, unitTileY, tile.X, tile.Y, state.Tick, out _, out _))
                 {
                     continue;
                 }
@@ -127,3 +127,4 @@ namespace RtsGame.Sim.Systems
         }
     }
 }
+

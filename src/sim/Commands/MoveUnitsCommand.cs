@@ -75,7 +75,7 @@ namespace RtsGame.Sim.Commands
 
                 int unitTileX = SpatialRules.GetTileX(unit.Position);
                 int unitTileY = SpatialRules.GetTileY(unit.Position);
-                if (DeterministicPathfinder.TryFindNextTile(state, unitTileX, unitTileY, targetTileX, targetTileY, out _, out _))
+                if (state.PathQueries.TryNextStep(state, unit.Id, unitTileX, unitTileY, targetTileX, targetTileY, state.Tick, out _, out _))
                 {
                     anyUnitReachable = true;
                 }
@@ -185,4 +185,5 @@ namespace RtsGame.Sim.Commands
         }
     }
 }
+
 

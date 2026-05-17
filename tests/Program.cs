@@ -186,6 +186,8 @@ namespace RtsGame.Tests
                 new TestCase("fifty workers across resources keep progress or intent", FiftyWorkersAcrossResourcesKeepProgressOrIntent),
                 new TestCase("one hundred twenty workers across resources keep progress or intent", OneHundredTwentyWorkersAcrossResourcesKeepProgressOrIntent),
                 new TestCase("six player mixed population traffic remains deterministic", SixPlayerMixedPopulationTrafficRemainsDeterministic),
+                new TestCase("path query budget stays bounded under pressure", PathQueryBudgetStaysBoundedUnderPressure),
+                new TestCase("repeated command replacement stays bounded", RepeatedCommandReplacementStaysBounded),
                 new TestCase("two units attempting same tile receive slots", TwoUnitsAttemptingSameTileReceiveSlots),
                 new TestCase("three units attempting same tile receive slots", ThreeUnitsAttemptingSameTileReceiveSlots),
                 new TestCase("two unit tile swap fails", TwoUnitTileSwapFails),
@@ -3474,6 +3476,68 @@ namespace RtsGame.Tests
             RunWorkerPressureScenario(3044, 120, 360, "one hundred twenty workers across resources");
         }
 
+        private static void PathQueryBudgetStaysBoundedUnderPressure()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(3046);
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(20, 20));
+            int areaId = AddTestResourceArea(state, GatherProfileId.BerryBush, FixedVector2.FromInts(12, 15));
+            int nodeId = AddTestResourceNodeToArea(state, areaId, GatherProfileId.BerryBush, FixedVector2.FromInts(12, 15), 2500);
+            int[] workers = CreateGridOfVillagers(state, 120, 18, 30, 12);
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(nodeId, workers)));
+            var runner = new TickRunner();
+            int maxPathCallsPerTick = 0;
+            int maxRetargetsPerTick = 0;
+            for (int tick = 0; tick < 220; tick++)
+            {
+                runner.AdvanceOneTick(state, rules, buffer);
+                int pathCalls = state.DebugCounters.PathFindNextCalls + state.DebugCounters.PathFindCostCalls;
+                if (pathCalls > maxPathCallsPerTick)
+                {
+                    maxPathCallsPerTick = pathCalls;
+                }
+
+                if (state.DebugCounters.ReservationRetargetCount > maxRetargetsPerTick)
+                {
+                    maxRetargetsPerTick = state.DebugCounters.ReservationRetargetCount;
+                }
+            }
+
+            AssertEqual(true, maxPathCallsPerTick <= 12000, "path query budget should stay bounded under 120-worker pressure max=" + maxPathCallsPerTick);
+            AssertEqual(true, maxRetargetsPerTick <= 240, "reservation retarget churn should stay bounded under 120-worker pressure max=" + maxRetargetsPerTick);
+        }
+
+        private static void RepeatedCommandReplacementStaysBounded()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(3047);
+            int[] units = CreateLineOfUnits(state, 20, 0, 0, 10, 0, 1);
+            var buffer = new CommandBuffer();
+            for (int tick = 0; tick < 80; tick++)
+            {
+                int tx = (tick % 2 == 0) ? 40 : 10;
+                int ty = (tick % 2 == 0) ? 40 : 10;
+                buffer.Add(new CommandEnvelope(new CommandHeader(tick, 0, unchecked((uint)tick), CommandType.MoveUnits), new MoveUnitsCommand(units, FixedVector2.FromInts(tx, ty))));
+            }
+
+            var runner = new TickRunner();
+            int maxPathCallsPerTick = 0;
+            for (int tick = 0; tick < 120; tick++)
+            {
+                runner.AdvanceOneTick(state, rules, buffer);
+                int pathCalls = state.DebugCounters.PathFindNextCalls + state.DebugCounters.PathFindCostCalls;
+                if (pathCalls > maxPathCallsPerTick)
+                {
+                    maxPathCallsPerTick = pathCalls;
+                }
+
+                AssertNoLiveUnitStacking(state, "repeated replacement should not stack");
+            }
+
+            AssertEqual(true, maxPathCallsPerTick <= 14000, "repeated replacement path query budget should stay bounded max=" + maxPathCallsPerTick);
+        }
+
         private static void SixPlayerMixedPopulationTrafficRemainsDeterministic()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(6);
@@ -3518,6 +3582,8 @@ namespace RtsGame.Tests
                 runner.AdvanceOneTick(second, rules, secondBuffer);
                 AssertNoLiveUnitStacking(first, "six-player mixed-pop pressure should not stack");
                 AssertNoDuplicateFinalPurposeReservations(first, "six-player mixed-pop pressure should avoid duplicate reservations");
+                int pathCalls = first.DebugCounters.PathFindNextCalls + first.DebugCounters.PathFindCostCalls;
+                AssertEqual(true, pathCalls <= 16000, "six-player mixed-pop path queries should stay bounded tick=" + tick + " pathCalls=" + pathCalls);
             }
 
             AssertEqual(first.LastChecksum, second.LastChecksum, "six-player mixed-pop pressure should remain deterministic");
@@ -3556,6 +3622,8 @@ namespace RtsGame.Tests
                 runner.AdvanceOneTick(state, rules, buffer);
                 AssertNoLiveUnitStacking(state, label + " should not stack");
                 AssertNoDuplicateFinalPurposeReservations(state, label + " should not duplicate final-purpose reservations");
+                int pathCalls = state.DebugCounters.PathFindNextCalls + state.DebugCounters.PathFindCostCalls;
+                AssertEqual(true, pathCalls <= 14000, label + " path query budget should stay bounded tick=" + tick + " pathCalls=" + pathCalls);
             }
 
             AssertEqual(true, state.PlayerStates.Players[0].Resources.Food > initialFood || AnyWorkerHasResourceIntent(state, foodWorkers), label + " food workers should make progress or keep gather intent");
