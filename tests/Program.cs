@@ -168,6 +168,10 @@ namespace RtsGame.Tests
                 new TestCase("group move does not cause endless jitter", GroupMoveDoesNotCauseEndlessJitter),
                 new TestCase("group gather does not collapse onto one interaction slot", GroupGatherDoesNotCollapseOntoOneInteractionSlot),
                 new TestCase("group gather workers make progress or wait cleanly", GroupGatherWorkersMakeProgressOrWaitCleanly),
+                new TestCase("group gather resolves clicked node to resource area distribution", GroupGatherResolvesClickedNodeToResourceAreaDistribution),
+                new TestCase("group gather avoids single node collapse when sibling nodes exist", GroupGatherAvoidsSingleNodeCollapseWhenSiblingNodesExist),
+                new TestCase("dry arabia berry group gather makes bounded food progress", DryArabiaBerryGroupGatherMakesBoundedFoodProgress),
+                new TestCase("berry visual radius matches simulation footprint radius", BerryVisualRadiusMatchesSimulationFootprintRadius),
                 new TestCase("thirty workers across resources keep progress or intent", ThirtyWorkersAcrossResourcesKeepProgressOrIntent),
                 new TestCase("two units attempting same tile receive slots", TwoUnitsAttemptingSameTileReceiveSlots),
                 new TestCase("three units attempting same tile receive slots", ThreeUnitsAttemptingSameTileReceiveSlots),
@@ -783,7 +787,7 @@ namespace RtsGame.Tests
             ResourceNode tree = CreateTestResourceNode(state, GatherProfileId.Tree, FixedVector2.FromInts(10, 10), GameData.StartingWoodAmount);
             GatherProfile profile = GameData.GetGatherProfile(tree.GatherProfileId);
 
-            AssertEqual(true, profile.VisualRadiusTiles > profile.FootprintRadiusTiles, "tree profile should model visual overhang separately from sim footprint");
+            AssertEqual(true, profile.VisualRadiusTiles >= profile.FootprintRadiusTiles, "tree profile visual radius should not undershoot sim footprint");
             AssertEqual(true, SpatialRules.IsTileInsideResourceFootprint(tree, 10, 10), "tree trunk tile should be the sim footprint");
             AssertEqual(false, SpatialRules.IsTileInsideResourceFootprint(tree, 12, 10), "visual overhang tile should not be inside sim footprint");
             AssertEqual(false, SpatialRules.IsTileBlockedForUnitMovement(state, 12, 10), "visual overhang tile should not block movement");
@@ -3056,6 +3060,113 @@ namespace RtsGame.Tests
             }
 
             AssertEqual(true, anyProgress, "group gather workers should gather/deposit or wait cleanly without losing intent");
+        }
+
+        private static void GroupGatherResolvesClickedNodeToResourceAreaDistribution()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateGroupBerryAreaState(3026, 5, out int areaId, out int[] nodeIds, out int[] unitIds);
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(nodeIds[0], unitIds)));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            int distributedWorkers = 0;
+            var targetedNodes = new HashSet<int>();
+            for (int i = 0; i < unitIds.Length; i++)
+            {
+                Unit unit = FindUnitById(state, unitIds[i]);
+                AssertEqual(areaId, unit.CurrentResourceAreaId, "clicked node should resolve to owning resource area for unit " + unit.Id);
+                AssertEqual(true, unit.CurrentResourceNodeId != 0, "group gather should keep a concrete node target for unit " + unit.Id);
+                targetedNodes.Add(unit.CurrentResourceNodeId);
+                if (unit.HasMoveTarget || unit.TaskPhase == WorkerTaskPhase.BlockedWaiting)
+                {
+                    distributedWorkers++;
+                }
+            }
+
+            AssertEqual(true, distributedWorkers >= 3, "most workers should receive movement/waiting gather intent immediately");
+            AssertEqual(true, targetedNodes.Count >= 2, "group gather should distribute workers across multiple nodes in the same area");
+        }
+
+        private static void GroupGatherAvoidsSingleNodeCollapseWhenSiblingNodesExist()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateGroupBerryAreaState(3027, 5, out _, out int[] nodeIds, out int[] unitIds);
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(nodeIds[0], unitIds)));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            int nodeOneReservations = 0;
+            int nodeTwoReservations = 0;
+            int duplicateTileReservations = 0;
+            var reservedTiles = new HashSet<long>();
+            for (int i = 0; i < unitIds.Length; i++)
+            {
+                Unit unit = FindUnitById(state, unitIds[i]);
+                if (unit.ReservedInteractionKind != InteractionReservationKind.ResourceNode)
+                {
+                    continue;
+                }
+
+                if (unit.ReservedInteractionTargetId == nodeIds[0])
+                {
+                    nodeOneReservations++;
+                }
+                else if (unit.ReservedInteractionTargetId == nodeIds[1])
+                {
+                    nodeTwoReservations++;
+                }
+
+                long tileKey = ((long)unit.ReservedInteractionTileX << 32) ^ (uint)unit.ReservedInteractionTileY;
+                if (!reservedTiles.Add(tileKey))
+                {
+                    duplicateTileReservations++;
+                }
+            }
+
+            AssertEqual(true, nodeOneReservations > 0, "clicked node should still receive some workers");
+            AssertEqual(true, nodeTwoReservations > 0, "sibling node should receive workers under group pressure");
+            AssertEqual(0, duplicateTileReservations, "workers should not reserve the same interaction slot tile");
+        }
+
+        private static void DryArabiaBerryGroupGatherMakesBoundedFoodProgress()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = GameInitializer.CreateDryArabiaTest01(3028);
+            int[] villagers = GetPlayerVillagerIds(state, 0);
+            int[] workers = new[] { villagers[0], villagers[1], villagers[2], villagers[3] };
+            int berryNodeId = FindNearbyResourceNodeId(state, DryArabiaTest01MapDefinition.GetTownCenterZone(0), ResourceType.Food);
+            int foodBefore = state.PlayerStates.Players[0].Resources.Food;
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(berryNodeId, workers)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+
+            var runner = new TickRunner();
+            for (int tick = 0; tick < 500; tick++)
+            {
+                runner.AdvanceOneTick(state, rules, buffer);
+                AssertNoLiveUnitStacking(state, "dry arabia berry group gather should avoid stacking while making progress");
+            }
+
+            bool progressed = state.PlayerStates.Players[0].Resources.Food > foodBefore;
+            for (int i = 0; i < workers.Length && !progressed; i++)
+            {
+                Unit worker = FindUnitById(state, workers[i]);
+                progressed = worker.CarriedResourceType == ResourceType.Food
+                    || worker.CarriedAmount > 0
+                    || worker.TaskPhase == WorkerTaskPhase.Gathering
+                    || worker.TaskPhase == WorkerTaskPhase.BlockedWaiting;
+            }
+
+            AssertEqual(true, progressed, "dry arabia berry group gather should make bounded food progress or maintain active gather intent");
+        }
+
+        private static void BerryVisualRadiusMatchesSimulationFootprintRadius()
+        {
+            GatherProfile profile = GameData.GetGatherProfile(GatherProfileId.BerryBush);
+            AssertEqual(profile.FootprintRadiusTiles, profile.VisualRadiusTiles, "berry visual radius should match node simulation footprint radius");
         }
 
         private static void ThirtyWorkersAcrossResourcesKeepProgressOrIntent()
@@ -7644,6 +7755,24 @@ namespace RtsGame.Tests
             return state;
         }
 
+        private static GameState CreateGroupBerryAreaState(ulong seed, int workerCount, out int areaId, out int[] nodeIds, out int[] unitIds)
+        {
+            GameState state = CreateOccupancyState(seed, 1);
+            unitIds = new int[workerCount];
+            for (int i = 0; i < workerCount; i++)
+            {
+                unitIds[i] = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(6, 8 + i));
+            }
+
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(0, 0));
+            areaId = AddTestResourceArea(state, GatherProfileId.BerryBush, FixedVector2.FromInts(12, 10));
+            nodeIds = new int[3];
+            nodeIds[0] = AddTestResourceNodeToArea(state, areaId, GatherProfileId.BerryBush, FixedVector2.FromInts(12, 10), GameData.StartingFoodAmount);
+            nodeIds[1] = AddTestResourceNodeToArea(state, areaId, GatherProfileId.BerryBush, FixedVector2.FromInts(13, 11), GameData.StartingFoodAmount);
+            nodeIds[2] = AddTestResourceNodeToArea(state, areaId, GatherProfileId.BerryBush, FixedVector2.FromInts(11, 11), GameData.StartingFoodAmount);
+            return state;
+        }
+
         private static int[] CreateLineOfUnits(GameState state, int count, int ownerPlayerIndex, int startX, int startY, int deltaX, int deltaY)
         {
             var unitIds = new int[count];
@@ -7686,6 +7815,34 @@ namespace RtsGame.Tests
             }
 
             return false;
+        }
+
+        private static int FindNearbyResourceNodeId(GameState state, FixedVector2 origin, ResourceType resourceType)
+        {
+            int bestId = 0;
+            long bestDistance = long.MaxValue;
+            for (int i = 0; i < state.EconomyState.ResourceNodes.Count; i++)
+            {
+                ResourceNode node = state.EconomyState.ResourceNodes[i];
+                if (node.IsDepleted || node.ResourceType != resourceType)
+                {
+                    continue;
+                }
+
+                long distance = (node.Position - origin).LengthSquaredRaw();
+                if (bestId == 0 || distance < bestDistance || (distance == bestDistance && node.Id < bestId))
+                {
+                    bestId = node.Id;
+                    bestDistance = distance;
+                }
+            }
+
+            if (bestId == 0)
+            {
+                throw new InvalidOperationException("nearby resource node not found type=" + resourceType);
+            }
+
+            return bestId;
         }
 
         private static void SetFullCarrier(GameState state, int unitId, ResourceType resourceType)

@@ -46,11 +46,17 @@ namespace RtsGame.Sim.Systems
                         continue;
                     }
 
-                    if (TryChooseResourceApproachTile(state, unit, node, out int approachX, out int approachY))
+                    if (ResourceGatherTargeting.TryChooseResourceNodeAndReserveSlot(
+                        state,
+                        unit,
+                        node.ResourceAreaId,
+                        node.Id,
+                        out ResourceNode? selectedNode))
                     {
+                        unit.CurrentResourceNodeId = selectedNode!.Id;
                         unit.TaskPhase = WorkerTaskPhase.MovingToResourceSlot;
                         unit.HasMoveTarget = true;
-                        unit.MoveTarget = FixedVector2.FromInts(approachX, approachY);
+                        unit.MoveTarget = FixedVector2.FromInts(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
                         continue;
                     }
 
@@ -119,6 +125,9 @@ namespace RtsGame.Sim.Systems
                 && TryChooseContinuationNode(state, unit, unit.CurrentResourceAreaId, out ResourceNode? nextNode))
             {
                 unit.CurrentResourceNodeId = nextNode!.Id;
+                unit.TaskPhase = WorkerTaskPhase.MovingToResourceSlot;
+                unit.HasMoveTarget = true;
+                unit.MoveTarget = FixedVector2.FromInts(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
                 return nextNode;
             }
 
@@ -127,49 +136,12 @@ namespace RtsGame.Sim.Systems
 
         private static bool TryChooseContinuationNode(GameState state, Unit unit, int resourceAreaId, out ResourceNode? selectedNode)
         {
-            selectedNode = null;
-            ResourceNode? best = null;
-            int bestDistance = int.MaxValue;
-            for (int i = 0; i < state.EconomyState.ResourceNodes.Count; i++)
-            {
-                ResourceNode candidate = state.EconomyState.ResourceNodes[i];
-                if (candidate.ResourceAreaId != resourceAreaId || candidate.IsDepleted)
-                {
-                    continue;
-                }
-
-                GatherProfile profile = GameData.GetGatherProfile(candidate.GatherProfileId);
-                if (profile.AutoContinuationMode != ResourceAutoContinuationMode.SameArea)
-                {
-                    continue;
-                }
-
-                int unitTileX = SpatialRules.GetTileX(unit.Position);
-                int unitTileY = SpatialRules.GetTileY(unit.Position);
-                int candidateTileX = SpatialRules.GetTileX(candidate.Position);
-                int candidateTileY = SpatialRules.GetTileY(candidate.Position);
-                int distance = Abs(unitTileX - candidateTileX) + Abs(unitTileY - candidateTileY);
-                if (best == null
-                    || distance < bestDistance
-                    || (distance == bestDistance && candidate.Id < best.Id))
-                {
-                    best = candidate;
-                    bestDistance = distance;
-                }
-            }
-
-            if (best == null)
-            {
-                return false;
-            }
-
-            if (!TryChooseResourceApproachTile(state, unit, best, out _, out _))
-            {
-                return false;
-            }
-
-            selectedNode = best;
-            return true;
+            return ResourceGatherTargeting.TryChooseResourceNodeAndReserveSlot(
+                state,
+                unit,
+                resourceAreaId,
+                unit.CurrentResourceNodeId,
+                out selectedNode);
         }
 
         private static void ClearExhaustedGatherIntent(Unit unit)
@@ -194,37 +166,6 @@ namespace RtsGame.Sim.Systems
             return null;
         }
 
-        private static bool TryChooseResourceApproachTile(GameState state, Unit unit, ResourceNode node, out int approachX, out int approachY)
-        {
-            approachX = 0;
-            approachY = 0;
-            List<SpatialRules.TileCoord> interactionTiles = SpatialRules.EnumerateResourceInteractionTiles(state, node);
-            bool hasExcludedTile = SpatialRules.IsInteractionReservationTimedOut(
-                state,
-                unit,
-                InteractionReservationKind.ResourceNode,
-                node.Id);
-            SpatialRules.TileCoord excludedTile = hasExcludedTile
-                ? new SpatialRules.TileCoord(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY)
-                : default;
-            if (!SpatialRules.TryReserveNearestReachableInteractionTile(
-                state,
-                unit,
-                InteractionReservationKind.ResourceNode,
-                node.Id,
-                interactionTiles,
-                hasExcludedTile,
-                excludedTile,
-                out SpatialRules.TileCoord selected))
-            {
-                return false;
-            }
-
-            approachX = selected.X;
-            approachY = selected.Y;
-            return true;
-        }
-
         private static bool ShouldKeepCurrentApproachTarget(GameState state, Unit unit, ResourceNode node)
         {
             List<SpatialRules.TileCoord> interactionTiles = SpatialRules.EnumerateResourceInteractionTiles(state, node);
@@ -240,11 +181,6 @@ namespace RtsGame.Sim.Systems
         {
             int result = a < b ? a : b;
             return result < c ? result : c;
-        }
-
-        private static int Abs(int value)
-        {
-            return value < 0 ? -value : value;
         }
 
     }

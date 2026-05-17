@@ -34,7 +34,7 @@ namespace RtsGame.Presentation.GodotBridge
                 case VisualPrimitiveKind.FoodResourceCircle:
                 case VisualPrimitiveKind.WoodResourceCircle:
                 case VisualPrimitiveKind.GoldResourceCircle:
-                    interactionHalfSize = halfSize + oneTile;
+                    interactionHalfSize = halfSize + halfTile;
                     break;
             }
 

@@ -84,48 +84,37 @@ namespace RtsGame.Sim.Commands
 
         public void Execute(GameState state, GameRules rules, CommandHeader header)
         {
-            ResourceNode node = GetResourceNode(state, ResourceNodeId);
+            ResourceNode clickedNode = GetResourceNode(state, ResourceNodeId);
             List<int> sortedUnitIds = StableSort.Sorted(UnitIds, (left, right) => left.CompareTo(right));
             for (int i = 0; i < sortedUnitIds.Count; i++)
             {
                 Unit unit = GetUnit(state, sortedUnitIds[i]);
                 ClearBuildAssignment(state, unit);
                 SpatialRules.ClearInteractionReservation(unit);
-                unit.CurrentResourceAreaId = node.ResourceAreaId;
-                unit.CurrentResourceNodeId = ResourceNodeId;
+                unit.CurrentResourceAreaId = clickedNode.ResourceAreaId;
                 unit.TaskPhase = WorkerTaskPhase.MovingToResourceSlot;
                 unit.AttackTargetId = 0;
                 unit.IsSiegeDeployed = false;
                 unit.SiegeSetupTicksRemaining = 0;
                 unit.SiegeReloadTicksRemaining = 0;
-
-                if (TryChooseResourceApproachTile(state, unit, node, out int approachX, out int approachY))
+                unit.CurrentResourceNodeId = clickedNode.Id;
+                if (ResourceGatherTargeting.TryChooseResourceNodeAndReserveSlot(
+                    state,
+                    unit,
+                    clickedNode.ResourceAreaId,
+                    clickedNode.Id,
+                    out ResourceNode? selectedNode))
                 {
+                    unit.CurrentResourceNodeId = selectedNode!.Id;
                     unit.HasMoveTarget = true;
-                    unit.MoveTarget = FixedVector2.FromInts(approachX, approachY);
+                    unit.MoveTarget = FixedVector2.FromInts(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
+                }
+                else
+                {
+                    unit.TaskPhase = WorkerTaskPhase.BlockedWaiting;
+                    unit.HasMoveTarget = false;
                 }
             }
-        }
-
-        private static bool TryChooseResourceApproachTile(GameState state, Unit unit, ResourceNode node, out int approachX, out int approachY)
-        {
-            approachX = 0;
-            approachY = 0;
-            List<SpatialRules.TileCoord> interactionTiles = SpatialRules.EnumerateResourceInteractionTiles(state, node);
-            if (!SpatialRules.TryReserveNearestReachableInteractionTile(
-                state,
-                unit,
-                InteractionReservationKind.ResourceNode,
-                node.Id,
-                interactionTiles,
-                out SpatialRules.TileCoord selected))
-            {
-                return false;
-            }
-
-            approachX = selected.X;
-            approachY = selected.Y;
-            return true;
         }
 
         private static void ClearBuildAssignment(GameState state, Unit unit)
