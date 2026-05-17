@@ -154,6 +154,7 @@ namespace RtsGame.Tests
                 new TestCase("move reject reason for wall blocked target", MoveRejectReasonForWallBlockedTarget),
                 new TestCase("move rejects resource-blocked target", MoveRejectsResourceBlockedTarget),
                 new TestCase("move rejects unreachable open target", MoveRejectsUnreachableOpenTarget),
+                new TestCase("move accepts multi-select when at least one unit can path", MoveAcceptsMultiSelectWhenAtLeastOneUnitCanPath),
                 new TestCase("movement pathfinds around wall", MovementPathfindsAroundWall),
                 new TestCase("pathfinder returns same first step", PathfinderReturnsSameFirstStep),
                 new TestCase("pathfinder wall blocks path", PathfinderWallBlocksPath),
@@ -2807,6 +2808,33 @@ namespace RtsGame.Tests
 
             AssertEqual(false, state.EntityState.Units[0].HasMoveTarget, "move target behind sealed blocker should reject");
             AssertEqual(1, state.DebugCounters.RejectedCommandCount, "unreachable move target should count as rejected");
+        }
+
+        private static void MoveAcceptsMultiSelectWhenAtLeastOneUnitCanPath()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(1521);
+            int trappedUnitId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(10, 10));
+            int mobileUnitId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(0, 0));
+            int trapAreaId = AddTestResourceArea(state, GatherProfileId.Tree, FixedVector2.FromInts(10, 10));
+            AddTestResourceNodeToArea(state, trapAreaId, GatherProfileId.Tree, FixedVector2.FromInts(9, 10), GameData.StartingWoodAmount);
+            AddTestResourceNodeToArea(state, trapAreaId, GatherProfileId.Tree, FixedVector2.FromInts(11, 10), GameData.StartingWoodAmount);
+            AddTestResourceNodeToArea(state, trapAreaId, GatherProfileId.Tree, FixedVector2.FromInts(10, 9), GameData.StartingWoodAmount);
+            AddTestResourceNodeToArea(state, trapAreaId, GatherProfileId.Tree, FixedVector2.FromInts(10, 11), GameData.StartingWoodAmount);
+
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            buffer.Add(new CommandEnvelope(
+                new CommandHeader(0, 0, 0, CommandType.MoveUnits),
+                new MoveUnitsCommand(new[] { trappedUnitId, mobileUnitId }, FixedVector2.FromInts(20, 20))));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            Unit trapped = FindUnitById(state, trappedUnitId);
+            Unit mobile = FindUnitById(state, mobileUnitId);
+            AssertEqual(0, state.DebugCounters.RejectedCommandCount, "group move should be accepted when at least one selected unit can path");
+            AssertEqual(false, trapped.HasMoveTarget, "trapped unit without static path should not receive unreachable move target");
+            AssertEqual(true, mobile.HasMoveTarget, "reachable unit should still receive move target");
+            AssertEqual(WorkerTaskPhase.MovingToCommandMove, mobile.TaskPhase, "reachable unit should keep command move intent");
         }
 
         private static void MovementPathfindsAroundWall()

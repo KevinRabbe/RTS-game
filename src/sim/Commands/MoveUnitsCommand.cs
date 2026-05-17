@@ -59,6 +59,7 @@ namespace RtsGame.Sim.Commands
             }
 
             var seen = new HashSet<int>();
+            bool anyUnitReachable = false;
             for (int i = 0; i < UnitIds.Count; i++)
             {
                 int unitId = UnitIds[i];
@@ -74,13 +75,15 @@ namespace RtsGame.Sim.Commands
 
                 int unitTileX = SpatialRules.GetTileX(unit.Position);
                 int unitTileY = SpatialRules.GetTileY(unit.Position);
-                if (!DeterministicPathfinder.TryFindNextTile(state, unitTileX, unitTileY, targetTileX, targetTileY, out _, out _))
+                if (DeterministicPathfinder.TryFindNextTile(state, unitTileX, unitTileY, targetTileX, targetTileY, out _, out _))
                 {
-                    return CommandValidationReason.NoStaticPath;
+                    anyUnitReachable = true;
                 }
             }
 
-            return CommandValidationReason.Accepted;
+            return anyUnitReachable
+                ? CommandValidationReason.Accepted
+                : CommandValidationReason.NoStaticPath;
         }
 
         public void Execute(GameState state, GameRules rules, CommandHeader header)
