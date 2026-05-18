@@ -26,10 +26,10 @@ namespace RtsGame.Presentation.GodotBridge
         // Fixed-point scale: 1 tile = 65536 raw units (Fixed.OneRaw).
         private const long FixedOneRaw = 1L << 16;
 
-        // Mirror GameData constants - copied to avoid a cross-layer reference.
+        // Mirror GameData footprint constants - copied to avoid a cross-layer reference.
         // If GameData changes these, update here too.
-        private const int TcRadiusTiles = 2;           // GameData.TownCenterPlacementRadiusTiles
-        private const int ResourceRadiusTiles = 1;     // GameData.ResourcePlacementRadiusTiles
+        private const int TcFootprintWidthTiles = 4;   // GameData.GetBuildingFootprintWidthTiles(TownCenter)
+        private const int TcFootprintHeightTiles = 4;  // GameData.GetBuildingFootprintHeightTiles(TownCenter)
         private const int MapWidthTiles = 128;         // GameData.MapWidthTiles
         private const int MapHeightTiles = 96;         // GameData.MapHeightTiles
         private const int TownCenterWoodCost = 275;    // GameData.TownCenterWoodCost
@@ -59,6 +59,8 @@ namespace RtsGame.Presentation.GodotBridge
                 return TcPlacementPreviewResult.MissingResources;
             }
 
+            GetFootprintBounds(posXRaw, posYRaw, TcFootprintWidthTiles, TcFootprintHeightTiles, out long tcMinXRaw, out long tcMinYRaw, out long tcMaxXRaw, out long tcMaxYRaw);
+
             // Check against all existing buildings.
             for (int i = 0; i < frame.Primitives.Length; i++)
             {
@@ -69,11 +71,7 @@ namespace RtsGame.Presentation.GodotBridge
                     continue;
                 }
 
-                // Mirror PlacementRules: combined radius = TC radius + other building radius.
-                // We conservatively treat every existing building as having radius 2 (TC) or 1 (wall).
-                // The exact building type id is not available in the DTO; use TypeId hint if needed.
-                int otherRadiusTiles = ResolveOtherBuildingRadius(primitive);
-                if (IsWithinCombinedRadius(posXRaw, posYRaw, TcRadiusTiles, primitive.XRaw, primitive.YRaw, otherRadiusTiles))
+                if (IsOverlappingFootprint(tcMinXRaw, tcMinYRaw, tcMaxXRaw, tcMaxYRaw, primitive))
                 {
                     return TcPlacementPreviewResult.OverlapsBuilding;
                 }
@@ -89,7 +87,7 @@ namespace RtsGame.Presentation.GodotBridge
                     continue;
                 }
 
-                if (IsWithinCombinedRadius(posXRaw, posYRaw, TcRadiusTiles, primitive.XRaw, primitive.YRaw, ResourceRadiusTiles))
+                if (IsOverlappingFootprint(tcMinXRaw, tcMinYRaw, tcMaxXRaw, tcMaxYRaw, primitive))
                 {
                     return TcPlacementPreviewResult.OverlapsResource;
                 }
@@ -103,30 +101,42 @@ namespace RtsGame.Presentation.GodotBridge
             return tileX >= 0 && tileY >= 0 && tileX < MapWidthTiles && tileY < MapHeightTiles;
         }
 
-        private static bool IsWithinCombinedRadius(
-            long posXRaw, long posYRaw, int radiusTiles,
-            long otherXRaw, long otherYRaw, int otherRadiusTiles)
+        private static bool IsOverlappingFootprint(
+            long tcMinXRaw,
+            long tcMinYRaw,
+            long tcMaxXRaw,
+            long tcMaxYRaw,
+            GodotPrimitiveDto primitive)
         {
-            long combinedRaw = (long)(radiusTiles + otherRadiusTiles) * FixedOneRaw;
-            long combinedSquaredRaw = checked(combinedRaw * combinedRaw);
-            long dx = posXRaw - otherXRaw;
-            long dy = posYRaw - otherYRaw;
-            long distSquaredRaw = checked(dx * dx + dy * dy);
-            return distSquaredRaw < combinedSquaredRaw;
+            long primitiveHalfWidthRaw = primitive.WidthRaw / 2;
+            long primitiveHalfHeightRaw = primitive.HeightRaw / 2;
+            long primitiveMinXRaw = primitive.XRaw - primitiveHalfWidthRaw;
+            long primitiveMaxXRaw = primitive.XRaw + primitiveHalfWidthRaw;
+            long primitiveMinYRaw = primitive.YRaw - primitiveHalfHeightRaw;
+            long primitiveMaxYRaw = primitive.YRaw + primitiveHalfHeightRaw;
+
+            return tcMinXRaw <= primitiveMaxXRaw
+                && tcMaxXRaw >= primitiveMinXRaw
+                && tcMinYRaw <= primitiveMaxYRaw
+                && tcMaxYRaw >= primitiveMinYRaw;
         }
 
-        private static int ResolveOtherBuildingRadius(GodotPrimitiveDto primitive)
+        private static void GetFootprintBounds(
+            long centerXRaw,
+            long centerYRaw,
+            int widthTiles,
+            int heightTiles,
+            out long minXRaw,
+            out long minYRaw,
+            out long maxXRaw,
+            out long maxYRaw)
         {
-            // TypeId corresponds to BuildingTypeId enum values from the sim.
-            // TownCenter = 1 (radius 2), Wall = 2 (radius 1), TradePost = 3 (radius 2).
-            // Default conservatively to 1 if unknown.
-            switch (primitive.TypeId)
-            {
-                case 1: return 2; // TownCenter
-                case 2: return 1; // Wall
-                case 3: return 2; // TradePost
-                default: return 1;
-            }
+            long halfWidthRaw = ((long)widthTiles * FixedOneRaw) / 2;
+            long halfHeightRaw = ((long)heightTiles * FixedOneRaw) / 2;
+            minXRaw = centerXRaw - halfWidthRaw;
+            maxXRaw = centerXRaw + halfWidthRaw;
+            minYRaw = centerYRaw - halfHeightRaw;
+            maxYRaw = centerYRaw + halfHeightRaw;
         }
     }
 }
