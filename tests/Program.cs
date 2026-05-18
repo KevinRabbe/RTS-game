@@ -192,8 +192,11 @@ namespace RtsGame.Tests
                 new TestCase("path query budget stays bounded under pressure", PathQueryBudgetStaysBoundedUnderPressure),
                 new TestCase("repeated command replacement stays bounded", RepeatedCommandReplacementStaysBounded),
                 new TestCase("two to five villagers gather deposit crossing routes stay stable", TwoToFiveVillagersGatherDepositCrossingRoutesStayStable),
+                new TestCase("two to five villagers gather deposit crossing routes stay stable v2", TwoToFiveVillagersGatherDepositCrossingRoutesStayStableV2),
                 new TestCase("left gold blocker villager recovers without endless move to resource", LeftGoldBlockerVillagerRecoversWithoutEndlessMoveToResource),
+                new TestCase("left gold blocker villager recovers without endless move to resource v2", LeftGoldBlockerVillagerRecoversWithoutEndlessMoveToResourceV2),
                 new TestCase("repeated move replacement near tc hotspot stays stable", RepeatedMoveReplacementNearTcHotspotStaysStable),
+                new TestCase("repeated move replacement near tc hotspot stays stable v2", RepeatedMoveReplacementNearTcHotspotStaysStableV2),
                 new TestCase("six player seven twenty villager equivalent pressure stays bounded", SixPlayerSevenTwentyVillagerEquivalentPressureStaysBounded),
                 new TestCase("six player twelve hundred active unit pressure stays bounded", SixPlayerTwelveHundredActiveUnitPressureStaysBounded),
                 new TestCase("pressure window budgets stay bounded", PressureWindowBudgetsStayBounded),
@@ -3687,7 +3690,22 @@ namespace RtsGame.Tests
 
         private static void TwoToFiveVillagersGatherDepositCrossingRoutesStayStable()
         {
+            RunTwoToFiveVillagersGatherDepositCrossingRoutesStayStable(false);
+        }
+
+        private static void TwoToFiveVillagersGatherDepositCrossingRoutesStayStableV2()
+        {
+            RunTwoToFiveVillagersGatherDepositCrossingRoutesStayStable(true);
+        }
+
+        private static void RunTwoToFiveVillagersGatherDepositCrossingRoutesStayStable(bool enableV2Villagers)
+        {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
+            if (enableV2Villagers)
+            {
+                rules = rules.WithMovementSolverV2Villagers(true);
+            }
+
             GameState state = CreateOccupancyState(3051, 1);
             AddCompletedTownCenter(state, 0, FixedVector2.FromInts(24, 24));
 
@@ -3729,7 +3747,22 @@ namespace RtsGame.Tests
 
         private static void LeftGoldBlockerVillagerRecoversWithoutEndlessMoveToResource()
         {
+            RunLeftGoldBlockerVillagerRecoversWithoutEndlessMoveToResource(false);
+        }
+
+        private static void LeftGoldBlockerVillagerRecoversWithoutEndlessMoveToResourceV2()
+        {
+            RunLeftGoldBlockerVillagerRecoversWithoutEndlessMoveToResource(true);
+        }
+
+        private static void RunLeftGoldBlockerVillagerRecoversWithoutEndlessMoveToResource(bool enableV2Villagers)
+        {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
+            if (enableV2Villagers)
+            {
+                rules = rules.WithMovementSolverV2Villagers(true);
+            }
+
             GameState state = CreateOccupancyState(3052, 1);
             AddCompletedTownCenter(state, 0, FixedVector2.FromInts(24, 24));
             int goldAreaId = AddTestResourceArea(state, GatherProfileId.GoldVeinSmall, FixedVector2.FromInts(17, 24));
@@ -3760,7 +3793,22 @@ namespace RtsGame.Tests
 
         private static void RepeatedMoveReplacementNearTcHotspotStaysStable()
         {
+            RunRepeatedMoveReplacementNearTcHotspotStaysStable(false);
+        }
+
+        private static void RepeatedMoveReplacementNearTcHotspotStaysStableV2()
+        {
+            RunRepeatedMoveReplacementNearTcHotspotStaysStable(true);
+        }
+
+        private static void RunRepeatedMoveReplacementNearTcHotspotStaysStable(bool enableV2Villagers)
+        {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
+            if (enableV2Villagers)
+            {
+                rules = rules.WithMovementSolverV2Villagers(true);
+            }
+
             GameState state = CreateOccupancyState(3053, 1);
             AddCompletedTownCenter(state, 0, FixedVector2.FromInts(24, 24));
             int[] units = CreateGridOfVillagers(state, 4, 24, 28, 2);
