@@ -24,6 +24,8 @@ namespace RtsGame.Presentation.Visuals
         public FixedVector2 Position { get; }
         public FixedVector2 EndPosition { get; }
         public Fixed Size { get; }
+        public Fixed Width { get; }
+        public Fixed Height { get; }
         public int CurrentHitPoints { get; }
         public int MaxHitPoints { get; }
         public bool IsCapital { get; }
@@ -39,6 +41,33 @@ namespace RtsGame.Presentation.Visuals
             int currentHitPoints,
             int maxHitPoints,
             bool isCapital)
+            : this(
+                kind,
+                entityId,
+                typeId,
+                ownerPlayerIndex,
+                position,
+                endPosition,
+                size,
+                size,
+                currentHitPoints,
+                maxHitPoints,
+                isCapital)
+        {
+        }
+
+        public VisualPrimitive(
+            VisualPrimitiveKind kind,
+            int entityId,
+            int typeId,
+            int ownerPlayerIndex,
+            FixedVector2 position,
+            FixedVector2 endPosition,
+            Fixed width,
+            Fixed height,
+            int currentHitPoints,
+            int maxHitPoints,
+            bool isCapital)
         {
             Kind = kind;
             EntityId = entityId;
@@ -46,7 +75,9 @@ namespace RtsGame.Presentation.Visuals
             OwnerPlayerIndex = ownerPlayerIndex;
             Position = position;
             EndPosition = endPosition;
-            Size = size;
+            Width = width;
+            Height = height;
+            Size = width.Raw >= height.Raw ? width : height;
             CurrentHitPoints = currentHitPoints;
             MaxHitPoints = maxHitPoints;
             IsCapital = isCapital;

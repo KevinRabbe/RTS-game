@@ -67,7 +67,8 @@ namespace RtsGame.Presentation.Visuals
         private static void AddBuilding(BuildingSnapshot building, List<VisualPrimitive> primitives)
         {
             VisualPrimitiveKind kind = building.BuildingTypeId == BuildingTypeId.Wall ? VisualPrimitiveKind.WallRectangle : VisualPrimitiveKind.BuildingRectangle;
-            Fixed size = GetBuildingFootprintSize(building.BuildingTypeId);
+            Fixed width = GetBuildingFootprintWidth(building.BuildingTypeId);
+            Fixed height = GetBuildingFootprintHeight(building.BuildingTypeId);
             int maxHitPoints = GameData.GetBuildingCompletedHitPoints(building.BuildingTypeId, building.IsCapital);
             primitives.Add(new VisualPrimitive(
                 kind,
@@ -76,7 +77,8 @@ namespace RtsGame.Presentation.Visuals
                 building.OwnerPlayerIndex,
                 building.Position,
                 building.Position,
-                size,
+                width,
+                height,
                 building.HitPoints,
                 maxHitPoints,
                 building.IsCapital));
@@ -85,7 +87,8 @@ namespace RtsGame.Presentation.Visuals
 
         private static void AddResource(ResourceNodeSnapshot resource, List<VisualPrimitive> primitives)
         {
-            Fixed size = GetResourceVisualSize(resource.GatherProfileId);
+            Fixed width = GetResourceVisualWidth(resource.GatherProfileId);
+            Fixed height = GetResourceVisualHeight(resource.GatherProfileId);
             primitives.Add(new VisualPrimitive(
                 GetResourceKind(resource.ResourceType),
                 resource.Id,
@@ -93,26 +96,33 @@ namespace RtsGame.Presentation.Visuals
                 GameData.NeutralOwnerPlayerIndex,
                 resource.Position,
                 resource.Position,
-                size,
+                width,
+                height,
                 resource.RemainingAmount,
                 resource.RemainingAmount,
                 false));
         }
 
-        private static Fixed GetBuildingFootprintSize(BuildingTypeId buildingTypeId)
+        private static Fixed GetBuildingFootprintWidth(BuildingTypeId buildingTypeId)
         {
-            return Fixed.FromInt(Max(GameData.GetBuildingFootprintWidthTiles(buildingTypeId), GameData.GetBuildingFootprintHeightTiles(buildingTypeId)));
+            return Fixed.FromInt(GameData.GetBuildingFootprintWidthTiles(buildingTypeId));
         }
 
-        private static Fixed GetResourceVisualSize(GatherProfileId gatherProfileId)
+        private static Fixed GetBuildingFootprintHeight(BuildingTypeId buildingTypeId)
+        {
+            return Fixed.FromInt(GameData.GetBuildingFootprintHeightTiles(buildingTypeId));
+        }
+
+        private static Fixed GetResourceVisualWidth(GatherProfileId gatherProfileId)
         {
             GatherProfile profile = GameData.GetGatherProfile(gatherProfileId);
-            return Fixed.FromInt(Max(profile.FootprintWidthTiles, profile.FootprintHeightTiles));
+            return Fixed.FromInt(profile.FootprintWidthTiles);
         }
 
-        private static int Max(int left, int right)
+        private static Fixed GetResourceVisualHeight(GatherProfileId gatherProfileId)
         {
-            return left >= right ? left : right;
+            GatherProfile profile = GameData.GetGatherProfile(gatherProfileId);
+            return Fixed.FromInt(profile.FootprintHeightTiles);
         }
 
         private static VisualPrimitiveKind GetResourceKind(ResourceType resourceType)

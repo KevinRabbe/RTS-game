@@ -55,6 +55,8 @@ namespace RtsGame.Presentation.GodotBridge
         public long EndXRaw { get; }
         public long EndYRaw { get; }
         public long SizeRaw { get; }
+        public long WidthRaw { get; }
+        public long HeightRaw { get; }
         public int CurrentHitPoints { get; }
         public int MaxHitPoints { get; }
         public bool IsCapital { get; }
@@ -72,6 +74,39 @@ namespace RtsGame.Presentation.GodotBridge
             int currentHitPoints,
             int maxHitPoints,
             bool isCapital)
+            : this(
+                kind,
+                entityId,
+                typeId,
+                ownerPlayerIndex,
+                xRaw,
+                yRaw,
+                endXRaw,
+                endYRaw,
+                sizeRaw,
+                sizeRaw,
+                sizeRaw,
+                currentHitPoints,
+                maxHitPoints,
+                isCapital)
+        {
+        }
+
+        public GodotPrimitiveDto(
+            int kind,
+            int entityId,
+            int typeId,
+            int ownerPlayerIndex,
+            long xRaw,
+            long yRaw,
+            long endXRaw,
+            long endYRaw,
+            long sizeRaw,
+            long widthRaw,
+            long heightRaw,
+            int currentHitPoints,
+            int maxHitPoints,
+            bool isCapital)
         {
             Kind = kind;
             EntityId = entityId;
@@ -82,6 +117,8 @@ namespace RtsGame.Presentation.GodotBridge
             EndXRaw = endXRaw;
             EndYRaw = endYRaw;
             SizeRaw = sizeRaw;
+            WidthRaw = widthRaw;
+            HeightRaw = heightRaw;
             CurrentHitPoints = currentHitPoints;
             MaxHitPoints = maxHitPoints;
             IsCapital = isCapital;

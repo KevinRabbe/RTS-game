@@ -233,6 +233,8 @@ namespace RtsGame.Presentation.GodotBridge
                 primitive.EndPosition.X.Raw,
                 primitive.EndPosition.Y.Raw,
                 primitive.Size.Raw,
+                primitive.Width.Raw,
+                primitive.Height.Raw,
                 primitive.CurrentHitPoints,
                 primitive.MaxHitPoints,
                 primitive.IsCapital);

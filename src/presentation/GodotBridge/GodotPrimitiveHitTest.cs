@@ -8,17 +8,20 @@ namespace RtsGame.Presentation.GodotBridge
     {
         public static bool ContainsPoint(GodotPrimitiveDto primitive, long xRaw, long yRaw)
         {
-            long halfSize = primitive.SizeRaw / 2;
-            return xRaw >= primitive.XRaw - halfSize
-                && xRaw <= primitive.XRaw + halfSize
-                && yRaw >= primitive.YRaw - halfSize
-                && yRaw <= primitive.YRaw + halfSize;
+            long halfWidth = primitive.WidthRaw / 2;
+            long halfHeight = primitive.HeightRaw / 2;
+            return xRaw >= primitive.XRaw - halfWidth
+                && xRaw <= primitive.XRaw + halfWidth
+                && yRaw >= primitive.YRaw - halfHeight
+                && yRaw <= primitive.YRaw + halfHeight;
         }
 
         public static bool ContainsPointForInteraction(GodotPrimitiveDto primitive, long xRaw, long yRaw)
         {
-            long halfSize = primitive.SizeRaw / 2;
-            long interactionHalfSize = halfSize;
+            long halfWidth = primitive.WidthRaw / 2;
+            long halfHeight = primitive.HeightRaw / 2;
+            long interactionHalfWidth = halfWidth;
+            long interactionHalfHeight = halfHeight;
             long oneTile = Fixed.FromInt(1).Raw;
             long halfTile = Fixed.FromRatio(1, 2).Raw;
 
@@ -26,22 +29,25 @@ namespace RtsGame.Presentation.GodotBridge
             {
                 case VisualPrimitiveKind.BuildingRectangle:
                 case VisualPrimitiveKind.WallRectangle:
-                    interactionHalfSize = halfSize + oneTile;
+                    interactionHalfWidth = halfWidth + oneTile;
+                    interactionHalfHeight = halfHeight + oneTile;
                     break;
                 case VisualPrimitiveKind.UnitSquare:
-                    interactionHalfSize = halfSize + halfTile;
+                    interactionHalfWidth = halfWidth + halfTile;
+                    interactionHalfHeight = halfHeight + halfTile;
                     break;
                 case VisualPrimitiveKind.FoodResourceCircle:
                 case VisualPrimitiveKind.WoodResourceCircle:
                 case VisualPrimitiveKind.GoldResourceCircle:
-                    interactionHalfSize = halfSize + halfTile;
+                    interactionHalfWidth = halfWidth + halfTile;
+                    interactionHalfHeight = halfHeight + halfTile;
                     break;
             }
 
-            return xRaw >= primitive.XRaw - interactionHalfSize
-                && xRaw <= primitive.XRaw + interactionHalfSize
-                && yRaw >= primitive.YRaw - interactionHalfSize
-                && yRaw <= primitive.YRaw + interactionHalfSize;
+            return xRaw >= primitive.XRaw - interactionHalfWidth
+                && xRaw <= primitive.XRaw + interactionHalfWidth
+                && yRaw >= primitive.YRaw - interactionHalfHeight
+                && yRaw <= primitive.YRaw + interactionHalfHeight;
         }
     }
 }
