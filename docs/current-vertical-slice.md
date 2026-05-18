@@ -85,6 +85,19 @@ Core gameplay debugging now follows this order:
 Rule:
 If a manual bug needs more than one guess, it must become a sim-only scenario before additional patches.
 
+## Validation Gate (Run In This Order)
+
+Run validation serially after each simulation change:
+
+1. `dotnet build GodotClient\RtsGame.GodotClient.csproj --no-restore`
+2. `dotnet build tests\RtsGame.Tests.csproj --no-restore`
+3. `dotnet run --project tests\RtsGame.Tests.csproj --no-build -- --fail-fast`
+4. `dotnet run --project src\tools\Headless\RtsGame.Headless.csproj --no-build -- run-stress --scenario chaos-v4 --ticks 5000 --seed 77`
+
+Important:
+- Keep this sequence serial (not parallel) to avoid test host file-lock races on `tests\bin\Debug\net10.0\*.dll`.
+- Manual Godot smoke remains informational only until the simulation gate is green.
+
 ## Scale-First Foundation Rule
 
 All future simulation work is now constrained by a hard foundation rule:
