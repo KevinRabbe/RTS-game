@@ -19,10 +19,6 @@ public partial class RtsClientRoot : Node2D
 	private const int TownCenterBuildingTypeId = 1;
 	private const int WallBuildingTypeId = 2;
 	private const int TradePostBuildingTypeId = 3;
-	private const int TownCenterRadiusTiles = 2;
-	private const int WallRadiusTiles = 1;
-	private const int TradePostRadiusTiles = 2;
-	private const int ResourceRadiusTiles = 1;
 	private const float DragSelectionThresholdPixels = 6.0f;
 
 	private readonly List<int> _selectedUnitIds = new List<int>();
@@ -1079,17 +1075,9 @@ public partial class RtsClientRoot : Node2D
 		{
 			GodotPrimitiveDto primitive = _frame.Primitives[i];
 			GodotPrimitiveDrawKind kind = GodotPrimitiveDrawKindResolver.Resolve(primitive);
-			if (kind == GodotPrimitiveDrawKind.Building)
+			if (kind == GodotPrimitiveDrawKind.Building || kind == GodotPrimitiveDrawKind.Resource)
 			{
-				int radius = ResolveBuildingRadius(primitive.TypeId);
-				if (IsWithinRadius(tileXRaw, tileYRaw, primitive.XRaw, primitive.YRaw, radius))
-				{
-					return true;
-				}
-			}
-			else if (kind == GodotPrimitiveDrawKind.Resource)
-			{
-				if (IsWithinRadius(tileXRaw, tileYRaw, primitive.XRaw, primitive.YRaw, ResourceRadiusTiles))
+				if (IsWithinPrimitiveBounds(tileXRaw, tileYRaw, primitive))
 				{
 					return true;
 				}
@@ -1099,29 +1087,14 @@ public partial class RtsClientRoot : Node2D
 		return false;
 	}
 
-	private static bool IsWithinRadius(long tileXRaw, long tileYRaw, long centerXRaw, long centerYRaw, int radiusTiles)
+	private static bool IsWithinPrimitiveBounds(long tileXRaw, long tileYRaw, GodotPrimitiveDto primitive)
 	{
-		long radiusRaw = TileToRaw(radiusTiles);
-		long radiusSquared = radiusRaw * radiusRaw;
-		long dx = tileXRaw - centerXRaw;
-		long dy = tileYRaw - centerYRaw;
-		long distSquared = dx * dx + dy * dy;
-		return distSquared < radiusSquared;
-	}
-
-	private static int ResolveBuildingRadius(int buildingTypeId)
-	{
-		switch (buildingTypeId)
-		{
-			case TownCenterBuildingTypeId:
-				return TownCenterRadiusTiles;
-			case WallBuildingTypeId:
-				return WallRadiusTiles;
-			case TradePostBuildingTypeId:
-				return TradePostRadiusTiles;
-			default:
-				return WallRadiusTiles;
-		}
+		long halfWidthRaw = primitive.WidthRaw / 2;
+		long halfHeightRaw = primitive.HeightRaw / 2;
+		return tileXRaw >= primitive.XRaw - halfWidthRaw
+			&& tileXRaw <= primitive.XRaw + halfWidthRaw
+			&& tileYRaw >= primitive.YRaw - halfHeightRaw
+			&& tileYRaw <= primitive.YRaw + halfHeightRaw;
 	}
 
 	private void DrawHotkeyHelpPanel(Vector2 uiOrigin, Vector2 uiSize)
