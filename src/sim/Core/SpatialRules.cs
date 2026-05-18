@@ -380,13 +380,7 @@ namespace RtsGame.Sim.Core
             TileCoord excludedTile,
             out TileCoord selected)
         {
-            selected = default;
-            int unitTileX = GetTileX(unit.Position);
-            int unitTileY = GetTileY(unit.Position);
-            int bestPathCost = int.MaxValue;
-            int bestDistance = int.MaxValue;
-            int bestCongestion = int.MaxValue;
-            bool found = false;
+            var scopedCandidates = new List<TileCoord>(interactionTiles.Count);
             for (int i = 0; i < interactionTiles.Count; i++)
             {
                 TileCoord tile = interactionTiles[i];
@@ -394,40 +388,16 @@ namespace RtsGame.Sim.Core
                 {
                     continue;
                 }
-
-                if (!IsInteractionSlotAvailableForUnit(state, unit, kind, targetId, tile.X, tile.Y))
-                {
-                    continue;
-                }
-
-                if (!state.PathQueries.TryPathCost(state, unitTileX, unitTileY, tile.X, tile.Y, state.Tick, out int pathCost))
-                {
-                    continue;
-                }
-
-                int distance = Abs(unitTileX - tile.X) + Abs(unitTileY - tile.Y);
-                int congestion = CountNearbyTraffic(state, unit, tile.X, tile.Y);
-                if (!found
-                    || pathCost < bestPathCost
-                    || (pathCost == bestPathCost && distance < bestDistance)
-                    || (pathCost == bestPathCost && distance == bestDistance && congestion < bestCongestion)
-                    || (pathCost == bestPathCost && distance == bestDistance && congestion == bestCongestion && CompareTiles(tile, selected) < 0)
-                    || (pathCost == bestPathCost && distance == bestDistance && congestion == bestCongestion && CompareTiles(tile, selected) == 0 && targetId < unit.ReservedInteractionTargetId))
-                {
-                    selected = tile;
-                    bestPathCost = pathCost;
-                    bestDistance = distance;
-                    bestCongestion = congestion;
-                    found = true;
-                }
+                scopedCandidates.Add(tile);
             }
 
-            if (found)
+            if (scopedCandidates.Count == 0)
             {
-                ReserveInteractionSlot(state, unit, kind, targetId, selected);
+                selected = default;
+                return false;
             }
 
-            return found;
+            return state.TrafficReservations.TryReserve(state, unit, kind, targetId, scopedCandidates, state.Tick, out selected);
         }
 
         public static bool ContainsInteractionTile(List<TileCoord> interactionTiles, int tileX, int tileY)
@@ -609,6 +579,11 @@ namespace RtsGame.Sim.Core
             state.TrafficReservations.Release(state, unit, ReservationReleaseReason.None);
         }
 
+        public static void ClearInteractionReservation(GameState state, Unit unit, ReservationReleaseReason reason)
+        {
+            state.TrafficReservations.Release(state, unit, reason);
+        }
+
         public static bool HasReservedInteractionSlot(Unit unit, InteractionReservationKind kind, int targetId)
         {
             return unit.ReservedInteractionKind == kind && unit.ReservedInteractionTargetId == targetId;
@@ -781,7 +756,7 @@ namespace RtsGame.Sim.Core
             return false;
         }
 
-        private static int CountNearbyTraffic(GameState state, Unit unit, int tileX, int tileY)
+        public static int CountNearbyTraffic(GameState state, Unit unit, int tileX, int tileY)
         {
             int count = 0;
             for (int y = tileY - 1; y <= tileY + 1; y++)

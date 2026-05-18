@@ -97,8 +97,10 @@ namespace RtsGame.Sim.Data
         public const int ReservationRetargetBudgetPerTick = 2000;
         public const int ReservationRetargetBudgetPerWindow = 12000;
         public const int ReservationRetargetBudgetWindowTicks = 10;
-        public const int NoProgressTimeoutTicks = InteractionTargetRetargetBlockedTicks;
+        public const int NoProgressTimeoutTicks = 24;
         public const int SlotScoringCongestionWeight = 1;
+        public const int PathCostShortlistMaxCandidates = 12;
+        public const int ReservationStaleEvictionWindowTicks = 24;
         public const int TownCenterWoodCost = 275;
         public const int WallWoodCost = 5;
         public const int TradePostWoodCost = 150;

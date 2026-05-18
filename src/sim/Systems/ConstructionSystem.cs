@@ -99,7 +99,7 @@ namespace RtsGame.Sim.Systems
                 if (IsNoProgressTimedOut(state, unit))
                 {
                     unit.HasMoveTarget = false;
-                    SpatialRules.ClearInteractionReservation(state, unit);
+                    SpatialRules.ClearInteractionReservation(state, unit, ReservationReleaseReason.Timeout);
                 }
 
                 if (ShouldKeepCurrentApproachTarget(state, interactionTiles, unit))
@@ -154,7 +154,7 @@ namespace RtsGame.Sim.Systems
             {
                 if (hasExcludedTile)
                 {
-                    SpatialRules.ClearInteractionReservation(state, unit);
+                    SpatialRules.ClearInteractionReservation(state, unit, ReservationReleaseReason.Timeout);
                 }
                 return false;
             }

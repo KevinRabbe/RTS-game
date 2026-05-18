@@ -41,6 +41,7 @@ namespace RtsGame.Sim.Core
         {
             state.DebugCounters.PathFindNextCalls = 0;
             state.DebugCounters.PathFindCostCalls = 0;
+            state.DebugCounters.PathQueryBudgetExceededCount = 0;
             state.DebugCounters.ReservationRetargetCount = 0;
             state.DebugCounters.ReservationReleaseCount = 0;
             var context = new TickCommandContext(commandBuffer.GetCommandsForTick(state.Tick));

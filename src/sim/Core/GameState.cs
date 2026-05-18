@@ -43,6 +43,10 @@ namespace RtsGame.Sim.Core
             PathQueries = new DeterministicPathQueryService();
             TrafficReservations = new DeterministicTrafficReservationService();
             MovementProgressPolicy = new DefaultMovementProgressPolicy();
+            if (TrafficReservations is DeterministicTrafficReservationService deterministicTraffic)
+            {
+                deterministicTraffic.LanePreferenceScorer = new DeterministicTrafficLanePreferenceScorer();
+            }
             DebugCounters = new SimDebugCounters();
             LastChecksum = 0UL;
         }
@@ -64,6 +68,7 @@ namespace RtsGame.Sim.Core
         public int LastCommandFirstUnitId { get; set; }
         public int PathFindNextCalls { get; set; }
         public int PathFindCostCalls { get; set; }
+        public int PathQueryBudgetExceededCount { get; set; }
         public int ReservationRetargetCount { get; set; }
         public int ReservationReleaseCount { get; set; }
     }

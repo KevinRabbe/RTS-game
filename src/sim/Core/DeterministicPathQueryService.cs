@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using RtsGame.Sim.Data;
 
 namespace RtsGame.Sim.Core
 {
@@ -13,7 +14,6 @@ namespace RtsGame.Sim.Core
         public bool TryNextStep(GameState state, int unitId, int fromX, int fromY, int toX, int toY, int contextVersion, out int nextX, out int nextY)
         {
             EnsureTick(state.Tick);
-            state.DebugCounters.PathFindNextCalls++;
             long key = ComposeKey(fromX, fromY, toX, toY, contextVersion);
             if (_stepCache.TryGetValue(key, out PathStepResult cached))
             {
@@ -22,6 +22,17 @@ namespace RtsGame.Sim.Core
                 return cached.Found;
             }
 
+            int queryCount = state.DebugCounters.PathFindNextCalls + state.DebugCounters.PathFindCostCalls;
+            if (queryCount >= GameData.PathQueryBudgetPerTick)
+            {
+                state.DebugCounters.PathQueryBudgetExceededCount++;
+                nextX = fromX;
+                nextY = fromY;
+                _stepCache[key] = new PathStepResult(false, nextX, nextY);
+                return false;
+            }
+
+            state.DebugCounters.PathFindNextCalls++;
             bool found = DeterministicPathfinder.TryFindNextTile(state, fromX, fromY, toX, toY, out nextX, out nextY);
             _stepCache[key] = new PathStepResult(found, nextX, nextY);
             return found;
@@ -30,7 +41,6 @@ namespace RtsGame.Sim.Core
         public bool TryPathCost(GameState state, int fromX, int fromY, int toX, int toY, int contextVersion, out int cost)
         {
             EnsureTick(state.Tick);
-            state.DebugCounters.PathFindCostCalls++;
             long key = ComposeKey(fromX, fromY, toX, toY, contextVersion);
             if (_costCache.TryGetValue(key, out PathCostResult cached))
             {
@@ -38,6 +48,16 @@ namespace RtsGame.Sim.Core
                 return cached.Found;
             }
 
+            int queryCount = state.DebugCounters.PathFindNextCalls + state.DebugCounters.PathFindCostCalls;
+            if (queryCount >= GameData.PathQueryBudgetPerTick)
+            {
+                state.DebugCounters.PathQueryBudgetExceededCount++;
+                cost = 0;
+                _costCache[key] = new PathCostResult(false, cost);
+                return false;
+            }
+
+            state.DebugCounters.PathFindCostCalls++;
             bool found = DeterministicPathfinder.TryFindPathCost(state, fromX, fromY, toX, toY, out cost);
             _costCache[key] = new PathCostResult(found, cost);
             return found;

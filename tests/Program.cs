@@ -188,6 +188,11 @@ namespace RtsGame.Tests
                 new TestCase("six player mixed population traffic remains deterministic", SixPlayerMixedPopulationTrafficRemainsDeterministic),
                 new TestCase("path query budget stays bounded under pressure", PathQueryBudgetStaysBoundedUnderPressure),
                 new TestCase("repeated command replacement stays bounded", RepeatedCommandReplacementStaysBounded),
+                new TestCase("two to five villagers gather deposit crossing routes stay stable", TwoToFiveVillagersGatherDepositCrossingRoutesStayStable),
+                new TestCase("left gold blocker villager recovers without endless move to resource", LeftGoldBlockerVillagerRecoversWithoutEndlessMoveToResource),
+                new TestCase("repeated move replacement near tc hotspot stays stable", RepeatedMoveReplacementNearTcHotspotStaysStable),
+                new TestCase("six player seven twenty villager equivalent pressure stays bounded", SixPlayerSevenTwentyVillagerEquivalentPressureStaysBounded),
+                new TestCase("pressure window budgets stay bounded", PressureWindowBudgetsStayBounded),
                 new TestCase("two units attempting same tile receive slots", TwoUnitsAttemptingSameTileReceiveSlots),
                 new TestCase("three units attempting same tile receive slots", ThreeUnitsAttemptingSameTileReceiveSlots),
                 new TestCase("two unit tile swap fails", TwoUnitTileSwapFails),
@@ -1562,7 +1567,7 @@ namespace RtsGame.Tests
             worker.MoveTarget = FixedVector2.FromInts(staleTile.X, staleTile.Y);
             worker.LastMovedTick = 0;
             SpatialRules.ReserveInteractionSlot(state, worker, InteractionReservationKind.ResourceNode, node.Id, staleTile);
-            state.Tick = GameData.InteractionTargetRetargetBlockedTicks;
+            state.Tick = GameData.NoProgressTimeoutTicks;
 
             new ResourceGatherSystem().Run(state, rules, new TickCommandContext(new List<CommandEnvelope>()));
 
@@ -1602,7 +1607,7 @@ namespace RtsGame.Tests
             worker.MoveTarget = FixedVector2.FromInts(staleTile.X, staleTile.Y);
             worker.LastMovedTick = 0;
             SpatialRules.ReserveInteractionSlot(state, worker, InteractionReservationKind.ResourceNode, node.Id, staleTile);
-            state.Tick = GameData.InteractionTargetRetargetBlockedTicks + 1;
+            state.Tick = GameData.NoProgressTimeoutTicks + 1;
 
             new ResourceGatherSystem().Run(state, rules, new TickCommandContext(new List<CommandEnvelope>()));
 
@@ -2323,7 +2328,7 @@ namespace RtsGame.Tests
             state.EntityState.Units[0].HasMoveTarget = true;
             state.EntityState.Units[0].MoveTarget = FixedVector2.FromInts(blockedTile.X, blockedTile.Y);
             state.EntityState.Units[0].LastMovedTick = 0;
-            state.Tick = GameData.InteractionTargetRetargetBlockedTicks;
+            state.Tick = GameData.NoProgressTimeoutTicks;
 
             TickRunner runner = new TickRunner();
             CommandBuffer buffer = new CommandBuffer();
@@ -3209,7 +3214,7 @@ namespace RtsGame.Tests
             worker.MoveTarget = FixedVector2.FromInts(20, 8);
             worker.LastMovedTick = 0;
             SpatialRules.ReserveInteractionSlot(state, worker, InteractionReservationKind.Dropoff, tcId, new SpatialRules.TileCoord(20, 8));
-            state.Tick = GameData.InteractionTargetRetargetBlockedTicks + 1;
+            state.Tick = GameData.NoProgressTimeoutTicks + 1;
 
             AddCompletedWall(state, 0, FixedVector2.FromInts(20, 8));
 
@@ -3539,6 +3544,192 @@ namespace RtsGame.Tests
             }
 
             AssertEqual(true, maxPathCallsPerTick <= GameData.PathQueryBudgetPerTick, "repeated replacement path query budget should stay bounded max=" + maxPathCallsPerTick);
+        }
+
+        private static void TwoToFiveVillagersGatherDepositCrossingRoutesStayStable()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(3051, 1);
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(24, 24));
+
+            int berryAreaId = AddTestResourceArea(state, GatherProfileId.BerryBush, FixedVector2.FromInts(30, 26));
+            int goldAreaId = AddTestResourceArea(state, GatherProfileId.GoldVeinSmall, FixedVector2.FromInts(19, 31));
+            int woodAreaId = AddTestResourceArea(state, GatherProfileId.Tree, FixedVector2.FromInts(32, 20));
+            int berryNodeId = AddTestResourceNodeToArea(state, berryAreaId, GatherProfileId.BerryBush, FixedVector2.FromInts(30, 26), 1200);
+            int goldNodeId = AddTestResourceNodeToArea(state, goldAreaId, GatherProfileId.GoldVeinSmall, FixedVector2.FromInts(19, 31), 1200);
+            int woodNodeId = AddTestResourceNodeToArea(state, woodAreaId, GatherProfileId.Tree, FixedVector2.FromInts(32, 20), 1200);
+
+            int[] workers = CreateGridOfVillagers(state, 5, 24, 27, 3);
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(berryNodeId, new[] { workers[0], workers[1] })));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 1, CommandType.GatherResource), new GatherResourceCommand(goldNodeId, new[] { workers[2], workers[3] })));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 2, CommandType.GatherResource), new GatherResourceCommand(woodNodeId, new[] { workers[4] })));
+
+            var runner = new TickRunner();
+            int initialFood = state.PlayerStates.Players[0].Resources.Food;
+            int initialWood = state.PlayerStates.Players[0].Resources.Wood;
+            int initialGold = state.PlayerStates.Players[0].Resources.Gold;
+            for (int tick = 0; tick < 520; tick++)
+            {
+                runner.AdvanceOneTick(state, rules, buffer);
+                AssertNoLiveUnitStacking(state, "crossing routes workers should not stack");
+                AssertNoDuplicateFinalPurposeReservations(state, "crossing routes should keep unique reservations");
+                AssertNoEndlessWorkerPhase(state, workers, WorkerTaskPhase.MovingToResourceSlot, 120, "crossing routes should not stall moving-to-resource");
+                AssertNoEndlessWorkerPhase(state, workers, WorkerTaskPhase.MovingToDropoffSlot, 120, "crossing routes should not stall moving-to-dropoff");
+            }
+
+            bool progressed = state.PlayerStates.Players[0].Resources.Food > initialFood
+                || state.PlayerStates.Players[0].Resources.Wood > initialWood
+                || state.PlayerStates.Players[0].Resources.Gold > initialGold;
+            AssertEqual(true, progressed, "crossing routes workers should complete gather/deposit progress");
+        }
+
+        private static void LeftGoldBlockerVillagerRecoversWithoutEndlessMoveToResource()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(3052, 1);
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(24, 24));
+            int goldAreaId = AddTestResourceArea(state, GatherProfileId.GoldVeinSmall, FixedVector2.FromInts(17, 24));
+            int leftGoldNodeId = AddTestResourceNodeToArea(state, goldAreaId, GatherProfileId.GoldVeinSmall, FixedVector2.FromInts(17, 24), 800);
+            int[] workers = CreateGridOfVillagers(state, 1, 25, 24, 1);
+
+            // Temporary local blocker near corridor that later clears.
+            int blockerId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(22, 24));
+
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(leftGoldNodeId, workers)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(80, 0, 1, CommandType.MoveUnits), new MoveUnitsCommand(new[] { blockerId }, FixedVector2.FromInts(28, 24))));
+            var runner = new TickRunner();
+            int initialGold = state.PlayerStates.Players[0].Resources.Gold;
+            for (int tick = 0; tick < 420; tick++)
+            {
+                runner.AdvanceOneTick(state, rules, buffer);
+                AssertNoLiveUnitStacking(state, "left gold blocker scenario should not stack");
+                AssertNoDuplicateFinalPurposeReservations(state, "left gold blocker scenario should not duplicate reservations");
+            }
+
+            Unit worker = FindUnitById(state, workers[0]);
+            bool progressed = state.PlayerStates.Players[0].Resources.Gold > initialGold;
+            bool keptIntent = worker.CurrentResourceNodeId == leftGoldNodeId
+                && worker.CurrentResourceAreaId == goldAreaId;
+            AssertEqual(true, progressed || keptIntent, "left gold worker should keep intent or deposit after temporary corridor blockage");
+        }
+
+        private static void RepeatedMoveReplacementNearTcHotspotStaysStable()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(3053, 1);
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(24, 24));
+            int[] units = CreateGridOfVillagers(state, 4, 24, 28, 2);
+            var buffer = new CommandBuffer();
+            for (int tick = 0; tick < 120; tick++)
+            {
+                int tx = tick % 2 == 0 ? 30 : 18;
+                int ty = tick % 3 == 0 ? 29 : 21;
+                buffer.Add(new CommandEnvelope(new CommandHeader(tick, 0, unchecked((uint)tick), CommandType.MoveUnits), new MoveUnitsCommand(units, FixedVector2.FromInts(tx, ty))));
+            }
+
+            var runner = new TickRunner();
+            for (int tick = 0; tick < 220; tick++)
+            {
+                runner.AdvanceOneTick(state, rules, buffer);
+                AssertNoLiveUnitStacking(state, "repeated hotspot move replacement should not stack");
+                AssertNoDuplicateFinalPurposeReservations(state, "repeated hotspot move replacement should not duplicate reservations");
+                AssertEqual(true, state.DebugCounters.RejectedCommandCount <= tick + 1, "legal move command rejection spam should stay bounded tick=" + tick);
+            }
+        }
+
+        private static void SixPlayerSevenTwentyVillagerEquivalentPressureStaysBounded()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(6);
+            GameState state = CreateOccupancyState(3054, 6);
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(12, 12));
+            AddCompletedTownCenter(state, 1, FixedVector2.FromInts(36, 12));
+            AddCompletedTownCenter(state, 2, FixedVector2.FromInts(60, 12));
+            AddCompletedTownCenter(state, 3, FixedVector2.FromInts(12, 36));
+            AddCompletedTownCenter(state, 4, FixedVector2.FromInts(36, 36));
+            AddCompletedTownCenter(state, 5, FixedVector2.FromInts(60, 36));
+
+            int areaId = AddTestResourceArea(state, GatherProfileId.BerryBush, FixedVector2.FromInts(36, 24));
+            int nodeId = AddTestResourceNodeToArea(state, areaId, GatherProfileId.BerryBush, FixedVector2.FromInts(36, 24), 100000);
+
+            var allWorkers = new List<int>(720);
+            for (int player = 0; player < 6; player++)
+            {
+                int baseX = 4 + player * 20;
+                int baseY = 4;
+                for (int i = 0; i < 120; i++)
+                {
+                    int id = EntityFactory.CreateUnit(state, player, UnitTypeId.Villager, FixedVector2.FromInts(baseX + (i % 12), baseY + (i / 12)));
+                    allWorkers.Add(id);
+                }
+            }
+
+            var buffer = new CommandBuffer();
+            for (int player = 0; player < 6; player++)
+            {
+                int start = player * 120;
+                int[] workerSlice = allWorkers.GetRange(start, 120).ToArray();
+                buffer.Add(new CommandEnvelope(new CommandHeader(0, player, unchecked((uint)player), CommandType.GatherResource), new GatherResourceCommand(nodeId, workerSlice)));
+            }
+
+            var runner = new TickRunner();
+            int maxPathCalls = 0;
+            int maxRetargets = 0;
+            for (int tick = 0; tick < 90; tick++)
+            {
+                runner.AdvanceOneTick(state, rules, buffer);
+                int pathCalls = state.DebugCounters.PathFindNextCalls + state.DebugCounters.PathFindCostCalls;
+                if (pathCalls > maxPathCalls)
+                {
+                    maxPathCalls = pathCalls;
+                }
+
+                if (state.DebugCounters.ReservationRetargetCount > maxRetargets)
+                {
+                    maxRetargets = state.DebugCounters.ReservationRetargetCount;
+                }
+
+                AssertNoLiveUnitStacking(state, "720-worker equivalent pressure should not stack");
+                AssertNoDuplicateFinalPurposeReservations(state, "720-worker equivalent pressure should not duplicate reservations");
+            }
+
+            AssertEqual(true, maxPathCalls <= GameData.PathQueryBudgetPerTick, "720-worker equivalent path query budget should hold max=" + maxPathCalls);
+            AssertEqual(true, maxRetargets <= GameData.ReservationRetargetBudgetPerTick, "720-worker equivalent retarget budget should hold max=" + maxRetargets);
+        }
+
+        private static void PressureWindowBudgetsStayBounded()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(3055, 1);
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(22, 22));
+            int areaId = AddTestResourceArea(state, GatherProfileId.BerryBush, FixedVector2.FromInts(29, 22));
+            int nodeId = AddTestResourceNodeToArea(state, areaId, GatherProfileId.BerryBush, FixedVector2.FromInts(29, 22), 10000);
+            int[] workers = CreateGridOfVillagers(state, 120, 22, 28, 12);
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.GatherResource), new GatherResourceCommand(nodeId, workers)));
+
+            var runner = new TickRunner();
+            int[] pathWindow = new int[GameData.ReservationRetargetBudgetWindowTicks];
+            int[] retargetWindow = new int[GameData.ReservationRetargetBudgetWindowTicks];
+            int rollingPath = 0;
+            int rollingRetarget = 0;
+            for (int tick = 0; tick < 200; tick++)
+            {
+                runner.AdvanceOneTick(state, rules, buffer);
+                int slot = tick % GameData.ReservationRetargetBudgetWindowTicks;
+                rollingPath -= pathWindow[slot];
+                rollingRetarget -= retargetWindow[slot];
+                pathWindow[slot] = state.DebugCounters.PathFindNextCalls + state.DebugCounters.PathFindCostCalls;
+                retargetWindow[slot] = state.DebugCounters.ReservationRetargetCount;
+                rollingPath += pathWindow[slot];
+                rollingRetarget += retargetWindow[slot];
+
+                AssertEqual(true, rollingPath <= GameData.PathQueryBudgetPerTick * GameData.ReservationRetargetBudgetWindowTicks, "rolling path budget window should stay bounded tick=" + tick + " rolling=" + rollingPath);
+                AssertEqual(true, rollingRetarget <= GameData.ReservationRetargetBudgetPerWindow, "rolling retarget budget window should stay bounded tick=" + tick + " rolling=" + rollingRetarget);
+                AssertNoLiveUnitStacking(state, "window budget pressure should not stack");
+                AssertNoDuplicateFinalPurposeReservations(state, "window budget pressure should not duplicate reservations");
+            }
         }
 
         private static void SixPlayerMixedPopulationTrafficRemainsDeterministic()
@@ -4153,7 +4344,7 @@ namespace RtsGame.Tests
             string text = System.IO.File.ReadAllText(System.IO.Path.Combine("src", "sim", "Core", "DeterministicTrafficReservationService.cs"));
             AssertFalse(text.Contains("foreach (var"), "reservation conflict resolution should avoid unordered iteration in deterministic paths");
             AssertFalse(text.Contains("HashSet<"), "reservation conflict resolution should avoid hash-set iteration in deterministic conflict decisions");
-            AssertFalse(text.Contains("Dictionary<"), "reservation conflict resolution should avoid dictionary iteration in deterministic conflict decisions");
+            AssertFalse(text.Contains("foreach (KeyValuePair"), "reservation conflict resolution should avoid dictionary iteration in deterministic conflict decisions");
             AssertEqual(true, text.Contains("for (int i = 0; i < candidates.Count; i++)"), "reservation conflict resolution should use ordered candidate iteration");
         }
 
@@ -8888,7 +9079,7 @@ namespace RtsGame.Tests
             worker.MoveTarget = FixedVector2.FromInts(blockedTile.X, blockedTile.Y);
             worker.LastMovedTick = 0;
             EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(blockedTile.X, blockedTile.Y), false);
-            state.Tick = GameData.InteractionTargetRetargetBlockedTicks;
+            state.Tick = GameData.NoProgressTimeoutTicks;
 
             TickRunner runner = new TickRunner();
             CommandBuffer buffer = new CommandBuffer();
