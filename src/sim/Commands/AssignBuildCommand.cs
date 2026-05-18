@@ -83,7 +83,7 @@ namespace RtsGame.Sim.Commands
 
                 if (unit.OwnerPlayerIndex != header.PlayerIndex || unit.IsDead || unit.UnitTypeId != UnitTypeId.Villager)
                 {
-                    return CommandValidationReason.UnitCannotPerformAction;
+                    continue;
                 }
 
                 anyEligibleVillager = true;
@@ -112,7 +112,16 @@ namespace RtsGame.Sim.Commands
             for (int i = 0; i < sortedUnitIds.Count; i++)
             {
                 int unitId = sortedUnitIds[i];
-                Unit unit = GetUnit(state, unitId);
+                if (!TryGetUnit(state, unitId, out Unit? unit))
+                {
+                    continue;
+                }
+
+                if (unit.OwnerPlayerIndex != header.PlayerIndex || unit.IsDead || unit.UnitTypeId != UnitTypeId.Villager)
+                {
+                    continue;
+                }
+
                 ClearPreviousBuildAssignment(state, unit);
                 SpatialRules.ClearInteractionReservation(state, unit);
                 unit.CurrentBuildTargetId = TargetBuildingId;

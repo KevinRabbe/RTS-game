@@ -128,6 +128,7 @@ namespace RtsGame.Tests
                 new TestCase("build move target uses foundation interaction ring", BuildMoveTargetUsesFoundationInteractionRing),
                 new TestCase("multiple builders reserve distinct build slots", MultipleBuildersReserveDistinctBuildSlots),
                 new TestCase("assign build accepts temporary congestion intent", AssignBuildAcceptsTemporaryCongestionIntent),
+                new TestCase("assign build accepts mixed selection and ignores non builders", AssignBuildAcceptsMixedSelectionAndIgnoresNonBuilders),
                 new TestCase("assign build reject reason for completed target", AssignBuildRejectReasonForCompletedTarget),
                 new TestCase("builder in build range builds without micro movement", BuilderInBuildRangeBuildsWithoutMicroMovement),
                 new TestCase("builder blocked approach retargets deterministically", BuilderBlockedApproachRetargetsDeterministically),
@@ -7581,6 +7582,36 @@ namespace RtsGame.Tests
             AssertEqual(CommandValidationReason.TemporaryCongestionAcceptedIntent, report.Reason, "temporarily blocked builder should report congestion acceptance");
             AssertEqual(tcId, state.EntityState.Units[0].CurrentBuildTargetId, "accepted command should keep build target for wait/retry");
             AssertEqual(0, state.DebugCounters.RejectedCommandCount, "temporary congestion should not count as rejection");
+        }
+
+        private static void AssignBuildAcceptsMixedSelectionAndIgnoresNonBuilders()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = GameInitializer.CreateNomadStart(1492, 1);
+            int tcId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(10, 10));
+            var header = new CommandHeader(state.Tick, 0, 0, CommandType.AssignBuild);
+            // Nomad start unit ids: villagers 1-4 + scout 5. Mixed selection should still assign villagers.
+            var command = new AssignBuildCommand(tcId, new[] { 1, 2, 3, 4, 5 });
+
+            CommandValidationReport report = CommandValidationInspector.Evaluate(
+                state,
+                rules,
+                new CommandEnvelope(header, command));
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(header, command));
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(true, report.Accepted, "mixed villager + scout build selection should be accepted");
+            for (int i = 0; i < 4; i++)
+            {
+                Unit villager = state.EntityState.Units[i];
+                AssertEqual(tcId, villager.CurrentBuildTargetId, "villager should receive build target from mixed selection");
+            }
+
+            Unit scout = state.EntityState.Units[4];
+            AssertEqual(UnitTypeId.Scout, scout.UnitTypeId, "test expects fifth unit to be scout");
+            AssertEqual(0, scout.CurrentBuildTargetId, "non-builder scout should be ignored, not assigned build target");
+            AssertEqual(0, state.DebugCounters.RejectedCommandCount, "mixed selection should not count as rejected");
         }
 
         private static void AssignBuildRejectReasonForCompletedTarget()
