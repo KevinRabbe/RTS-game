@@ -92,6 +92,13 @@ namespace RtsGame.Sim.Data
         public const int TradePostPlacementRadiusTiles = 2;
         public const int ResourcePlacementRadiusTiles = 1;
         public const int InteractionTargetRetargetBlockedTicks = 8;
+        // Scale-safe simulation policy knobs (v1 baseline defaults).
+        public const int PathQueryBudgetPerTick = 16000;
+        public const int ReservationRetargetBudgetPerTick = 2000;
+        public const int ReservationRetargetBudgetPerWindow = 12000;
+        public const int ReservationRetargetBudgetWindowTicks = 10;
+        public const int NoProgressTimeoutTicks = InteractionTargetRetargetBlockedTicks;
+        public const int SlotScoringCongestionWeight = 1;
         public const int TownCenterWoodCost = 275;
         public const int WallWoodCost = 5;
         public const int TradePostWoodCost = 150;

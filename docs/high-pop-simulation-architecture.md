@@ -260,6 +260,73 @@ Each step must pass:
 - full fail-fast test run
 - `chaos-v4` deterministic stress
 
+## Stable Service Contract Boundary (No-Rewrite Baseline)
+
+The following simulation services are the compatibility boundary for movement-quality upgrades.
+Future improvements must be delivered by service implementation upgrades, not by bypassing these APIs.
+
+- `ISpatialIndexService`
+  - Owns geometry truth queries only (`IsStaticBlocked`, `IsOccupied`, `IsReserved`, interaction ring enumeration).
+  - Must never use presentation colliders or sprite size for simulation truth.
+- `IPathQueryService`
+  - Owns path-step/path-cost queries and caching.
+  - All path calls must route through this service.
+  - Optional upgrade hook: candidate shortlist strategy (default null/no-op).
+- `ITrafficReservationService`
+  - Single authority for reservation ownership lifecycle.
+  - Systems may not directly mutate reservation fields except approved initialization paths.
+  - Optional upgrade hook: lane preference scorer (default null/no-op).
+- `IMovementProgressPolicy`
+  - Owns no-progress timeout semantics and movement progress tracking policy.
+  - Optional upgrade hook: steering/hysteresis policy (default null/no-op).
+
+Hard rule:
+No system outside these services may bypass path or reservation authority in hot gameplay paths.
+
+## Budget and Policy Knobs (Config-Backed)
+
+The baseline now keeps scale behavior configurable without API rewrites:
+
+- path query budget per tick/window
+- reservation retarget budget per tick/window
+- no-progress timeout ticks
+- congestion weighting in slot scoring
+
+Defaults remain v1 behavior. Future quality tuning changes values/implementations, not contracts.
+
+## Upgrade Roadmap (Additive Stages)
+
+### v2: Better Slot Choice Under Pressure
+
+- bounded path shortlist strategy in `IPathQueryService`
+- improved congestion-aware lane scoring in `ITrafficReservationService`
+- acceptance:
+  - scale pressure scenarios green
+  - no new invariant regressions
+  - no budget regressions
+- rollback:
+  - disable shortlist/lane hooks and keep baseline service behavior
+
+### v3: Corridor / Flow Guidance
+
+- deterministic corridor preference for shared destinations
+- avoid route-crossing churn in TC/resource hotspots
+- acceptance:
+  - reduced no-progress and reservation churn in hotspot scenarios
+  - unchanged determinism/checksum contracts
+- rollback:
+  - disable corridor scorer, preserve base reservations
+
+### v4: Local Steering and Hysteresis
+
+- deterministic local steering policy in `IMovementProgressPolicy`
+- bounded hysteresis to prevent micro-oscillation and target flapping
+- acceptance:
+  - improved manual readability with same deterministic outcomes
+  - no stacking / no duplicate reservation invariant violations
+- rollback:
+  - steering policy set to null/no-op, retain baseline movement policy
+
 ## Prepared Future Systems
 
 This architecture prepares the next slices for:

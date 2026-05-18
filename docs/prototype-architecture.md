@@ -512,6 +512,21 @@ src/
 
 Keep `src/sim` free of imports from `net`, `presentation`, engine SDKs, rendering libraries, and platform UI.
 
+## Service Contracts (Upgrade-Safe Boundary)
+
+The simulation uses a stable service boundary so movement quality can evolve without rewriting task/command APIs:
+
+- `ISpatialIndexService` for blocker/occupancy/reservation geometry queries.
+- `IPathQueryService` for all path-step/path-cost queries.
+- `ITrafficReservationService` for reservation ownership lifecycle and deterministic conflicts.
+- `IMovementProgressPolicy` for no-progress and retry/timeout behavior.
+
+Guardrails:
+
+- No direct `DeterministicPathfinder` calls outside path query service.
+- No direct reservation field mutation outside reservation service (except explicit entity initialization).
+- Deterministic ordered iteration in conflict decisions; no unordered collection dependence.
+
 ## Feature Addition Checklist
 
 Before adding a gameplay feature, answer:

@@ -4,6 +4,8 @@ namespace RtsGame.Sim.Core
 {
     public sealed class DeterministicPathQueryService : IPathQueryService
     {
+        public IPathCandidateShortlistStrategy? CandidateShortlistStrategy { get; set; }
+
         private readonly Dictionary<long, PathStepResult> _stepCache = new Dictionary<long, PathStepResult>();
         private readonly Dictionary<long, PathCostResult> _costCache = new Dictionary<long, PathCostResult>();
         private int _cacheTick = int.MinValue;

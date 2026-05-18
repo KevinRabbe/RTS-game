@@ -103,6 +103,24 @@ Execution order is locked:
 5. Keep regression tests permanently.
 6. Run Godot manual smoke only after sim tests are green.
 
+## Stable Upgrade Boundary (AoE4-Like Path Ready)
+
+Movement-quality improvements must be additive upgrades through service implementations:
+
+- `ISpatialIndexService`
+- `IPathQueryService`
+- `ITrafficReservationService`
+- `IMovementProgressPolicy`
+
+Rules:
+
+- No direct pathfinder usage outside path service.
+- No direct reservation writes outside reservation service (except entity initialization).
+- Deterministic ordered tie-breaks only in conflict logic.
+- Temporary congestion may not clear long-term intent.
+
+This keeps future v2/v3/v4 movement improvements upgrade-safe without gameplay API rewrites.
+
 ## No-Goals For This Slice
 
 - Combat depth expansion

@@ -5,6 +5,8 @@ namespace RtsGame.Sim.Core
 {
     public sealed class DeterministicTrafficReservationService : ITrafficReservationService
     {
+        public ITrafficLanePreferenceScorer? LanePreferenceScorer { get; set; }
+
         public void Reserve(GameState state, Unit unit, InteractionReservationKind kind, int targetId, SpatialRules.TileCoord tile)
         {
             bool hadReservation = unit.ReservedInteractionKind != InteractionReservationKind.None;
@@ -50,6 +52,7 @@ namespace RtsGame.Sim.Core
             bool found = false;
             int bestPathCost = int.MaxValue;
             int bestDistance = int.MaxValue;
+            int bestLaneScore = int.MaxValue;
             for (int i = 0; i < candidates.Count; i++)
             {
                 SpatialRules.TileCoord tile = candidates[i];
@@ -64,14 +67,17 @@ namespace RtsGame.Sim.Core
                 }
 
                 int distance = Abs(unitTileX - tile.X) + Abs(unitTileY - tile.Y);
+                int laneScore = LanePreferenceScorer?.Score(state, unit, kind, targetId, tile, contextVersion) ?? 0;
                 if (!found
                     || cost < bestPathCost
                     || (cost == bestPathCost && distance < bestDistance)
-                    || (cost == bestPathCost && distance == bestDistance && Compare(tile, selected) < 0))
+                    || (cost == bestPathCost && distance == bestDistance && laneScore < bestLaneScore)
+                    || (cost == bestPathCost && distance == bestDistance && laneScore == bestLaneScore && Compare(tile, selected) < 0))
                 {
                     selected = tile;
                     bestPathCost = cost;
                     bestDistance = distance;
+                    bestLaneScore = laneScore;
                     found = true;
                 }
             }

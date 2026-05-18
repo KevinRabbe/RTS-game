@@ -356,7 +356,7 @@ namespace RtsGame.Sim.Core
             }
 
             int blockedTicks = unit.LastMovedTick < 0 ? int.MaxValue : state.Tick - unit.LastMovedTick;
-            if (blockedTicks < GameData.InteractionTargetRetargetBlockedTicks)
+            if (blockedTicks < GameData.NoProgressTimeoutTicks)
             {
                 return false;
             }
@@ -463,7 +463,7 @@ namespace RtsGame.Sim.Core
             }
 
             int blockedTicks = unit.LastMovedTick < 0 ? int.MaxValue : state.Tick - unit.LastMovedTick;
-            if (blockedTicks >= GameData.InteractionTargetRetargetBlockedTicks)
+            if (blockedTicks >= GameData.NoProgressTimeoutTicks)
             {
                 return false;
             }
@@ -500,7 +500,7 @@ namespace RtsGame.Sim.Core
             int unitTileY = GetTileY(unit.Position);
             bool alreadyAtSlot = unitTileX == unit.ReservedInteractionTileX && unitTileY == unit.ReservedInteractionTileY;
             int blockedTicks = unit.LastMovedTick < 0 ? int.MaxValue : state.Tick - unit.LastMovedTick;
-            if (!alreadyAtSlot && blockedTicks >= GameData.InteractionTargetRetargetBlockedTicks)
+            if (!alreadyAtSlot && blockedTicks >= GameData.NoProgressTimeoutTicks)
             {
                 if (!state.PathQueries.TryNextStep(
                     state,
@@ -521,7 +521,7 @@ namespace RtsGame.Sim.Core
                 && GetTileX(unit.MoveTarget) == unit.ReservedInteractionTileX
                 && GetTileY(unit.MoveTarget) == unit.ReservedInteractionTileY)
             {
-                if (blockedTicks >= GameData.InteractionTargetRetargetBlockedTicks)
+                if (blockedTicks >= GameData.NoProgressTimeoutTicks)
                 {
                     return false;
                 }

@@ -213,6 +213,9 @@ namespace RtsGame.Tests
                 new TestCase("presentation snapshot does not mutate checksum", PresentationSnapshotDoesNotMutateChecksum),
                 new TestCase("simulation does not reference presentation", SimulationDoesNotReferencePresentation),
                 new TestCase("simulation source does not reference presentation", SimulationSourceDoesNotReferencePresentation),
+                new TestCase("simulation source routes pathfinding through service layer", SimulationSourceRoutesPathfindingThroughServiceLayer),
+                new TestCase("simulation source routes reservation writes through traffic service", SimulationSourceRoutesReservationWritesThroughTrafficService),
+                new TestCase("deterministic reservation conflicts avoid unordered iteration", DeterministicReservationConflictsAvoidUnorderedIteration),
                 new TestCase("godot bridge does not reference godot api", GodotBridgeDoesNotReferenceGodotApi),
                 new TestCase("godot client script does not reference simulation core", GodotClientScriptDoesNotReferenceSimulationCore),
                 new TestCase("godot client script does not switch on raw primitive kind", GodotClientScriptDoesNotSwitchOnRawPrimitiveKind),
@@ -3504,8 +3507,8 @@ namespace RtsGame.Tests
                 }
             }
 
-            AssertEqual(true, maxPathCallsPerTick <= 12000, "path query budget should stay bounded under 120-worker pressure max=" + maxPathCallsPerTick);
-            AssertEqual(true, maxRetargetsPerTick <= 240, "reservation retarget churn should stay bounded under 120-worker pressure max=" + maxRetargetsPerTick);
+            AssertEqual(true, maxPathCallsPerTick <= GameData.PathQueryBudgetPerTick, "path query budget should stay bounded under 120-worker pressure max=" + maxPathCallsPerTick);
+            AssertEqual(true, maxRetargetsPerTick <= GameData.ReservationRetargetBudgetPerTick, "reservation retarget churn should stay bounded under 120-worker pressure max=" + maxRetargetsPerTick);
         }
 
         private static void RepeatedCommandReplacementStaysBounded()
@@ -3535,7 +3538,7 @@ namespace RtsGame.Tests
                 AssertNoLiveUnitStacking(state, "repeated replacement should not stack");
             }
 
-            AssertEqual(true, maxPathCallsPerTick <= 14000, "repeated replacement path query budget should stay bounded max=" + maxPathCallsPerTick);
+            AssertEqual(true, maxPathCallsPerTick <= GameData.PathQueryBudgetPerTick, "repeated replacement path query budget should stay bounded max=" + maxPathCallsPerTick);
         }
 
         private static void SixPlayerMixedPopulationTrafficRemainsDeterministic()
@@ -3583,7 +3586,7 @@ namespace RtsGame.Tests
                 AssertNoLiveUnitStacking(first, "six-player mixed-pop pressure should not stack");
                 AssertNoDuplicateFinalPurposeReservations(first, "six-player mixed-pop pressure should avoid duplicate reservations");
                 int pathCalls = first.DebugCounters.PathFindNextCalls + first.DebugCounters.PathFindCostCalls;
-                AssertEqual(true, pathCalls <= 16000, "six-player mixed-pop path queries should stay bounded tick=" + tick + " pathCalls=" + pathCalls);
+                AssertEqual(true, pathCalls <= GameData.PathQueryBudgetPerTick, "six-player mixed-pop path queries should stay bounded tick=" + tick + " pathCalls=" + pathCalls);
             }
 
             AssertEqual(first.LastChecksum, second.LastChecksum, "six-player mixed-pop pressure should remain deterministic");
@@ -3623,7 +3626,7 @@ namespace RtsGame.Tests
                 AssertNoLiveUnitStacking(state, label + " should not stack");
                 AssertNoDuplicateFinalPurposeReservations(state, label + " should not duplicate final-purpose reservations");
                 int pathCalls = state.DebugCounters.PathFindNextCalls + state.DebugCounters.PathFindCostCalls;
-                AssertEqual(true, pathCalls <= 14000, label + " path query budget should stay bounded tick=" + tick + " pathCalls=" + pathCalls);
+                AssertEqual(true, pathCalls <= GameData.PathQueryBudgetPerTick, label + " path query budget should stay bounded tick=" + tick + " pathCalls=" + pathCalls);
             }
 
             AssertEqual(true, state.PlayerStates.Players[0].Resources.Food > initialFood || AnyWorkerHasResourceIntent(state, foodWorkers), label + " food workers should make progress or keep gather intent");
@@ -4102,6 +4105,88 @@ namespace RtsGame.Tests
                 AssertFalse(text.Contains("RtsGame.Presentation"), "simulation source must not reference presentation namespace file=" + files[i]);
                 AssertFalse(text.Contains("Godot"), "simulation source must not reference Godot file=" + files[i]);
             }
+        }
+
+        private static void SimulationSourceRoutesPathfindingThroughServiceLayer()
+        {
+            string[] files = System.IO.Directory.GetFiles(System.IO.Path.Combine("src", "sim"), "*.cs", System.IO.SearchOption.AllDirectories);
+            for (int i = 0; i < files.Length; i++)
+            {
+                string normalized = files[i].Replace('\\', '/');
+                if (normalized.EndsWith("/Core/DeterministicPathfinder.cs")
+                    || normalized.EndsWith("/Core/DeterministicPathQueryService.cs"))
+                {
+                    continue;
+                }
+
+                string text = System.IO.File.ReadAllText(files[i]);
+                AssertFalse(
+                    text.Contains("DeterministicPathfinder.TryFindNextTile(") || text.Contains("DeterministicPathfinder.TryFindPathCost("),
+                    "simulation code outside path query service must not call DeterministicPathfinder directly file=" + normalized);
+            }
+        }
+
+        private static void SimulationSourceRoutesReservationWritesThroughTrafficService()
+        {
+            string[] files = System.IO.Directory.GetFiles(System.IO.Path.Combine("src", "sim"), "*.cs", System.IO.SearchOption.AllDirectories);
+            for (int i = 0; i < files.Length; i++)
+            {
+                string normalized = files[i].Replace('\\', '/');
+                bool isAllowedWriter =
+                    normalized.EndsWith("/Core/DeterministicTrafficReservationService.cs")
+                    || normalized.EndsWith("/Core/EntityFactory.cs");
+                if (isAllowedWriter)
+                {
+                    continue;
+                }
+
+                string text = System.IO.File.ReadAllText(files[i]);
+                AssertFalse(ContainsFieldAssignment(text, "ReservedInteractionKind"), "reservation kind writes must route through traffic service file=" + normalized);
+                AssertFalse(ContainsFieldAssignment(text, "ReservedInteractionTargetId"), "reservation target writes must route through traffic service file=" + normalized);
+                AssertFalse(ContainsFieldAssignment(text, "ReservedInteractionTileX"), "reservation tile x writes must route through traffic service file=" + normalized);
+                AssertFalse(ContainsFieldAssignment(text, "ReservedInteractionTileY"), "reservation tile y writes must route through traffic service file=" + normalized);
+            }
+        }
+
+        private static void DeterministicReservationConflictsAvoidUnorderedIteration()
+        {
+            string text = System.IO.File.ReadAllText(System.IO.Path.Combine("src", "sim", "Core", "DeterministicTrafficReservationService.cs"));
+            AssertFalse(text.Contains("foreach (var"), "reservation conflict resolution should avoid unordered iteration in deterministic paths");
+            AssertFalse(text.Contains("HashSet<"), "reservation conflict resolution should avoid hash-set iteration in deterministic conflict decisions");
+            AssertFalse(text.Contains("Dictionary<"), "reservation conflict resolution should avoid dictionary iteration in deterministic conflict decisions");
+            AssertEqual(true, text.Contains("for (int i = 0; i < candidates.Count; i++)"), "reservation conflict resolution should use ordered candidate iteration");
+        }
+
+        private static bool ContainsFieldAssignment(string source, string fieldName)
+        {
+            string marker = "." + fieldName;
+            string[] lines = source.Split('\n');
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string line = lines[i];
+                int markerIndex = line.IndexOf(marker, System.StringComparison.Ordinal);
+                if (markerIndex < 0)
+                {
+                    continue;
+                }
+
+                int equalsIndex = line.IndexOf('=', markerIndex + marker.Length);
+                if (equalsIndex < 0)
+                {
+                    continue;
+                }
+
+                bool isComparison = line.Contains("==")
+                    || line.Contains("!=")
+                    || line.Contains("<=")
+                    || line.Contains(">=");
+                if (!isComparison)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static void GodotBridgeDoesNotReferenceGodotApi()

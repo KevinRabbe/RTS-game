@@ -142,7 +142,7 @@ namespace RtsGame.Sim.Systems
             }
 
             int blockedTicks = unit.LastMovedTick < 0 ? int.MaxValue : state.Tick - unit.LastMovedTick;
-            return blockedTicks >= GameData.InteractionTargetRetargetBlockedTicks;
+            return blockedTicks >= GameData.NoProgressTimeoutTicks;
         }
 
     }
