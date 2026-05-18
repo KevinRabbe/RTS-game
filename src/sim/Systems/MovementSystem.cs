@@ -464,6 +464,8 @@ namespace RtsGame.Sim.Systems
             Fixed maxVelocity = speed;
             Fixed desiredScale = maxVelocity / new Fixed(desiredDistanceRaw);
             FixedVector2 desiredVelocity = FixedVector2.Multiply(desiredDirection, desiredScale);
+            FixedVector2 separationVelocity = ComputeSeparationVelocity(context, unit, currentTileX, currentTileY, speed);
+            desiredVelocity = desiredVelocity + separationVelocity;
             Fixed maxAcceleration = speed / Fixed.FromRatio(2, 1);
             FixedVector2 nextVelocity = MoveTowardVelocity(unit.Velocity, desiredVelocity, maxAcceleration);
             FixedVector2 nextPosition = unit.Position + nextVelocity;
@@ -472,10 +474,24 @@ namespace RtsGame.Sim.Systems
             int projectedTileY = SpatialRules.GetTileY(nextPosition);
             if (SpatialRules.IsTileBlockedForUnitMovement(state, projectedTileX, projectedTileY))
             {
-                plan.Blocked = IsWorkerTaskMovementPhase(unit.TaskPhase);
-                plan.ShouldClearTarget = !IsWorkerTaskMovementPhase(unit.TaskPhase);
-                blockReason = MovementBlockReason.StaticBlocked;
-                return true;
+                if (!TryStaticSlide(
+                        state,
+                        unit,
+                        currentTileX,
+                        currentTileY,
+                        targetTileX,
+                        targetTileY,
+                        speed,
+                        out nextPosition))
+                {
+                    plan.Blocked = IsWorkerTaskMovementPhase(unit.TaskPhase);
+                    plan.ShouldClearTarget = !IsWorkerTaskMovementPhase(unit.TaskPhase);
+                    blockReason = MovementBlockReason.StaticBlocked;
+                    return true;
+                }
+
+                projectedTileX = SpatialRules.GetTileX(nextPosition);
+                projectedTileY = SpatialRules.GetTileY(nextPosition);
             }
 
             if ((projectedTileX != currentTileX || projectedTileY != currentTileY)
@@ -512,6 +528,91 @@ namespace RtsGame.Sim.Systems
             plan.NextPosition = reachingTarget ? unit.MoveTarget : nextPosition;
             plan.WillReachTarget = reachingTarget;
             return true;
+        }
+
+        private static bool TryStaticSlide(
+            GameState state,
+            Unit unit,
+            int currentTileX,
+            int currentTileY,
+            int targetTileX,
+            int targetTileY,
+            Fixed speed,
+            out FixedVector2 nextPosition)
+        {
+            nextPosition = unit.Position;
+            int xDir = targetTileX > currentTileX ? 1 : targetTileX < currentTileX ? -1 : 0;
+            int yDir = targetTileY > currentTileY ? 1 : targetTileY < currentTileY ? -1 : 0;
+            int dx = Abs(targetTileX - currentTileX);
+            int dy = Abs(targetTileY - currentTileY);
+
+            int firstX = dx >= dy ? xDir : 0;
+            int firstY = dx >= dy ? 0 : yDir;
+            int secondX = dx >= dy ? 0 : xDir;
+            int secondY = dx >= dy ? yDir : 0;
+
+            if (TrySlideToTile(state, unit, currentTileX + firstX, currentTileY + firstY, speed, out nextPosition))
+            {
+                return true;
+            }
+
+            if (TrySlideToTile(state, unit, currentTileX + secondX, currentTileY + secondY, speed, out nextPosition))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TrySlideToTile(GameState state, Unit unit, int tileX, int tileY, Fixed speed, out FixedVector2 nextPosition)
+        {
+            nextPosition = unit.Position;
+            if ((tileX == SpatialRules.GetTileX(unit.Position) && tileY == SpatialRules.GetTileY(unit.Position))
+                || SpatialRules.IsTileBlockedForUnitMovement(state, tileX, tileY))
+            {
+                return false;
+            }
+
+            FixedVector2 target = FixedVector2.FromInts(tileX, tileY);
+            FixedVector2 delta = target - unit.Position;
+            long distanceRaw = DeterministicMath.SqrtRaw(delta.LengthSquaredRaw());
+            if (distanceRaw == 0 || distanceRaw <= speed.Raw)
+            {
+                nextPosition = target;
+                return true;
+            }
+
+            Fixed stepScale = speed / new Fixed(distanceRaw);
+            nextPosition = unit.Position + FixedVector2.Multiply(delta, stepScale);
+            return true;
+        }
+
+        private static FixedVector2 ComputeSeparationVelocity(MovementContext context, Unit unit, int currentTileX, int currentTileY, Fixed speed)
+        {
+            long pushXRaw = 0;
+            long pushYRaw = 0;
+            for (int y = currentTileY - 1; y <= currentTileY + 1; y++)
+            {
+                for (int x = currentTileX - 1; x <= currentTileX + 1; x++)
+                {
+                    if ((x == currentTileX && y == currentTileY)
+                        || !context.IsTileOccupied(x, y, unit.Id))
+                    {
+                        continue;
+                    }
+
+                    pushXRaw += (currentTileX - x);
+                    pushYRaw += (currentTileY - y);
+                }
+            }
+
+            if (pushXRaw == 0 && pushYRaw == 0)
+            {
+                return new FixedVector2(new Fixed(0), new Fixed(0));
+            }
+
+            Fixed scale = speed / Fixed.FromRatio(4, 1);
+            return new FixedVector2(new Fixed(pushXRaw * scale.Raw), new Fixed(pushYRaw * scale.Raw));
         }
 
         private static FixedVector2 MoveTowardVelocity(FixedVector2 current, FixedVector2 desired, Fixed maxDelta)
