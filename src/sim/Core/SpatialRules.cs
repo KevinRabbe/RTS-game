@@ -30,6 +30,8 @@ namespace RtsGame.Sim.Core
 
         public static bool IsBlockedByWall(GameState state, FixedVector2 position)
         {
+            int tileX = GetTileX(position);
+            int tileY = GetTileY(position);
             for (int i = 0; i < state.EntityState.Buildings.Count; i++)
             {
                 Building building = state.EntityState.Buildings[i];
@@ -38,7 +40,7 @@ namespace RtsGame.Sim.Core
                     continue;
                 }
 
-                if (IsInsideRadius(position, building.Position, GameData.WallPlacementRadiusTiles))
+                if (IsTileInsideBuildingFootprint(building, tileX, tileY))
                 {
                     return true;
                 }
@@ -55,7 +57,15 @@ namespace RtsGame.Sim.Core
 
         public static bool IsTileInsideBuildingFootprint(Building building, int tileX, int tileY)
         {
-            return IsTileInsideSimulationFootprint(tileX, tileY, building.Position, GameData.GetBuildingPlacementRadiusTiles(building.BuildingTypeId));
+            GetFootprintBounds(
+                building.Position,
+                GameData.GetBuildingFootprintWidthTiles(building.BuildingTypeId),
+                GameData.GetBuildingFootprintHeightTiles(building.BuildingTypeId),
+                out int minX,
+                out int minY,
+                out int maxX,
+                out int maxY);
+            return IsTileInsideFootprintBounds(tileX, tileY, minX, minY, maxX, maxY);
         }
 
         public static bool IsTileBlockedByBuildingFootprint(GameState state, int tileX, int tileY, int ignoredBuildingId = 0)
@@ -163,17 +173,33 @@ namespace RtsGame.Sim.Core
 
         public static bool IsTileInsideResourceFootprint(ResourceNode node, int tileX, int tileY)
         {
-            return IsTileInsideSimulationFootprint(tileX, tileY, node.Position, GetResourceFootprintRadiusTiles(node));
+            GetResourceFootprintDimensions(node, out int widthTiles, out int heightTiles);
+            GetFootprintBounds(node.Position, widthTiles, heightTiles, out int minX, out int minY, out int maxX, out int maxY);
+            return IsTileInsideFootprintBounds(tileX, tileY, minX, minY, maxX, maxY);
         }
 
         public static List<TileCoord> EnumerateResourceFootprintTiles(GameState state, ResourceNode node)
         {
-            return EnumerateSimulationFootprintTiles(state, node.Position, GetResourceFootprintRadiusTiles(node));
+            GetResourceFootprintDimensions(node, out int widthTiles, out int heightTiles);
+            return EnumerateSimulationFootprintTiles(state, node.Position, widthTiles, heightTiles);
         }
 
         public static List<TileCoord> EnumerateBuildingFootprintTiles(GameState state, Building building)
         {
-            return EnumerateSimulationFootprintTiles(state, building.Position, GameData.GetBuildingPlacementRadiusTiles(building.BuildingTypeId));
+            return EnumerateSimulationFootprintTiles(
+                state,
+                building.Position,
+                GameData.GetBuildingFootprintWidthTiles(building.BuildingTypeId),
+                GameData.GetBuildingFootprintHeightTiles(building.BuildingTypeId));
+        }
+
+        public static List<TileCoord> EnumerateBuildingFootprintTiles(GameState state, BuildingTypeId buildingTypeId, FixedVector2 position)
+        {
+            return EnumerateSimulationFootprintTiles(
+                state,
+                position,
+                GameData.GetBuildingFootprintWidthTiles(buildingTypeId),
+                GameData.GetBuildingFootprintHeightTiles(buildingTypeId));
         }
 
         public static bool IsTileAdjacentToResourceFootprint(ResourceNode node, int tileX, int tileY)
@@ -692,23 +718,15 @@ namespace RtsGame.Sim.Core
                 && !IsTileReservedByLiveUnit(state, tileX, tileY, unit.Id);
         }
 
-        private static bool IsInsideRadius(FixedVector2 position, FixedVector2 center, int radiusTiles)
+        private static List<TileCoord> EnumerateSimulationFootprintTiles(GameState state, FixedVector2 position, int widthTiles, int heightTiles)
         {
-            long radiusRaw = Fixed.FromInt(radiusTiles).Raw;
-            long radiusSquaredRaw = checked(radiusRaw * radiusRaw);
-            return (position - center).LengthSquaredRaw() < radiusSquaredRaw;
-        }
-
-        private static List<TileCoord> EnumerateSimulationFootprintTiles(GameState state, FixedVector2 position, int radiusTiles)
-        {
-            int centerX = GetTileX(position);
-            int centerY = GetTileY(position);
+            GetFootprintBounds(position, widthTiles, heightTiles, out int minX, out int minY, out int maxX, out int maxY);
             var tiles = new List<TileCoord>();
-            for (int y = centerY - radiusTiles; y <= centerY + radiusTiles; y++)
+            for (int y = minY; y <= maxY; y++)
             {
-                for (int x = centerX - radiusTiles; x <= centerX + radiusTiles; x++)
+                for (int x = minX; x <= maxX; x++)
                 {
-                    if (IsTileInBounds(state, x, y) && IsTileInsideSimulationFootprint(x, y, position, radiusTiles))
+                    if (IsTileInBounds(state, x, y))
                     {
                         tiles.Add(new TileCoord(x, y));
                     }
@@ -717,11 +735,6 @@ namespace RtsGame.Sim.Core
 
             SortTiles(tiles);
             return tiles;
-        }
-
-        private static bool IsTileInsideSimulationFootprint(int tileX, int tileY, FixedVector2 position, int radiusTiles)
-        {
-            return IsInsideRadius(FixedVector2.FromInts(tileX, tileY), position, radiusTiles);
         }
 
         private static List<TileCoord> EnumerateInteractionTilesForFootprint(GameState state, List<TileCoord> footprintTiles, int ignoredBuildingId)
@@ -825,10 +838,43 @@ namespace RtsGame.Sim.Core
             return EncodeTileKey(tileX, tileY);
         }
 
-        private static int GetResourceFootprintRadiusTiles(ResourceNode node)
+        private static void GetResourceFootprintDimensions(ResourceNode node, out int widthTiles, out int heightTiles)
         {
             GatherProfile profile = GameData.GetGatherProfile(node.GatherProfileId);
-            return profile.Id == GatherProfileId.None ? GameData.ResourcePlacementRadiusTiles : profile.FootprintRadiusTiles;
+            if (profile.Id == GatherProfileId.None)
+            {
+                widthTiles = 1;
+                heightTiles = 1;
+                return;
+            }
+
+            widthTiles = profile.FootprintWidthTiles;
+            heightTiles = profile.FootprintHeightTiles;
+        }
+
+        private static void GetFootprintBounds(
+            FixedVector2 position,
+            int widthTiles,
+            int heightTiles,
+            out int minX,
+            out int minY,
+            out int maxX,
+            out int maxY)
+        {
+            int centerX = GetTileX(position);
+            int centerY = GetTileY(position);
+            int halfWidth = widthTiles / 2;
+            int halfHeight = heightTiles / 2;
+
+            minX = centerX - halfWidth;
+            minY = centerY - halfHeight;
+            maxX = minX + widthTiles - 1;
+            maxY = minY + heightTiles - 1;
+        }
+
+        private static bool IsTileInsideFootprintBounds(int tileX, int tileY, int minX, int minY, int maxX, int maxY)
+        {
+            return tileX >= minX && tileX <= maxX && tileY >= minY && tileY <= maxY;
         }
     }
 }

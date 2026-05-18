@@ -13,38 +13,31 @@ namespace RtsGame.Sim.Commands
                 return false;
             }
 
-            int radiusTiles = GameData.GetBuildingPlacementRadiusTiles(buildingTypeId);
-            for (int i = 0; i < state.EntityState.Buildings.Count; i++)
+            var footprintTiles = SpatialRules.EnumerateBuildingFootprintTiles(state, buildingTypeId, position);
+            if (footprintTiles.Count == 0)
             {
-                Building building = state.EntityState.Buildings[i];
-                if (building.IsDead)
-                {
-                    continue;
-                }
+                return false;
+            }
 
-                int otherRadiusTiles = GameData.GetBuildingPlacementRadiusTiles(building.BuildingTypeId);
-                if (IsWithinCombinedRadius(position, radiusTiles, building.Position, otherRadiusTiles))
+            for (int i = 0; i < footprintTiles.Count; i++)
+            {
+                SpatialRules.TileCoord tile = footprintTiles[i];
+                if (!SpatialRules.IsTileInBounds(state, tile.X, tile.Y))
                 {
                     return false;
                 }
-            }
 
-            for (int i = 0; i < state.EconomyState.ResourceNodes.Count; i++)
-            {
-                ResourceNode node = state.EconomyState.ResourceNodes[i];
-                if (node.IsDepleted)
+                if (SpatialRules.IsTileBlockedByWall(state, tile.X, tile.Y))
                 {
-                    continue;
+                    return false;
                 }
 
-                GatherProfile profile = GameData.GetGatherProfile(node.GatherProfileId);
-                if (!profile.BlocksPlacement)
+                if (SpatialRules.IsTileBlockedByBuildingFootprint(state, tile.X, tile.Y))
                 {
-                    continue;
+                    return false;
                 }
 
-                int resourceRadiusTiles = profile.Id == GatherProfileId.None ? GameData.ResourcePlacementRadiusTiles : profile.FootprintRadiusTiles;
-                if (IsWithinCombinedRadius(position, radiusTiles, node.Position, resourceRadiusTiles))
+                if (SpatialRules.IsTileBlockedByResource(state, tile.X, tile.Y))
                 {
                     return false;
                 }
@@ -61,11 +54,5 @@ namespace RtsGame.Sim.Commands
                 && position.Y < Fixed.FromInt(GameData.MapHeightTiles);
         }
 
-        private static bool IsWithinCombinedRadius(FixedVector2 position, int radiusTiles, FixedVector2 otherPosition, int otherRadiusTiles)
-        {
-            long combinedRaw = Fixed.FromInt(radiusTiles + otherRadiusTiles).Raw;
-            long combinedSquaredRaw = checked(combinedRaw * combinedRaw);
-            return (position - otherPosition).LengthSquaredRaw() < combinedSquaredRaw;
-        }
     }
 }

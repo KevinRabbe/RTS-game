@@ -849,7 +849,7 @@ namespace RtsGame.Tests
 
             AssertEqual(true, footprint.Count > 1, "large gold should have a larger sim footprint than a 1x1 node");
             AssertEqual(true, ring.Count > 8, "larger resource footprint should expose a larger interaction ring");
-            AssertEqual(true, SpatialRules.IsTileBlockedForUnitMovement(state, 21, 20), "large gold footprint should block pathing");
+            AssertEqual(true, SpatialRules.IsTileBlockedForUnitMovement(state, 19, 20), "large gold footprint should block pathing");
             AssertEqual(false, SpatialRules.ContainsInteractionTile(ring, 20, 20), "large gold center should not be an interaction slot");
         }
 
@@ -875,13 +875,13 @@ namespace RtsGame.Tests
             Building tc = state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index];
             List<SpatialRules.TileCoord> ring = SpatialRules.EnumerateBuildingInteractionTiles(state, tc);
 
-            AssertEqual(true, SpatialRules.ContainsInteractionTile(ring, 20, 18), "TC ring should include north side around full footprint");
+            AssertEqual(true, SpatialRules.ContainsInteractionTile(ring, 20, 17), "TC ring should include north side around full footprint");
             AssertEqual(true, SpatialRules.ContainsInteractionTile(ring, 20, 22), "TC ring should include south side around full footprint");
-            AssertEqual(true, SpatialRules.ContainsInteractionTile(ring, 18, 20), "TC ring should include west side around full footprint");
+            AssertEqual(true, SpatialRules.ContainsInteractionTile(ring, 17, 20), "TC ring should include west side around full footprint");
             AssertEqual(true, SpatialRules.ContainsInteractionTile(ring, 22, 20), "TC ring should include east side around full footprint");
-            AssertEqual(true, SpatialRules.IsUnitInBuildInteractionRange(new Unit { Position = FixedVector2.FromInts(20, 18) }, tc), "north ring worker should be in build range");
+            AssertEqual(true, SpatialRules.IsUnitInBuildInteractionRange(new Unit { Position = FixedVector2.FromInts(20, 17) }, tc), "north ring worker should be in build range");
             AssertEqual(true, SpatialRules.IsUnitInBuildingInteractionRange(new Unit { Position = FixedVector2.FromInts(20, 22) }, tc), "south ring carrier should be in dropoff range");
-            AssertEqual(false, SpatialRules.IsTileInsideBuildingFootprint(tc, 20, 18), "ring tile should not be inside the TC footprint");
+            AssertEqual(false, SpatialRules.IsTileInsideBuildingFootprint(tc, 20, 17), "ring tile should not be inside the TC footprint");
         }
 
         private static void DryArabiaResourcesCreateTypedAreas()
@@ -4472,8 +4472,8 @@ namespace RtsGame.Tests
             VisualPrimitive capital = FindPrimitive(frame, VisualPrimitiveKind.BuildingRectangle, state.PlayerStates.Players[0].CapitalStatus.CapitalBuildingId);
             VisualPrimitive normalTownCenter = FindPrimitive(frame, VisualPrimitiveKind.BuildingRectangle, normalId);
             VisualPrimitive wall = FindPrimitive(frame, VisualPrimitiveKind.WallRectangle, wallId);
-            long townCenterDiameterRaw = Fixed.FromInt(GameData.GetBuildingPlacementRadiusTiles(BuildingTypeId.TownCenter) * 2).Raw;
-            long wallDiameterRaw = Fixed.FromInt(GameData.GetBuildingPlacementRadiusTiles(BuildingTypeId.Wall) * 2).Raw;
+            long townCenterDiameterRaw = Fixed.FromInt(System.Math.Max(GameData.GetBuildingFootprintWidthTiles(BuildingTypeId.TownCenter), GameData.GetBuildingFootprintHeightTiles(BuildingTypeId.TownCenter))).Raw;
+            long wallDiameterRaw = Fixed.FromInt(System.Math.Max(GameData.GetBuildingFootprintWidthTiles(BuildingTypeId.Wall), GameData.GetBuildingFootprintHeightTiles(BuildingTypeId.Wall))).Raw;
 
             AssertEqual(true, capital.IsCapital, "capital primitive should be marked as capital");
             AssertEqual(townCenterDiameterRaw, capital.Size.Raw, "capital primitive footprint should match TC simulation diameter");
@@ -4533,9 +4533,9 @@ namespace RtsGame.Tests
             VisualPrimitive smallGoldPrimitive = FindPrimitive(frame, VisualPrimitiveKind.GoldResourceCircle, 2);
             VisualPrimitive largeGoldPrimitive = FindPrimitive(frame, VisualPrimitiveKind.GoldResourceCircle, 3);
 
-            AssertEqual(Fixed.FromInt(GameData.GetGatherProfile(GatherProfileId.Tree).VisualRadiusTiles * 2).Raw, treePrimitive.Size.Raw, "tree primitive should expose profile visual size");
-            AssertEqual(Fixed.FromInt(GameData.GetGatherProfile(GatherProfileId.GoldVeinSmall).VisualRadiusTiles * 2).Raw, smallGoldPrimitive.Size.Raw, "small gold primitive should expose profile visual size");
-            AssertEqual(Fixed.FromInt(GameData.GetGatherProfile(GatherProfileId.GoldVeinLarge).VisualRadiusTiles * 2).Raw, largeGoldPrimitive.Size.Raw, "large gold primitive should expose profile visual size");
+            AssertEqual(Fixed.FromInt(System.Math.Max(GameData.GetGatherProfile(GatherProfileId.Tree).FootprintWidthTiles, GameData.GetGatherProfile(GatherProfileId.Tree).FootprintHeightTiles)).Raw, treePrimitive.Size.Raw, "tree primitive should expose profile footprint visual size");
+            AssertEqual(Fixed.FromInt(System.Math.Max(GameData.GetGatherProfile(GatherProfileId.GoldVeinSmall).FootprintWidthTiles, GameData.GetGatherProfile(GatherProfileId.GoldVeinSmall).FootprintHeightTiles)).Raw, smallGoldPrimitive.Size.Raw, "small gold primitive should expose profile footprint visual size");
+            AssertEqual(Fixed.FromInt(System.Math.Max(GameData.GetGatherProfile(GatherProfileId.GoldVeinLarge).FootprintWidthTiles, GameData.GetGatherProfile(GatherProfileId.GoldVeinLarge).FootprintHeightTiles)).Raw, largeGoldPrimitive.Size.Raw, "large gold primitive should expose profile footprint visual size");
             AssertEqual(true, largeGoldPrimitive.Size.Raw > smallGoldPrimitive.Size.Raw, "large gold should look larger than small gold");
         }
 

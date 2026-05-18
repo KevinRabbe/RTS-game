@@ -64,6 +64,8 @@ namespace RtsGame.Sim.Data
         public DropOffCategory DropOffCategory { get; }
         public int CarryCapacity { get; }
         public int GatherAmountPerTick { get; }
+        public int FootprintWidthTiles { get; }
+        public int FootprintHeightTiles { get; }
         public int FootprintRadiusTiles { get; }
         public int VisualRadiusTiles { get; }
         public bool BlocksMovement { get; }
@@ -78,6 +80,8 @@ namespace RtsGame.Sim.Data
             DropOffCategory dropOffCategory,
             int carryCapacity,
             int gatherAmountPerTick,
+            int footprintWidthTiles,
+            int footprintHeightTiles,
             int footprintRadiusTiles,
             int visualRadiusTiles,
             bool blocksMovement,
@@ -91,6 +95,8 @@ namespace RtsGame.Sim.Data
             DropOffCategory = dropOffCategory;
             CarryCapacity = carryCapacity;
             GatherAmountPerTick = gatherAmountPerTick;
+            FootprintWidthTiles = footprintWidthTiles;
+            FootprintHeightTiles = footprintHeightTiles;
             FootprintRadiusTiles = footprintRadiusTiles;
             VisualRadiusTiles = visualRadiusTiles;
             BlocksMovement = blocksMovement;

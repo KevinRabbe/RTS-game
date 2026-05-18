@@ -101,13 +101,18 @@ namespace RtsGame.Presentation.Visuals
 
         private static Fixed GetBuildingFootprintSize(BuildingTypeId buildingTypeId)
         {
-            return Fixed.FromInt(GameData.GetBuildingPlacementRadiusTiles(buildingTypeId) * 2);
+            return Fixed.FromInt(Max(GameData.GetBuildingFootprintWidthTiles(buildingTypeId), GameData.GetBuildingFootprintHeightTiles(buildingTypeId)));
         }
 
         private static Fixed GetResourceVisualSize(GatherProfileId gatherProfileId)
         {
             GatherProfile profile = GameData.GetGatherProfile(gatherProfileId);
-            return Fixed.FromInt(profile.VisualRadiusTiles * 2);
+            return Fixed.FromInt(Max(profile.FootprintWidthTiles, profile.FootprintHeightTiles));
+        }
+
+        private static int Max(int left, int right)
+        {
+            return left >= right ? left : right;
         }
 
         private static VisualPrimitiveKind GetResourceKind(ResourceType resourceType)

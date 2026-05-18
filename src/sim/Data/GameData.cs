@@ -123,6 +123,8 @@ namespace RtsGame.Sim.Data
                         DropOffCategory.Wood,
                         VillagerCarryCapacity,
                         VillagerGatherPerTick,
+                        1,
+                        1,
                         ResourcePlacementRadiusTiles,
                         ResourcePlacementRadiusTiles,
                         true,
@@ -137,6 +139,8 @@ namespace RtsGame.Sim.Data
                         DropOffCategory.Food,
                         VillagerCarryCapacity,
                         VillagerGatherPerTick,
+                        1,
+                        1,
                         ResourcePlacementRadiusTiles,
                         ResourcePlacementRadiusTiles,
                         true,
@@ -151,6 +155,8 @@ namespace RtsGame.Sim.Data
                         DropOffCategory.Gold,
                         VillagerCarryCapacity,
                         VillagerGatherPerTick,
+                        1,
+                        1,
                         ResourcePlacementRadiusTiles,
                         ResourcePlacementRadiusTiles,
                         true,
@@ -165,6 +171,8 @@ namespace RtsGame.Sim.Data
                         DropOffCategory.Gold,
                         VillagerCarryCapacity,
                         VillagerGatherPerTick,
+                        2,
+                        2,
                         ResourcePlacementRadiusTiles + 1,
                         ResourcePlacementRadiusTiles + 1,
                         true,
@@ -179,6 +187,8 @@ namespace RtsGame.Sim.Data
                         DropOffCategory.None,
                         VillagerCarryCapacity,
                         VillagerGatherPerTick,
+                        1,
+                        1,
                         ResourcePlacementRadiusTiles,
                         ResourcePlacementRadiusTiles,
                         true,
@@ -198,6 +208,36 @@ namespace RtsGame.Sim.Data
                     return WallPlacementRadiusTiles;
                 case BuildingTypeId.TradePost:
                     return TradePostPlacementRadiusTiles;
+                default:
+                    return 1;
+            }
+        }
+
+        public static int GetBuildingFootprintWidthTiles(BuildingTypeId buildingTypeId)
+        {
+            switch (buildingTypeId)
+            {
+                case BuildingTypeId.TownCenter:
+                    return 4;
+                case BuildingTypeId.TradePost:
+                    return 4;
+                case BuildingTypeId.Wall:
+                    return 1;
+                default:
+                    return 1;
+            }
+        }
+
+        public static int GetBuildingFootprintHeightTiles(BuildingTypeId buildingTypeId)
+        {
+            switch (buildingTypeId)
+            {
+                case BuildingTypeId.TownCenter:
+                    return 4;
+                case BuildingTypeId.TradePost:
+                    return 4;
+                case BuildingTypeId.Wall:
+                    return 1;
                 default:
                     return 1;
             }
