@@ -437,6 +437,15 @@ namespace RtsGame.Sim.Systems
             plan = new MovementPlan(unitIndex, unit.Id, unit.Position, unit.Position, false);
             blockReason = MovementBlockReason.None;
 
+            int targetKey = EncodeTileKey(targetTileX, targetTileY);
+            if (unit.CorridorVersion != targetKey)
+            {
+                unit.CorridorVersion = targetKey;
+                unit.CorridorStepIndex = 0;
+                unit.LastSteeringDecisionTick = 0;
+                unit.RetargetCooldownUntilTick = 0;
+            }
+
             int nextTileX = targetTileX;
             int nextTileY = targetTileY;
             if (currentTileX != targetTileX || currentTileY != targetTileY)
@@ -464,8 +473,21 @@ namespace RtsGame.Sim.Systems
             Fixed maxVelocity = speed;
             Fixed desiredScale = maxVelocity / new Fixed(desiredDistanceRaw);
             FixedVector2 desiredVelocity = FixedVector2.Multiply(desiredDirection, desiredScale);
-            FixedVector2 separationVelocity = ComputeSeparationVelocity(context, unit, currentTileX, currentTileY, speed);
-            desiredVelocity = desiredVelocity + separationVelocity;
+            bool shouldRecomputeSteering =
+                unit.LastSteeringDecisionTick == 0
+                || state.Tick - unit.LastSteeringDecisionTick >= GameData.MovementSteeringDecisionCadenceTicks;
+            if (shouldRecomputeSteering)
+            {
+                FixedVector2 separationVelocity = ComputeSeparationVelocity(context, unit, currentTileX, currentTileY, speed);
+                desiredVelocity = desiredVelocity + separationVelocity;
+                unit.LastSteeringDecisionTick = state.Tick;
+            }
+            else
+            {
+                // Hysteresis: preserve committed short-horizon steering between decision ticks.
+                desiredVelocity = unit.Velocity;
+            }
+
             Fixed maxAcceleration = speed / Fixed.FromRatio(2, 1);
             FixedVector2 nextVelocity = MoveTowardVelocity(unit.Velocity, desiredVelocity, maxAcceleration);
             FixedVector2 nextPosition = unit.Position + nextVelocity;
@@ -498,6 +520,13 @@ namespace RtsGame.Sim.Systems
                 && context.IsTileOccupied(projectedTileX, projectedTileY, unit.Id)
                 && !context.IsOccupyingUnitMoving(projectedTileX, projectedTileY, unit.Id))
             {
+                if (state.Tick < unit.RetargetCooldownUntilTick)
+                {
+                    plan.Blocked = true;
+                    blockReason = MovementBlockReason.OccupiedNextTile;
+                    return true;
+                }
+
                 if (TryBuildAlternateStepPlan(
                     state,
                     context,
@@ -517,6 +546,7 @@ namespace RtsGame.Sim.Systems
                 {
                     plan.Blocked = true;
                     blockReason = MovementBlockReason.OccupiedNextTile;
+                    unit.RetargetCooldownUntilTick = state.Tick + GameData.MovementRetargetCooldownTicks;
                     return true;
                 }
             }
@@ -527,6 +557,10 @@ namespace RtsGame.Sim.Systems
             plan.AttemptsMove = true;
             plan.NextPosition = reachingTarget ? unit.MoveTarget : nextPosition;
             plan.WillReachTarget = reachingTarget;
+            if (plan.EntersNewTile)
+            {
+                unit.CorridorStepIndex++;
+            }
             return true;
         }
 

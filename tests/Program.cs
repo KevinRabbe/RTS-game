@@ -228,6 +228,7 @@ namespace RtsGame.Tests
                 new TestCase("movement solver v2 villager flag defaults off", MovementSolverV2VillagerFlagDefaultsOff),
                 new TestCase("movement checksum includes v2 unit state", MovementChecksumIncludesV2UnitState),
                 new TestCase("movement solver v2 villager mode remains deterministic", MovementSolverV2VillagerModeRemainsDeterministic),
+                new TestCase("movement solver v2 updates corridor memory fields", MovementSolverV2UpdatesCorridorMemoryFields),
                 new TestCase("godot bridge does not reference godot api", GodotBridgeDoesNotReferenceGodotApi),
                 new TestCase("godot client script does not reference simulation core", GodotClientScriptDoesNotReferenceSimulationCore),
                 new TestCase("godot client script does not switch on raw primitive kind", GodotClientScriptDoesNotSwitchOnRawPrimitiveKind),
@@ -4641,6 +4642,30 @@ namespace RtsGame.Tests
             ulong firstChecksum = StateChecksum.Compute(first, rules);
             ulong secondChecksum = StateChecksum.Compute(second, rules);
             AssertEqual(firstChecksum, secondChecksum, "movement v2 mode must remain deterministic");
+        }
+
+        private static void MovementSolverV2UpdatesCorridorMemoryFields()
+        {
+            GameRules rules = GameRules.CreatePhaseZeroDefaults(1).WithMovementSolverV2Villagers(true);
+            GameState state = GameInitializer.CreateNomadStart(2003, 1);
+            Unit unit = state.EntityState.Units[0];
+            unit.MoveTarget = unit.Position + FixedVector2.FromInts(10, 8);
+            unit.HasMoveTarget = true;
+            unit.TaskPhase = WorkerTaskPhase.MovingToCommandMove;
+
+            int initialCorridorVersion = unit.CorridorVersion;
+            int initialStep = unit.CorridorStepIndex;
+            int initialDecisionTick = unit.LastSteeringDecisionTick;
+
+            var runner = new TickRunner();
+            for (int i = 0; i < 16; i++)
+            {
+                runner.AdvanceOneTick(state, rules, new CommandBuffer());
+            }
+
+            AssertEqual(false, unit.CorridorVersion == initialCorridorVersion, "v2 should stamp corridor identity from target tile");
+            AssertEqual(true, unit.CorridorStepIndex >= initialStep, "v2 should track corridor step progression");
+            AssertEqual(true, unit.LastSteeringDecisionTick >= initialDecisionTick, "v2 should track steering decisions");
         }
 
         private static bool ContainsFieldAssignment(string source, string fieldName)
