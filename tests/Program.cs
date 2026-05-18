@@ -194,6 +194,7 @@ namespace RtsGame.Tests
                 new TestCase("left gold blocker villager recovers without endless move to resource", LeftGoldBlockerVillagerRecoversWithoutEndlessMoveToResource),
                 new TestCase("repeated move replacement near tc hotspot stays stable", RepeatedMoveReplacementNearTcHotspotStaysStable),
                 new TestCase("six player seven twenty villager equivalent pressure stays bounded", SixPlayerSevenTwentyVillagerEquivalentPressureStaysBounded),
+                new TestCase("six player twelve hundred active unit pressure stays bounded", SixPlayerTwelveHundredActiveUnitPressureStaysBounded),
                 new TestCase("pressure window budgets stay bounded", PressureWindowBudgetsStayBounded),
                 new TestCase("two units attempting same tile receive slots", TwoUnitsAttemptingSameTileReceiveSlots),
                 new TestCase("three units attempting same tile receive slots", ThreeUnitsAttemptingSameTileReceiveSlots),
@@ -3773,6 +3774,81 @@ namespace RtsGame.Tests
 
             AssertEqual(true, maxPathCalls <= GameData.PathQueryBudgetPerTick, "720-worker equivalent path query budget should hold max=" + maxPathCalls);
             AssertEqual(true, maxRetargets <= GameData.ReservationRetargetBudgetPerTick, "720-worker equivalent retarget budget should hold max=" + maxRetargets);
+        }
+
+        private static void SixPlayerTwelveHundredActiveUnitPressureStaysBounded()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(6);
+            GameState state = CreateOccupancyState(30541, 6);
+            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(12, 12));
+            AddCompletedTownCenter(state, 1, FixedVector2.FromInts(36, 12));
+            AddCompletedTownCenter(state, 2, FixedVector2.FromInts(60, 12));
+            AddCompletedTownCenter(state, 3, FixedVector2.FromInts(12, 36));
+            AddCompletedTownCenter(state, 4, FixedVector2.FromInts(36, 36));
+            AddCompletedTownCenter(state, 5, FixedVector2.FromInts(60, 36));
+
+            int areaId = AddTestResourceArea(state, GatherProfileId.BerryBush, FixedVector2.FromInts(36, 24));
+            int nodeId = AddTestResourceNodeToArea(state, areaId, GatherProfileId.BerryBush, FixedVector2.FromInts(36, 24), 200000);
+
+            var allWorkers = new List<int>(720);
+            var allInfantry = new List<int>(480);
+            for (int player = 0; player < 6; player++)
+            {
+                int workerBaseX = 4 + player * 20;
+                int workerBaseY = 4;
+                for (int i = 0; i < 120; i++)
+                {
+                    int id = EntityFactory.CreateUnit(state, player, UnitTypeId.Villager, FixedVector2.FromInts(workerBaseX + (i % 12), workerBaseY + (i / 12)));
+                    allWorkers.Add(id);
+                }
+
+                int infantryBaseX = 4 + player * 20;
+                int infantryBaseY = 52;
+                for (int i = 0; i < 80; i++)
+                {
+                    int id = EntityFactory.CreateUnit(state, player, UnitTypeId.Infantry, FixedVector2.FromInts(infantryBaseX + (i % 10), infantryBaseY + (i / 10)));
+                    allInfantry.Add(id);
+                }
+            }
+
+            var buffer = new CommandBuffer();
+            for (int player = 0; player < 6; player++)
+            {
+                int workerStart = player * 120;
+                int[] workerSlice = allWorkers.GetRange(workerStart, 120).ToArray();
+                buffer.Add(new CommandEnvelope(new CommandHeader(0, player, unchecked((uint)(6100 + player)), CommandType.GatherResource), new GatherResourceCommand(nodeId, workerSlice)));
+
+                int infantryStart = player * 80;
+                int[] movingInfantry = allInfantry.GetRange(infantryStart, 20).ToArray();
+                int moveX = player < 3 ? 36 : 40;
+                int moveY = player < 3 ? 26 : 22;
+                buffer.Add(new CommandEnvelope(new CommandHeader(0, player, unchecked((uint)(6200 + player)), CommandType.MoveUnits), new MoveUnitsCommand(movingInfantry, FixedVector2.FromInts(moveX, moveY))));
+            }
+
+            var runner = new TickRunner();
+            int maxPathCalls = 0;
+            int maxRetargets = 0;
+            for (int tick = 0; tick < 80; tick++)
+            {
+                runner.AdvanceOneTick(state, rules, buffer);
+                int pathCalls = state.DebugCounters.PathFindNextCalls + state.DebugCounters.PathFindCostCalls;
+                if (pathCalls > maxPathCalls)
+                {
+                    maxPathCalls = pathCalls;
+                }
+
+                if (state.DebugCounters.ReservationRetargetCount > maxRetargets)
+                {
+                    maxRetargets = state.DebugCounters.ReservationRetargetCount;
+                }
+
+                AssertNoLiveUnitStacking(state, "1200-active-unit pressure should not stack");
+                AssertNoDuplicateFinalPurposeReservations(state, "1200-active-unit pressure should not duplicate final-purpose reservations");
+            }
+
+            AssertEqual(1200, state.EntityState.Units.Count, "pressure scenario should hold 1200 active units");
+            AssertEqual(true, maxPathCalls <= GameData.PathQueryBudgetPerTick, "1200-active-unit path query budget should hold max=" + maxPathCalls);
+            AssertEqual(true, maxRetargets <= GameData.ReservationRetargetBudgetPerTick, "1200-active-unit retarget budget should hold max=" + maxRetargets);
         }
 
         private static void PressureWindowBudgetsStayBounded()

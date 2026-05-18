@@ -249,7 +249,7 @@ If the answer is unclear, narrow the feature before implementation.
 Current implementation sequence for scale-first hardening:
 
 1. `S-18` Spatial/reservation index baseline for hot occupancy and blocker checks.
-2. `S-19` Deterministic pressure scenarios (`10/20/50/120` workers + `6-player` mixed-pop).
+2. `S-19` Deterministic pressure scenarios (`10/20/50/120` workers + `6-player` mixed-pop), including a `1200 active unit` gate (`720 villagers + 480 non-villager units`).
 3. `S-20` Repath/retry budgeting (bounded recompute, no per-tick churn).
 4. `S-21` TC/resource hotspot traffic hardening with deterministic congestion-aware slot scoring.
 
