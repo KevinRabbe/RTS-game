@@ -434,6 +434,7 @@ namespace RtsGame.Tests
                 new TestCase("sim scenario five workers food sustained progress", SimScenarioFiveWorkersFoodSustainedProgress),
                 new TestCase("sim scenario five workers wood sustained progress", SimScenarioFiveWorkersWoodSustainedProgress),
                 new TestCase("sim scenario five workers gold sustained progress", SimScenarioFiveWorkersGoldSustainedProgress),
+                new TestCase("sim scenario dry arabia tc front resource flow regression", SimScenarioDryArabiaTcFrontResourceFlowRegression),
                 new TestCase("sim matrix resource stall scenarios", SimMatrixResourceStallScenarios),
                 new TestCase("sim matrix dropoff congestion scenarios", SimMatrixDropoffCongestionScenarios),
                 new TestCase("sim matrix command replacement scenarios", SimMatrixCommandReplacementScenarios),
@@ -8221,6 +8222,188 @@ namespace RtsGame.Tests
         private static void SimScenarioFiveWorkersGoldSustainedProgress()
         {
             RunFiveWorkersSingleResourceSustainedProgress(31203, GatherProfileId.GoldVeinSmall, ResourceType.Gold, "five-workers-gold");
+        }
+
+        private static void SimScenarioDryArabiaTcFrontResourceFlowRegression()
+        {
+            GameRules rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = GameInitializer.CreateDryArabiaTest01(31240);
+            var scenario = new SimScenarioHarness(state, rules, 2, 96000);
+            FixedVector2 tcPos = DryArabiaTest01MapDefinition.GetTownCenterZone(0);
+
+            scenario.Step(
+                new CommandEnvelope(new CommandHeader(state.Tick, 0, 96001, CommandType.PlaceTownCenter), new PlaceTownCenterCommand(tcPos)),
+                new CommandEnvelope(new CommandHeader(state.Tick, 1, 96002, CommandType.NoOp), new NoOpCommand()));
+
+            int tcId = FindUnderConstructionBuildingId(state, 0, BuildingTypeId.TownCenter);
+            int[] startingBuilders = GetPlayerVillagerIds(state, 0);
+            scenario.Step(
+                new CommandEnvelope(new CommandHeader(state.Tick, 0, 96003, CommandType.AssignBuild), new AssignBuildCommand(tcId, startingBuilders)),
+                new CommandEnvelope(new CommandHeader(state.Tick, 1, 96004, CommandType.NoOp), new NoOpCommand()));
+            scenario.RunTicks(220, () => !state.EntityState.EntityLookup.ContainsKey(tcId) || !state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index].IsUnderConstruction);
+
+            while (GetPlayerVillagerIds(state, 0).Length < 5)
+            {
+                int idx = state.EntityState.Units.Count;
+                EntityFactory.CreateUnit(
+                    state,
+                    0,
+                    UnitTypeId.Villager,
+                    FixedVector2.FromInts(tcPos.X.FloorToInt() + (idx % 3) - 1, tcPos.Y.FloorToInt() + 3 + (idx % 2)));
+            }
+
+            int[] workers = GetPlayerVillagerIds(state, 0);
+            Array.Sort(workers);
+            if (workers.Length > 5)
+            {
+                Array.Resize(ref workers, 5);
+            }
+
+            int primaryWorkerId = workers[0];
+            int[] crowdWorkers = new int[] { workers[1], workers[2], workers[3], workers[4] };
+            int foodId = FindFirstResourceNodeIdByType(state, ResourceType.Food);
+
+            int farGoldId = 0;
+            int nearGoldId = 0;
+            int farDist = int.MinValue;
+            int nearDist = int.MaxValue;
+            for (int i = 0; i < state.EconomyState.ResourceNodes.Count; i++)
+            {
+                ResourceNode node = state.EconomyState.ResourceNodes[i];
+                if (node.IsDepleted || node.ResourceType != ResourceType.Gold)
+                {
+                    continue;
+                }
+
+                int dist =
+                    Math.Abs(tcPos.X.FloorToInt() - node.Position.X.FloorToInt())
+                    + Math.Abs(tcPos.Y.FloorToInt() - node.Position.Y.FloorToInt());
+                if (dist > farDist)
+                {
+                    farDist = dist;
+                    farGoldId = node.Id;
+                }
+
+                if (dist < nearDist)
+                {
+                    nearDist = dist;
+                    nearGoldId = node.Id;
+                }
+            }
+
+            AssertEqual(true, farGoldId != 0, scenario.Fail("expected a far gold node"));
+            AssertEqual(true, nearGoldId != 0, scenario.Fail("expected a near gold node"));
+
+            int[] primaryOnly = new[] { primaryWorkerId };
+            scenario.Step(
+                new CommandEnvelope(new CommandHeader(state.Tick, 0, 96005, CommandType.GatherResource), new GatherResourceCommand(farGoldId, primaryOnly)),
+                new CommandEnvelope(new CommandHeader(state.Tick, 0, 96006, CommandType.GatherResource), new GatherResourceCommand(foodId, crowdWorkers)),
+                new CommandEnvelope(new CommandHeader(state.Tick, 1, 96007, CommandType.NoOp), new NoOpCommand()));
+
+            int startGold = state.PlayerStates.Players[0].Resources.Gold;
+            int previousGold = startGold;
+            bool sawPrimaryCarry = false;
+            bool sawPrimaryReturnToAssigned = false;
+            bool allowPrimaryRetargetAfterStall = false;
+            bool sawPrimaryIntent = false;
+
+            FixedVector2[] crowdMoveTargets =
+            {
+                FixedVector2.FromInts(28, 48),
+                FixedVector2.FromInts(22, 44),
+                FixedVector2.FromInts(30, 52),
+                FixedVector2.FromInts(24, 50),
+            };
+
+            for (int tick = 0; tick < 1400; tick++)
+            {
+                if (tick % 120 == 0)
+                {
+                    FixedVector2 target = crowdMoveTargets[(tick / 120) % crowdMoveTargets.Length];
+                    scenario.Step(
+                        new CommandEnvelope(new CommandHeader(state.Tick, 0, unchecked((uint)(96100 + tick)), CommandType.MoveUnits), new MoveUnitsCommand(crowdWorkers, target)),
+                        new CommandEnvelope(new CommandHeader(state.Tick, 1, unchecked((uint)(96101 + tick)), CommandType.NoOp), new NoOpCommand()));
+                }
+                else if (tick % 120 == 40)
+                {
+                    scenario.Step(
+                        new CommandEnvelope(new CommandHeader(state.Tick, 0, unchecked((uint)(96200 + tick)), CommandType.GatherResource), new GatherResourceCommand(foodId, crowdWorkers)),
+                        new CommandEnvelope(new CommandHeader(state.Tick, 1, unchecked((uint)(96201 + tick)), CommandType.NoOp), new NoOpCommand()));
+                }
+                else if (tick % 120 == 80)
+                {
+                    int gatherGold = ((tick / 120) % 2) == 0 ? nearGoldId : farGoldId;
+                    scenario.Step(
+                        new CommandEnvelope(new CommandHeader(state.Tick, 0, unchecked((uint)(96300 + tick)), CommandType.GatherResource), new GatherResourceCommand(gatherGold, new[] { crowdWorkers[0] })),
+                        new CommandEnvelope(new CommandHeader(state.Tick, 1, unchecked((uint)(96301 + tick)), CommandType.NoOp), new NoOpCommand()));
+                }
+                else
+                {
+                    scenario.StepNoOps();
+                }
+
+                scenario.CaptureWorkerTrace(workers, 160);
+                scenario.AssertCoreInvariants("dry-arabia-tc-front-flow");
+                AssertNoEndlessWorkerPhase(state, workers, WorkerTaskPhase.MovingToResourceSlot, 900, scenario.Fail("workers stuck moving-to-resource"));
+                AssertNoEndlessWorkerPhase(state, workers, WorkerTaskPhase.MovingToDropoffSlot, 900, scenario.Fail("workers stuck moving-to-dropoff"));
+                AssertNoEndlessWorkerPhase(state, workers, WorkerTaskPhase.MovingToCommandMove, 900, scenario.Fail("workers stuck moving-to-command-move"));
+
+                Unit primary = FindUnitById(state, primaryWorkerId);
+                int blockedTicks = primary.LastMovedTick < 0 ? 0 : state.Tick - primary.LastMovedTick;
+                if (blockedTicks >= GameData.NoProgressTimeoutTicks
+                    && (primary.TaskPhase == WorkerTaskPhase.MovingToResourceSlot || primary.TaskPhase == WorkerTaskPhase.MovingToDropoffSlot))
+                {
+                    allowPrimaryRetargetAfterStall = true;
+                }
+
+                if (primary.CurrentResourceAreaId != 0 || primary.CurrentResourceNodeId != 0 || primary.CarriedAmount > 0)
+                {
+                    sawPrimaryIntent = true;
+                }
+
+                if (primary.CarriedResourceType == ResourceType.Gold && primary.CarriedAmount > 0)
+                {
+                    sawPrimaryCarry = true;
+                }
+
+                int currentGold = state.PlayerStates.Players[0].Resources.Gold;
+                if (currentGold > previousGold && sawPrimaryCarry)
+                {
+                    if (primary.CurrentResourceNodeId == farGoldId)
+                    {
+                        sawPrimaryReturnToAssigned = true;
+                    }
+                }
+                previousGold = currentGold;
+
+                if (primary.CurrentResourceNodeId != 0 && primary.CurrentResourceNodeId != farGoldId)
+                {
+                    ResourceNode assigned = FindResourceNodeById(state, farGoldId);
+                    bool farStillValid = !assigned.IsDepleted && assigned.RemainingAmount > 0;
+                    AssertEqual(
+                        true,
+                        !farStillValid || allowPrimaryRetargetAfterStall,
+                        scenario.Fail("primary worker switched off assigned far gold without depletion or stale-slot fallback"));
+                }
+
+                for (int i = 0; i < workers.Length; i++)
+                {
+                    Unit unit = FindUnitById(state, workers[i]);
+                    if (unit.TaskPhase == WorkerTaskPhase.Idle && !unit.HasMoveTarget)
+                    {
+                        AssertEqual(
+                            true,
+                            unit.ReservedInteractionKind != InteractionReservationKind.MoveDestination,
+                            scenario.Fail("idle worker should not retain stale move destination reservation"));
+                    }
+                }
+            }
+
+            bool madeGoldProgress = state.PlayerStates.Players[0].Resources.Gold > startGold;
+            AssertEqual(true, madeGoldProgress, scenario.Fail("expected bounded gold progress through tc-front flow"));
+            AssertEqual(true, sawPrimaryIntent, scenario.Fail("primary worker should retain active gather intent under tc-front pressure"));
+            AssertEqual(true, sawPrimaryCarry || madeGoldProgress, scenario.Fail("primary worker should carry gold or contribute to bounded progress"));
+            AssertEqual(true, sawPrimaryReturnToAssigned || !sawPrimaryCarry, scenario.Fail("primary worker should return to assigned far gold after dropoff when still valid"));
         }
 
         private static void SimMatrixResourceStallScenarios()
