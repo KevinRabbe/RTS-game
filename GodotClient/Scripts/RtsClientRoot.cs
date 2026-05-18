@@ -1163,7 +1163,8 @@ public partial class RtsClientRoot : Node2D
 	private void DrawSelectionRing(GodotPrimitiveDto primitive, Color color)
 	{
 		Vector2 center = ToScreen(primitive.XRaw, primitive.YRaw);
-		float radius = Mathf.Max(10.0f, RawToPixels(primitive.SizeRaw) * 0.74f);
+		float radiusSource = Mathf.Max(RawToPixels(primitive.WidthRaw), RawToPixels(primitive.HeightRaw));
+		float radius = Mathf.Max(10.0f, radiusSource * 0.74f);
 		Vector2 ringCenter = center + new Vector2(0.0f, 4.0f);
 		DrawArc(ringCenter, radius + 1.5f, 0.0f, Mathf.Tau, 36, Colors.Black, 3.0f);
 		DrawArc(ringCenter, radius, 0.0f, Mathf.Tau, 36, color, 2.4f);

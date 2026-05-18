@@ -284,7 +284,9 @@ public sealed class Phase6SpriteRenderer
 		}
 
 		Vector2 center = toScreen(primitive.XRaw, primitive.YRaw);
-		float worldSize = rawToPixels(primitive.SizeRaw);
+		float worldWidth = rawToPixels(primitive.WidthRaw);
+		float worldHeight = rawToPixels(primitive.HeightRaw);
+		float worldSize = Mathf.Max(worldWidth, worldHeight);
 		float size = Mathf.Max(38.0f, worldSize);
 		var target = new Rect2(center.X - size * 0.5f, center.Y - size * 0.5f, size, size);
 		canvas.DrawTextureRect(sprite, target, false);
@@ -301,7 +303,7 @@ public sealed class Phase6SpriteRenderer
 	private static Rect2 GetUnitSpriteRect(GodotPrimitiveDto primitive, System.Func<long, long, Vector2> toScreen, System.Func<long, float> rawToPixels)
 	{
 		Vector2 center = toScreen(primitive.XRaw, primitive.YRaw);
-		float worldSize = rawToPixels(primitive.SizeRaw);
+		float worldSize = Mathf.Max(rawToPixels(primitive.WidthRaw), rawToPixels(primitive.HeightRaw));
 		float size = Mathf.Max(42.0f, worldSize * 3.8f);
 		return new Rect2(center.X - size * 0.5f, center.Y - size * 0.85f, size, size);
 	}
@@ -309,7 +311,7 @@ public sealed class Phase6SpriteRenderer
 	private static Rect2 GetBuildingSpriteRect(GodotPrimitiveDto primitive, float scale, System.Func<long, long, Vector2> toScreen, System.Func<long, float> rawToPixels)
 	{
 		Vector2 center = toScreen(primitive.XRaw, primitive.YRaw);
-		float worldSize = rawToPixels(primitive.SizeRaw);
+		float worldSize = Mathf.Max(rawToPixels(primitive.WidthRaw), rawToPixels(primitive.HeightRaw));
 		float size = Mathf.Max(80.0f, worldSize * scale);
 		return new Rect2(center.X - size * 0.5f, center.Y - size * 0.80f, size, size);
 	}

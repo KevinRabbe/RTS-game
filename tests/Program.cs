@@ -300,6 +300,7 @@ namespace RtsGame.Tests
                 new TestCase("godot selected status hides idle no progress ticks", GodotSelectedStatusHidesIdleNoProgressTicks),
                 new TestCase("godot primitive hit test includes boundary", GodotPrimitiveHitTestIncludesBoundary),
                 new TestCase("godot building hit test includes footprint boundary", GodotBuildingHitTestIncludesFootprintBoundary),
+                new TestCase("godot primitive hit test supports rectangular bounds", GodotPrimitiveHitTestSupportsRectangularBounds),
                 new TestCase("godot primitive hit test rejects outside", GodotPrimitiveHitTestRejectsOutside),
                 new TestCase("godot primitive interaction hit test expands building bounds", GodotPrimitiveInteractionHitTestExpandsBuildingBounds),
                 new TestCase("godot visual style resolves local unit types", GodotVisualStyleResolvesLocalUnitTypes),
@@ -5887,6 +5888,31 @@ namespace RtsGame.Tests
             AssertEqual(false, contains, "hit test should reject points beyond primitive boundary");
         }
 
+        private static void GodotPrimitiveHitTestSupportsRectangularBounds()
+        {
+            GodotPrimitiveDto primitive = CreateGodotPrimitiveWithDimensions(
+                VisualPrimitiveKind.BuildingRectangle,
+                1010,
+                0,
+                (int)BuildingTypeId.TownCenter,
+                10,
+                10,
+                4,
+                2);
+
+            bool insideWideX = GodotPrimitiveHitTest.ContainsPoint(
+                primitive,
+                Fixed.FromInt(11).Raw,
+                Fixed.FromInt(10).Raw);
+            bool outsideShortY = GodotPrimitiveHitTest.ContainsPoint(
+                primitive,
+                Fixed.FromInt(10).Raw,
+                Fixed.FromInt(12).Raw);
+
+            AssertEqual(true, insideWideX, "rect hit test should include width-driven bounds");
+            AssertEqual(false, outsideShortY, "rect hit test should reject outside height-driven bounds");
+        }
+
         private static void GodotPrimitiveInteractionHitTestExpandsBuildingBounds()
         {
             GodotPrimitiveDto primitive = CreateGodotPrimitiveWithType(VisualPrimitiveKind.BuildingRectangle, 102, 0, (int)BuildingTypeId.TownCenter, 10, 10);
@@ -9791,6 +9817,26 @@ namespace RtsGame.Tests
                 0,
                 0,
                 Fixed.FromInt(sizeTiles).Raw,
+                10,
+                10,
+                false);
+        }
+
+        private static GodotPrimitiveDto CreateGodotPrimitiveWithDimensions(VisualPrimitiveKind kind, int entityId, int ownerPlayerIndex, int typeId, int x, int y, int widthTiles, int heightTiles)
+        {
+            int maxSize = System.Math.Max(widthTiles, heightTiles);
+            return new GodotPrimitiveDto(
+                (int)kind,
+                entityId,
+                typeId,
+                ownerPlayerIndex,
+                Fixed.FromInt(x).Raw,
+                Fixed.FromInt(y).Raw,
+                0,
+                0,
+                Fixed.FromInt(maxSize).Raw,
+                Fixed.FromInt(widthTiles).Raw,
+                Fixed.FromInt(heightTiles).Raw,
                 10,
                 10,
                 false);
