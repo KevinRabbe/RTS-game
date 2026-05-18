@@ -94,6 +94,7 @@ namespace RtsGame.Tests
                 new TestCase("stale resource slot reservation chooses alternate", StaleResourceSlotReservationChoosesAlternate),
                 new TestCase("stale resource slot reservation falls back when only slot remains", StaleResourceSlotReservationFallsBackWhenOnlySlotRemains),
                 new TestCase("stale resource slot retarget can switch to sibling node", StaleResourceSlotRetargetCanSwitchToSiblingNode),
+                new TestCase("blocked waiting gather can fallback to sibling node without reservation", BlockedWaitingGatherCanFallbackToSiblingNodeWithoutReservation),
                 new TestCase("interaction reservation scoring prefers less congested tile", InteractionReservationScoringPrefersLessCongestedTile),
                 new TestCase("multi worker resource traffic makes progress", MultiWorkerResourceTrafficMakesProgress),
                 new TestCase("worker in resource range gathers without move rewrite", WorkerInResourceRangeGathersWithoutMoveRewrite),
@@ -1720,6 +1721,44 @@ namespace RtsGame.Tests
             AssertEqual(secondNode.Id, worker.ReservedInteractionTargetId, "reservation target should move to sibling node");
             AssertEqual(true, worker.HasMoveTarget, "worker should continue moving after sibling retarget");
             AssertEqual(true, SpatialRules.IsTileAdjacentToResourceFootprint(secondNode, worker.ReservedInteractionTileX, worker.ReservedInteractionTileY), "reserved sibling tile should be adjacent to sibling node footprint");
+        }
+
+        private static void BlockedWaitingGatherCanFallbackToSiblingNodeWithoutReservation()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState state = CreateOccupancyState(20933, 1);
+            int areaId = AddTestResourceArea(state, GatherProfileId.BerryBush, FixedVector2.FromInts(12, 10));
+            int firstNodeId = AddTestResourceNodeToArea(state, areaId, GatherProfileId.BerryBush, FixedVector2.FromInts(10, 10), GameData.StartingFoodAmount);
+            int secondNodeId = AddTestResourceNodeToArea(state, areaId, GatherProfileId.BerryBush, FixedVector2.FromInts(14, 10), GameData.StartingFoodAmount);
+            ResourceNode firstNode = FindResourceNodeById(state, firstNodeId);
+            ResourceNode secondNode = FindResourceNodeById(state, secondNodeId);
+
+            List<SpatialRules.TileCoord> firstInteractionTiles = SpatialRules.EnumerateResourceInteractionTiles(state, firstNode);
+            for (int i = 0; i < firstInteractionTiles.Count; i++)
+            {
+                SpatialRules.TileCoord tile = firstInteractionTiles[i];
+                EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(tile.X, tile.Y));
+            }
+
+            int workerId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(12, 7));
+            Unit worker = FindUnitById(state, workerId);
+            worker.CurrentResourceAreaId = areaId;
+            worker.CurrentResourceNodeId = firstNode.Id;
+            worker.TaskPhase = WorkerTaskPhase.BlockedWaiting;
+            worker.HasMoveTarget = false;
+            worker.LastMovedTick = 0;
+            worker.LastReservationFailureTick = state.Tick - GameData.ReservationRetargetCadenceTicks - 1;
+            worker.LastReservationFailureReason = ReservationAttemptFailureReason.SlotUnavailable;
+            state.Tick = GameData.NoProgressTimeoutTicks + GameData.ReservationRetargetCadenceTicks + 1;
+
+            new ResourceGatherSystem().Run(state, rules, new TickCommandContext(new List<CommandEnvelope>()));
+
+            AssertEqual(secondNode.Id, worker.CurrentResourceNodeId, "blocked waiting worker without reservation should fallback to sibling node");
+            AssertEqual(InteractionReservationKind.ResourceNode, worker.ReservedInteractionKind, "fallback should assign a resource reservation");
+            AssertEqual(secondNode.Id, worker.ReservedInteractionTargetId, "reservation target should follow sibling node");
+            AssertEqual(WorkerTaskPhase.MovingToResourceSlot, worker.TaskPhase, "worker should resume moving toward sibling slot");
+            AssertEqual(true, worker.HasMoveTarget, "worker should resume movement after fallback");
+            AssertEqual(true, SpatialRules.IsTileAdjacentToResourceFootprint(secondNode, worker.ReservedInteractionTileX, worker.ReservedInteractionTileY), "reserved tile should be adjacent to sibling node footprint");
         }
 
         private static void InteractionReservationScoringPrefersLessCongestedTile()

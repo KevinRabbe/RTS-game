@@ -53,18 +53,6 @@ namespace RtsGame.Sim.Systems
                         continue;
                     }
 
-                    bool hasApproachStateForYield = unit.HasMoveTarget
-                        || (unit.ReservedInteractionKind == InteractionReservationKind.ResourceNode
-                            && unit.ReservedInteractionTargetId == node.Id);
-                    if (hasApproachStateForYield
-                        && blockedTicks >= GameData.NoProgressTimeoutTicks
-                        && ShouldYieldToContestedPeer(state, unit, node.Id))
-                    {
-                        unit.TaskPhase = WorkerTaskPhase.BlockedWaiting;
-                        unit.HasMoveTarget = false;
-                        continue;
-                    }
-
                     if (ShouldDelayGatherReselect(state, unit))
                     {
                         unit.TaskPhase = WorkerTaskPhase.BlockedWaiting;
@@ -74,9 +62,7 @@ namespace RtsGame.Sim.Systems
 
                     if (ShouldKeepCurrentApproachTarget(state, unit, node))
                     {
-                        unit.TaskPhase = WorkerTaskPhase.MovingToResourceSlot;
-                        unit.HasMoveTarget = true;
-                        unit.MoveTarget = FixedVector2.FromInts(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
+                        ActivateResourceApproach(state, unit);
                         continue;
                     }
 
@@ -139,9 +125,7 @@ namespace RtsGame.Sim.Systems
                         out ResourceNode? selectedNode))
                     {
                         unit.CurrentResourceNodeId = selectedNode!.Id;
-                        unit.TaskPhase = WorkerTaskPhase.MovingToResourceSlot;
-                        unit.HasMoveTarget = true;
-                        unit.MoveTarget = FixedVector2.FromInts(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
+                        ActivateResourceApproach(state, unit);
                         continue;
                     }
 
@@ -182,9 +166,7 @@ namespace RtsGame.Sim.Systems
                     else if (TryChooseContinuationNode(state, unit, node.ResourceAreaId, out ResourceNode? nextNode))
                     {
                         unit.CurrentResourceNodeId = nextNode!.Id;
-                        unit.TaskPhase = WorkerTaskPhase.MovingToResourceSlot;
-                        unit.HasMoveTarget = true;
-                        unit.MoveTarget = FixedVector2.FromInts(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
+                        ActivateResourceApproach(state, unit);
                     }
                     else
                     {
@@ -211,9 +193,7 @@ namespace RtsGame.Sim.Systems
                 && TryChooseContinuationNode(state, unit, unit.CurrentResourceAreaId, out ResourceNode? nextNode))
             {
                 unit.CurrentResourceNodeId = nextNode!.Id;
-                unit.TaskPhase = WorkerTaskPhase.MovingToResourceSlot;
-                unit.HasMoveTarget = true;
-                unit.MoveTarget = FixedVector2.FromInts(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
+                ActivateResourceApproach(state, unit);
                 return nextNode;
             }
 
@@ -230,6 +210,16 @@ namespace RtsGame.Sim.Systems
                 false,
                 true,
                 out selectedNode);
+        }
+
+        private static void ActivateResourceApproach(GameState state, Unit unit)
+        {
+            unit.TaskPhase = WorkerTaskPhase.MovingToResourceSlot;
+            unit.HasMoveTarget = true;
+            unit.MoveTarget = FixedVector2.FromInts(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
+            // Reset progress window when (re)activating approach after waiting so
+            // deterministic no-progress recovery measures the new approach attempt.
+            unit.LastMovedTick = state.Tick;
         }
 
         private static void ClearExhaustedGatherIntent(GameState state, Unit unit)
@@ -267,6 +257,14 @@ namespace RtsGame.Sim.Systems
 
         private static bool ShouldAllowAreaFallback(GameState state, Unit unit, ResourceNode node)
         {
+            // If a worker is waiting without an active reservation, allow area-level redistribution
+            // so saturated single-node contention does not starve multi-worker gather loops.
+            if (unit.TaskPhase == WorkerTaskPhase.BlockedWaiting
+                && unit.ReservedInteractionKind != InteractionReservationKind.ResourceNode)
+            {
+                return true;
+            }
+
             return SpatialRules.IsInteractionReservationTimedOut(
                 state,
                 unit,
@@ -299,39 +297,6 @@ namespace RtsGame.Sim.Systems
         {
             int result = a < b ? a : b;
             return result < c ? result : c;
-        }
-
-        private static bool ShouldYieldToContestedPeer(GameState state, Unit unit, int resourceNodeId)
-        {
-            int unitTileX = SpatialRules.GetTileX(unit.Position);
-            int unitTileY = SpatialRules.GetTileY(unit.Position);
-            for (int i = 0; i < state.EntityState.Units.Count; i++)
-            {
-                Unit other = state.EntityState.Units[i];
-                if (other.IsDead
-                    || other.Id == unit.Id
-                    || other.CurrentResourceNodeId != resourceNodeId
-                    || other.TaskPhase != WorkerTaskPhase.MovingToResourceSlot
-                    || other.Id > unit.Id)
-                {
-                    continue;
-                }
-
-                int otherTileX = SpatialRules.GetTileX(other.Position);
-                int otherTileY = SpatialRules.GetTileY(other.Position);
-                int distance = Abs(unitTileX - otherTileX) + Abs(unitTileY - otherTileY);
-                if (distance <= 2)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static int Abs(int value)
-        {
-            return value < 0 ? -value : value;
         }
 
     }

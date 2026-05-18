@@ -34,17 +34,13 @@ namespace RtsGame.Sim.Systems
 
                     if (ShouldKeepCurrentApproachTarget(state, unit, dropOff))
                     {
-                        unit.TaskPhase = WorkerTaskPhase.MovingToDropoffSlot;
-                        unit.HasMoveTarget = true;
-                        unit.MoveTarget = FixedVector2.FromInts(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
+                        ActivateDropoffApproach(state, unit, unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
                         continue;
                     }
 
                     if (TryChooseDropOffApproachTile(state, unit, dropOff, out int approachX, out int approachY))
                     {
-                        unit.TaskPhase = WorkerTaskPhase.MovingToDropoffSlot;
-                        unit.HasMoveTarget = true;
-                        unit.MoveTarget = FixedVector2.FromInts(approachX, approachY);
+                        ActivateDropoffApproach(state, unit, approachX, approachY);
                         continue;
                     }
 
@@ -143,6 +139,15 @@ namespace RtsGame.Sim.Systems
 
             int blockedTicks = unit.LastMovedTick < 0 ? int.MaxValue : state.Tick - unit.LastMovedTick;
             return blockedTicks >= GameData.NoProgressTimeoutTicks;
+        }
+
+        private static void ActivateDropoffApproach(GameState state, Unit unit, int approachX, int approachY)
+        {
+            unit.TaskPhase = WorkerTaskPhase.MovingToDropoffSlot;
+            unit.HasMoveTarget = true;
+            unit.MoveTarget = FixedVector2.FromInts(approachX, approachY);
+            // Reset progress window when a fresh dropoff approach becomes active.
+            unit.LastMovedTick = state.Tick;
         }
 
     }
