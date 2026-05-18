@@ -85,6 +85,25 @@ Core gameplay debugging now follows this order:
 Rule:
 If a manual bug needs more than one guess, it must become a sim-only scenario before additional patches.
 
+### Sim-First Bug Matrix (Merge Blocking)
+
+Core reliability scenarios are grouped into deterministic matrix packs:
+
+- `resource_stall`: repeated gather/deposit cycles through TC choke points.
+- `dropoff_congestion`: full-carrier return from opposite approach sides.
+- `command_replacement`: repeated `move -> gather -> move` replacement churn.
+- `spawn_overlap`: spawn pressure overlapping active worker economy loops.
+- `pressure_120`: budget and invariants under high worker pressure windows.
+
+Each pack must enforce:
+
+- no stacking
+- no duplicate final-purpose reservations
+- bounded `MovingTo*` no-progress
+- bounded reservation churn
+- bounded legal-command reject volume
+- deterministic replay/checksum consistency
+
 ## Validation Gate (Run In This Order)
 
 Run validation serially after each simulation change:

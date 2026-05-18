@@ -244,6 +244,18 @@ Every future simulation issue should answer:
 
 If the answer is unclear, narrow the feature before implementation.
 
+## Reliability Prevention Upgrades
+
+The following prevention gates are required for scale-safe iteration:
+
+- Pathing access only through `IPathQueryService` with deterministic budgets and counters.
+- Reservation mutations only through `ITrafficReservationService` with explicit release reasons.
+- No-progress recovery only through `IMovementProgressPolicy` thresholds.
+- Config-backed knobs for repath timeout, retarget cadence, stale-slot eviction, and congestion weight.
+- Rolling budget assertions for path queries, reservation retargets, and legal-command rejects.
+
+These gates are intended to make future movement-quality upgrades additive (v2/v3/v4) instead of rewrite-driven.
+
 ## Active Hardening Sequence
 
 Current implementation sequence for scale-first hardening:

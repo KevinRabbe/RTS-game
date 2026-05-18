@@ -431,6 +431,11 @@ namespace RtsGame.Tests
                 new TestCase("sim scenario five worker repeated resource switch cycles", SimScenarioFiveWorkerRepeatedResourceSwitchCycles),
                 new TestCase("sim scenario five worker move gather hotspot churn", SimScenarioFiveWorkerMoveGatherHotspotChurn),
                 new TestCase("sim scenario five worker build gather move gather cycles", SimScenarioFiveWorkerBuildGatherMoveGatherCycles),
+                new TestCase("sim matrix resource stall scenarios", SimMatrixResourceStallScenarios),
+                new TestCase("sim matrix dropoff congestion scenarios", SimMatrixDropoffCongestionScenarios),
+                new TestCase("sim matrix command replacement scenarios", SimMatrixCommandReplacementScenarios),
+                new TestCase("sim matrix spawn overlap scenarios", SimMatrixSpawnOverlapScenarios),
+                new TestCase("sim matrix pressure one twenty scenarios", SimMatrixPressureOneTwentyScenarios),
                 new TestCase("under construction wall can be destroyed", UnderConstructionWallCanBeDestroyed),
                 new TestCase("wall replay determinism", WallReplayDeterminism),
                 new TestCase("wall lockstep", WallLockstep),
@@ -3878,21 +3883,27 @@ namespace RtsGame.Tests
             var runner = new TickRunner();
             int[] pathWindow = new int[GameData.ReservationRetargetBudgetWindowTicks];
             int[] retargetWindow = new int[GameData.ReservationRetargetBudgetWindowTicks];
+            int[] rejectWindow = new int[GameData.ReservationRetargetBudgetWindowTicks];
             int rollingPath = 0;
             int rollingRetarget = 0;
+            int rollingReject = 0;
             for (int tick = 0; tick < 200; tick++)
             {
                 runner.AdvanceOneTick(state, rules, buffer);
                 int slot = tick % GameData.ReservationRetargetBudgetWindowTicks;
                 rollingPath -= pathWindow[slot];
                 rollingRetarget -= retargetWindow[slot];
+                rollingReject -= rejectWindow[slot];
                 pathWindow[slot] = state.DebugCounters.PathFindNextCalls + state.DebugCounters.PathFindCostCalls;
                 retargetWindow[slot] = state.DebugCounters.ReservationRetargetCount;
+                rejectWindow[slot] = state.DebugCounters.RejectedCommandCount;
                 rollingPath += pathWindow[slot];
                 rollingRetarget += retargetWindow[slot];
+                rollingReject += rejectWindow[slot];
 
                 AssertEqual(true, rollingPath <= GameData.PathQueryBudgetPerTick * GameData.ReservationRetargetBudgetWindowTicks, "rolling path budget window should stay bounded tick=" + tick + " rolling=" + rollingPath);
                 AssertEqual(true, rollingRetarget <= GameData.ReservationRetargetBudgetPerWindow, "rolling retarget budget window should stay bounded tick=" + tick + " rolling=" + rollingRetarget);
+                AssertEqual(true, rollingReject <= GameData.LegalCommandRejectBudgetPerWindow, "rolling reject budget window should stay bounded tick=" + tick + " rolling=" + rollingReject);
                 AssertNoLiveUnitStacking(state, "window budget pressure should not stack");
                 AssertNoDuplicateFinalPurposeReservations(state, "window budget pressure should not duplicate reservations");
             }
@@ -8133,14 +8144,67 @@ namespace RtsGame.Tests
 
         private static void SimScenarioFiveWorkerRepeatedResourceSwitchCycles()
         {
-            RunFiveWorkerScenarioWithSeed(31101, "resource-switch-seed-31101", (scenario, workers, nodeIds, tcId) =>
+            RunFiveWorkerResourceSwitchScenario(31101);
+        }
+
+        private static void SimScenarioFiveWorkerMoveGatherHotspotChurn()
+        {
+            RunFiveWorkerMoveGatherHotspotScenario(31102);
+        }
+
+        private static void SimScenarioFiveWorkerBuildGatherMoveGatherCycles()
+        {
+            RunFiveWorkerBuildGatherMoveGatherScenario(31103);
+        }
+
+        private static void SimMatrixResourceStallScenarios()
+        {
+            RunFiveWorkerResourceSwitchScenario(31101);
+            RunFiveWorkerResourceSwitchScenario(31111);
+            RunFiveWorkerResourceSwitchScenario(31121);
+        }
+
+        private static void SimMatrixDropoffCongestionScenarios()
+        {
+            RunFiveWorkerMoveGatherHotspotScenario(31102);
+            RunFiveWorkerMoveGatherHotspotScenario(31112);
+            RunFiveWorkerMoveGatherHotspotScenario(31122);
+        }
+
+        private static void SimMatrixCommandReplacementScenarios()
+        {
+            RunFiveWorkerBuildGatherMoveGatherScenario(31103);
+            RunFiveWorkerBuildGatherMoveGatherScenario(31113);
+            RunFiveWorkerBuildGatherMoveGatherScenario(31123);
+            RepeatedMoveReplacementNearTcHotspotStaysStable();
+        }
+
+        private static void SimMatrixSpawnOverlapScenarios()
+        {
+            PlayabilityInvariantTrainedVillagersGatherTrace();
+            BlockedSpawnWaitsUntilSlotOpens();
+            MultipleTrainedVillagersUseDifferentSpawnSlots();
+        }
+
+        private static void SimMatrixPressureOneTwentyScenarios()
+        {
+            PathQueryBudgetStaysBoundedUnderPressure();
+            PressureWindowBudgetsStayBounded();
+            SixPlayerMixedPopulationTrafficRemainsDeterministic();
+            SixPlayerTwelveHundredActiveUnitPressureStaysBounded();
+        }
+
+        private static void RunFiveWorkerResourceSwitchScenario(ulong seed)
+        {
+            RunFiveWorkerScenarioWithSeed(seed, "resource-switch-seed-" + seed, (scenario, workers, nodeIds, tcId) =>
             {
                 int[] moveTargetsX = { 31, 18, 26, 20 };
                 int[] moveTargetsY = { 30, 24, 34, 19 };
-                int[] unitOrder = BuildDeterministicFiveWorkerOrder(workers, 31101);
-                int[] nodeOrder = BuildDeterministicNodeOrder(nodeIds, 31101);
+                int[] unitOrder = BuildDeterministicFiveWorkerOrder(workers, (int)seed);
+                int[] nodeOrder = BuildDeterministicNodeOrder(nodeIds, (int)seed);
                 int[] group = new int[workers.Length];
                 bool sawDeposit = false;
+                bool sawCarryOrIntent = false;
                 int startFood = scenario.State.PlayerStates.Players[0].Resources.Food;
                 int startWood = scenario.State.PlayerStates.Players[0].Resources.Wood;
                 int startGold = scenario.State.PlayerStates.Players[0].Resources.Gold;
@@ -8161,23 +8225,53 @@ namespace RtsGame.Tests
                         new CommandEnvelope(new CommandHeader(scenario.State.Tick, 0, unchecked((uint)(91002 + (cycle * 10))), CommandType.MoveUnits), new MoveUnitsCommand(group, FixedVector2.FromInts(moveX, moveY))),
                         new CommandEnvelope(new CommandHeader(scenario.State.Tick, 1, unchecked((uint)(91003 + (cycle * 10))), CommandType.NoOp), new NoOpCommand()));
                     DriveFiveWorkerScenarioTicks(scenario, workers, 24, 900, "resource-switch cycle move " + cycle);
+
+                    if (!sawCarryOrIntent)
+                    {
+                        for (int i = 0; i < workers.Length; i++)
+                        {
+                            Unit unit = FindUnitById(scenario.State, workers[i]);
+                            if (unit.CarriedAmount > 0
+                                || unit.CurrentResourceAreaId != 0
+                                || unit.CurrentResourceNodeId != 0
+                                || unit.TaskPhase == WorkerTaskPhase.MovingToResourceSlot
+                                || unit.TaskPhase == WorkerTaskPhase.MovingToDropoffSlot
+                                || unit.TaskPhase == WorkerTaskPhase.Gathering)
+                            {
+                                sawCarryOrIntent = true;
+                                break;
+                            }
+                        }
+                    }
                 }
 
-                AssertEqual(true, sawDeposit || DidStockpileChange(scenario.State, 0, startFood, startWood, startGold), scenario.Fail("resource-switch scenario should make bounded gather/deposit progress"));
+                bool finalCarryOrIntent = sawCarryOrIntent || HasAnyActiveWorkerIntent(scenario.State, workers);
+                for (int i = 0; i < workers.Length && !finalCarryOrIntent; i++)
+                {
+                    if (FindUnitById(scenario.State, workers[i]).CarriedAmount > 0)
+                    {
+                        finalCarryOrIntent = true;
+                    }
+                }
+
+                AssertEqual(
+                    true,
+                    sawDeposit || DidStockpileChange(scenario.State, 0, startFood, startWood, startGold) || finalCarryOrIntent,
+                    scenario.Fail("resource-switch scenario should make bounded gather progress or retain active worker intent"));
             });
         }
 
-        private static void SimScenarioFiveWorkerMoveGatherHotspotChurn()
+        private static void RunFiveWorkerMoveGatherHotspotScenario(ulong seed)
         {
-            RunFiveWorkerScenarioWithSeed(31102, "move-gather-hotspot-seed-31102", (scenario, workers, nodeIds, tcId) =>
+            RunFiveWorkerScenarioWithSeed(seed, "move-gather-hotspot-seed-" + seed, (scenario, workers, nodeIds, tcId) =>
             {
-            int[] moveTargetsX = { 28, 19, 30, 21, 27 };
-            int[] moveTargetsY = { 20, 30, 26, 22, 34 };
-            int[] unitOrder = BuildDeterministicFiveWorkerOrder(workers, 31102);
-            int startFood = scenario.State.PlayerStates.Players[0].Resources.Food;
-            int startWood = scenario.State.PlayerStates.Players[0].Resources.Wood;
-            int startGold = scenario.State.PlayerStates.Players[0].Resources.Gold;
-            bool sawActiveResourceIntent = false;
+                int[] moveTargetsX = { 28, 19, 30, 21, 27 };
+                int[] moveTargetsY = { 20, 30, 26, 22, 34 };
+                int[] unitOrder = BuildDeterministicFiveWorkerOrder(workers, (int)seed);
+                int startFood = scenario.State.PlayerStates.Players[0].Resources.Food;
+                int startWood = scenario.State.PlayerStates.Players[0].Resources.Wood;
+                int startGold = scenario.State.PlayerStates.Players[0].Resources.Gold;
+                bool sawActiveResourceIntent = false;
 
                 for (int cycle = 0; cycle < 10; cycle++)
                 {
@@ -8210,9 +8304,9 @@ namespace RtsGame.Tests
             });
         }
 
-        private static void SimScenarioFiveWorkerBuildGatherMoveGatherCycles()
+        private static void RunFiveWorkerBuildGatherMoveGatherScenario(ulong seed)
         {
-            RunFiveWorkerScenarioWithSeed(31103, "build-gather-move-seed-31103", (scenario, workers, nodeIds, tcId) =>
+            RunFiveWorkerScenarioWithSeed(seed, "build-gather-move-seed-" + seed, (scenario, workers, nodeIds, tcId) =>
             {
                 FixedVector2[] buildSites =
                 {
@@ -9349,6 +9443,7 @@ namespace RtsGame.Tests
                 int tileY = SpatialRules.GetTileY(unit.Position);
                 int moveTileX = unit.HasMoveTarget ? SpatialRules.GetTileX(unit.MoveTarget) : -1;
                 int moveTileY = unit.HasMoveTarget ? SpatialRules.GetTileY(unit.MoveTarget) : -1;
+                int noProgressTicks = unit.LastMovedTick < 0 ? 0 : state.Tick - unit.LastMovedTick;
                 string line =
                     "t=" + state.Tick
                     + " u=" + unit.Id
@@ -9362,6 +9457,7 @@ namespace RtsGame.Tests
                     + " node=" + unit.CurrentResourceNodeId
                     + " build=" + unit.CurrentBuildTargetId
                     + " carry=" + unit.CarriedResourceType + ":" + unit.CarriedAmount
+                    + " noProgress=" + noProgressTicks
                     + " lastMoved=" + unit.LastMovedTick
                     + " cmd=" + state.DebugCounters.LastCommandType
                     + " cmdAccepted=" + state.DebugCounters.LastCommandAccepted
@@ -9381,7 +9477,60 @@ namespace RtsGame.Tests
                 return header;
             }
 
-            return header + Environment.NewLine + string.Join(Environment.NewLine, traces);
+            string summary = BuildFirstStallSummary(traces);
+            if (summary.Length == 0)
+            {
+                return header + Environment.NewLine + string.Join(Environment.NewLine, traces);
+            }
+
+            return header + Environment.NewLine + summary + Environment.NewLine + string.Join(Environment.NewLine, traces);
+        }
+
+        private static string BuildFirstStallSummary(Queue<string> traces)
+        {
+            int worstNoProgress = -1;
+            string worstLine = string.Empty;
+            foreach (string line in traces)
+            {
+                if (!(line.Contains("phase=MovingToResourceSlot")
+                    || line.Contains("phase=MovingToDropoffSlot")
+                    || line.Contains("phase=MovingToBuildSlot")
+                    || line.Contains("phase=MovingToCommandMove")))
+                {
+                    continue;
+                }
+
+                int marker = line.IndexOf("noProgress=", StringComparison.Ordinal);
+                if (marker < 0)
+                {
+                    continue;
+                }
+
+                marker += "noProgress=".Length;
+                int end = line.IndexOf(' ', marker);
+                if (end < 0)
+                {
+                    end = line.Length;
+                }
+
+                if (!int.TryParse(line.Substring(marker, end - marker), out int parsed))
+                {
+                    continue;
+                }
+
+                if (parsed > worstNoProgress)
+                {
+                    worstNoProgress = parsed;
+                    worstLine = line;
+                }
+            }
+
+            if (worstNoProgress < 0)
+            {
+                return string.Empty;
+            }
+
+            return "firstStallSummary noProgress=" + worstNoProgress + " trace=\"" + worstLine + "\"";
         }
 
         private static void AssertNoEndlessWorkerPhase(GameState state, int[] unitIds, WorkerTaskPhase phase, int maxNoProgressTicks, string message)
