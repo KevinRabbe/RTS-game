@@ -131,6 +131,7 @@ namespace RtsGame.Tests
                 new TestCase("builder in build range builds without micro movement", BuilderInBuildRangeBuildsWithoutMicroMovement),
                 new TestCase("builder blocked approach retargets deterministically", BuilderBlockedApproachRetargetsDeterministically),
                 new TestCase("movement arrival snaps without raw oscillation", MovementArrivalSnapsWithoutRawOscillation),
+                new TestCase("worker sub tile jitter does not reset no progress timeout", WorkerSubTileJitterDoesNotResetNoProgressTimeout),
                 new TestCase("economy replay determinism", EconomyReplayDeterminism),
                 new TestCase("economy lockstep", EconomyLockstep),
                 new TestCase("train villager pays cost and completes", TrainVillagerPaysCostAndCompletes),
@@ -2370,6 +2371,36 @@ namespace RtsGame.Tests
             AssertEqual(snappedY, unit.Position.Y.Raw, "arrived unit should not oscillate raw y after snap");
         }
 
+        private static void WorkerSubTileJitterDoesNotResetNoProgressTimeout()
+        {
+            GameState state = CreateOccupancyState(2097, 1);
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(10, 10));
+            Unit unit = state.EntityState.Units[state.EntityState.Units.Count - 1];
+            unit.TaskPhase = WorkerTaskPhase.MovingToResourceSlot;
+            unit.HasMoveTarget = true;
+            unit.MoveTarget = FixedVector2.FromInts(12, 10);
+            unit.LastMovedTick = state.Tick;
+            unit.CurrentResourceNodeId = 77;
+            SpatialRules.ReserveInteractionSlot(
+                state,
+                unit,
+                InteractionReservationKind.ResourceNode,
+                77,
+                new SpatialRules.TileCoord(12, 10));
+
+            bool progressRecorded = state.MovementProgressPolicy.ShouldRecordProgressTick(
+                unit,
+                entersNewTile: false,
+                reachesTarget: false);
+            AssertEqual(true, progressRecorded, "worker movement may still report sub-tile progress");
+
+            state.Tick = GameData.NoProgressTimeoutTicks + 1;
+            AssertEqual(
+                true,
+                SpatialRules.IsInteractionReservationTimedOut(state, unit, InteractionReservationKind.ResourceNode, 77),
+                "slot timeout should use reservation age so sub-tile jitter cannot stall recovery forever");
+        }
+
         private static void EconomyReplayDeterminism()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -3299,7 +3330,7 @@ namespace RtsGame.Tests
             buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(unitIds, FixedVector2.FromInts(8, 8))));
 
             var runner = new TickRunner();
-            for (int i = 0; i < 120; i++)
+            for (int i = 0; i < 180; i++)
             {
                 runner.AdvanceOneTick(state, rules, buffer);
                 AssertNoLiveUnitStacking(state, "group move should not stack while resolving traffic");

@@ -86,6 +86,7 @@ namespace RtsGame.Sim.Commands
         {
             ResourceNode clickedNode = GetResourceNode(state, ResourceNodeId);
             List<int> sortedUnitIds = StableSort.Sorted(UnitIds, (left, right) => left.CompareTo(right));
+            bool preferClickedNodeFirst = sortedUnitIds.Count == 1;
             for (int i = 0; i < sortedUnitIds.Count; i++)
             {
                 Unit unit = GetUnit(state, sortedUnitIds[i]);
@@ -103,7 +104,7 @@ namespace RtsGame.Sim.Commands
                     unit,
                     clickedNode.ResourceAreaId,
                     clickedNode.Id,
-                    false,
+                    preferClickedNodeFirst,
                     true,
                     out ResourceNode? selectedNode))
                 {

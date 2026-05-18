@@ -98,6 +98,7 @@ namespace RtsGame.Sim.Data
         public const int ReservationRetargetBudgetPerWindow = 12000;
         public const int ReservationRetargetBudgetWindowTicks = 10;
         public const int NoProgressTimeoutTicks = 24;
+        public const int ReservationRetargetCadenceTicks = 6;
         public const int SlotScoringCongestionWeight = 1;
         public const int PathCostShortlistMaxCandidates = 12;
         public const int ReservationStaleEvictionWindowTicks = 24;

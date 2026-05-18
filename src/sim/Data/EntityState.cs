@@ -29,6 +29,9 @@ namespace RtsGame.Sim.Data
         public int ReservedInteractionTargetId { get; set; }
         public int ReservedInteractionTileX { get; set; }
         public int ReservedInteractionTileY { get; set; }
+        public int LastReservationRetargetTick { get; set; }
+        public ReservationAttemptFailureReason LastReservationFailureReason { get; set; }
+        public int LastReservationFailureTick { get; set; }
         public ResourceType CarriedResourceType { get; set; }
         public int CarriedAmount { get; set; }
         public int AttackTargetId { get; set; }
@@ -64,6 +67,14 @@ namespace RtsGame.Sim.Data
         Building = 6,
         MovingToCommandMove = 7,
         BlockedWaiting = 8
+    }
+
+    public enum ReservationAttemptFailureReason
+    {
+        None = 0,
+        NoCandidates = 1,
+        SlotUnavailable = 2,
+        NoReachablePath = 3
     }
 
     public sealed class Building

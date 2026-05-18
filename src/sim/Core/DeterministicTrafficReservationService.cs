@@ -17,6 +17,9 @@ namespace RtsGame.Sim.Core
             unit.ReservedInteractionTargetId = targetId;
             unit.ReservedInteractionTileX = tile.X;
             unit.ReservedInteractionTileY = tile.Y;
+            unit.LastReservationRetargetTick = state.Tick;
+            unit.LastReservationFailureReason = ReservationAttemptFailureReason.None;
+            unit.LastReservationFailureTick = -1;
             int nextTileKey = SpatialRules.EncodeTileKey(tile.X, tile.Y);
             state.SpatialTileIndex.ApplyReservationChange(previousTileKey, hadReservation, nextTileKey, true);
         }
@@ -55,12 +58,19 @@ namespace RtsGame.Sim.Core
         public bool TryReserve(GameState state, Unit unit, InteractionReservationKind kind, int targetId, IReadOnlyList<SpatialRules.TileCoord> candidates, int contextVersion, out SpatialRules.TileCoord selected)
         {
             selected = default;
+            if (candidates.Count == 0)
+            {
+                MarkFailure(unit, ReservationAttemptFailureReason.NoCandidates, state.Tick);
+                return false;
+            }
+
             int unitTileX = SpatialRules.GetTileX(unit.Position);
             int unitTileY = SpatialRules.GetTileY(unit.Position);
             bool found = false;
             int bestPathCost = int.MaxValue;
             int bestDistance = int.MaxValue;
             int bestLaneScore = int.MaxValue;
+            bool sawAvailableSlot = false;
             IReadOnlyList<SpatialRules.TileCoord> scopedCandidates = BuildScopedCandidates(state, unit, kind, targetId, candidates, unitTileX, unitTileY);
             for (int i = 0; i < scopedCandidates.Count; i++)
             {
@@ -75,6 +85,7 @@ namespace RtsGame.Sim.Core
                     continue;
                 }
 
+                sawAvailableSlot = true;
                 if (!state.PathQueries.TryPathCost(state, unitTileX, unitTileY, tile.X, tile.Y, contextVersion, out int cost))
                 {
                     continue;
@@ -98,12 +109,19 @@ namespace RtsGame.Sim.Core
 
             if (!found)
             {
+                MarkFailure(unit, sawAvailableSlot ? ReservationAttemptFailureReason.NoReachablePath : ReservationAttemptFailureReason.SlotUnavailable, state.Tick);
                 return false;
             }
 
             Reserve(state, unit, kind, targetId, selected);
             state.DebugCounters.ReservationRetargetCount++;
             return true;
+        }
+
+        private static void MarkFailure(Unit unit, ReservationAttemptFailureReason reason, int tick)
+        {
+            unit.LastReservationFailureReason = reason;
+            unit.LastReservationFailureTick = tick;
         }
 
         private IReadOnlyList<SpatialRules.TileCoord> BuildScopedCandidates(

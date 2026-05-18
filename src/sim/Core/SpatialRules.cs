@@ -355,8 +355,34 @@ namespace RtsGame.Sim.Core
                 return false;
             }
 
-            int blockedTicks = unit.LastMovedTick < 0 ? int.MaxValue : state.Tick - unit.LastMovedTick;
-            if (blockedTicks < GameData.NoProgressTimeoutTicks)
+            bool useReservationAgeTimeout = kind == InteractionReservationKind.ResourceNode
+                || kind == InteractionReservationKind.Dropoff;
+            if (!useReservationAgeTimeout)
+            {
+                int blockedTicks = unit.LastMovedTick < 0 ? int.MaxValue : state.Tick - unit.LastMovedTick;
+                if (blockedTicks < GameData.NoProgressTimeoutTicks)
+                {
+                    return false;
+                }
+
+                if (!unit.HasMoveTarget)
+                {
+                    return true;
+                }
+
+                return GetTileX(unit.MoveTarget) == unit.ReservedInteractionTileX
+                    && GetTileY(unit.MoveTarget) == unit.ReservedInteractionTileY;
+            }
+
+            int reservationAge = unit.LastReservationRetargetTick < 0
+                ? int.MaxValue
+                : state.Tick - unit.LastReservationRetargetTick;
+            if (reservationAge < GameData.NoProgressTimeoutTicks)
+            {
+                return false;
+            }
+
+            if (reservationAge < GameData.ReservationRetargetCadenceTicks)
             {
                 return false;
             }
@@ -470,8 +496,18 @@ namespace RtsGame.Sim.Core
             int unitTileY = GetTileY(unit.Position);
             bool alreadyAtSlot = unitTileX == unit.ReservedInteractionTileX && unitTileY == unit.ReservedInteractionTileY;
             int blockedTicks = unit.LastMovedTick < 0 ? int.MaxValue : state.Tick - unit.LastMovedTick;
-            if (!alreadyAtSlot && blockedTicks >= GameData.NoProgressTimeoutTicks)
+            bool useReservationAgeTimeout = kind == InteractionReservationKind.ResourceNode
+                || kind == InteractionReservationKind.Dropoff;
+            int timeoutTicks = useReservationAgeTimeout
+                ? (unit.LastReservationRetargetTick < 0 ? int.MaxValue : state.Tick - unit.LastReservationRetargetTick)
+                : blockedTicks;
+            if (!alreadyAtSlot && timeoutTicks >= GameData.NoProgressTimeoutTicks)
             {
+                if (useReservationAgeTimeout && timeoutTicks < GameData.ReservationRetargetCadenceTicks)
+                {
+                    return true;
+                }
+
                 if (!state.PathQueries.TryNextStep(
                     state,
                     unit.Id,
@@ -491,7 +527,7 @@ namespace RtsGame.Sim.Core
                 && GetTileX(unit.MoveTarget) == unit.ReservedInteractionTileX
                 && GetTileY(unit.MoveTarget) == unit.ReservedInteractionTileY)
             {
-                if (blockedTicks >= GameData.NoProgressTimeoutTicks)
+                if (timeoutTicks >= GameData.NoProgressTimeoutTicks)
                 {
                     return false;
                 }

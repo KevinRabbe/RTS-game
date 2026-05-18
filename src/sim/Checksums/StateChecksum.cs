@@ -49,6 +49,9 @@ namespace RtsGame.Sim.Checksums
                 writer.WriteInt32(unit.ReservedInteractionTargetId);
                 writer.WriteInt32(unit.ReservedInteractionTileX);
                 writer.WriteInt32(unit.ReservedInteractionTileY);
+                writer.WriteInt32(unit.LastReservationRetargetTick);
+                writer.WriteUInt16((ushort)unit.LastReservationFailureReason);
+                writer.WriteInt32(unit.LastReservationFailureTick);
                 writer.WriteUInt16((ushort)unit.CarriedResourceType);
                 writer.WriteInt32(unit.CarriedAmount);
                 writer.WriteInt32(unit.AttackTargetId);
