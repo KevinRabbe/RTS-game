@@ -21,10 +21,11 @@ namespace RtsGame.Sim.Core
                 return false;
             }
 
+            bool isRetargetPass = allowAreaFallback;
             if (preferPreferredNodeFirst
                 && preferredNodeId != 0
                 && TryGetNodeById(candidates, preferredNodeId, out ResourceNode? preferredNode)
-                && TryReserveApproachTile(state, unit, preferredNode!))
+                && TryReserveApproachTile(state, unit, preferredNode!, allowExcludedFallback: !isRetargetPass))
             {
                 selectedNode = preferredNode!;
                 return true;
@@ -68,7 +69,8 @@ namespace RtsGame.Sim.Core
             for (int i = 0; i < candidates.Count; i++)
             {
                 ResourceNode candidate = candidates[i];
-                if (TryReserveApproachTile(state, unit, candidate))
+                bool allowExcludedFallback = !isRetargetPass || candidate.Id == preferredNodeId;
+                if (TryReserveApproachTile(state, unit, candidate, allowExcludedFallback))
                 {
                     selectedNode = candidate;
                     return true;
@@ -78,7 +80,7 @@ namespace RtsGame.Sim.Core
             return false;
         }
 
-        private static bool TryReserveApproachTile(GameState state, Unit unit, ResourceNode node)
+        private static bool TryReserveApproachTile(GameState state, Unit unit, ResourceNode node, bool allowExcludedFallback)
         {
             List<SpatialRules.TileCoord> interactionTiles = SpatialRules.EnumerateResourceInteractionTiles(state, node);
             bool hasExcludedTile = SpatialRules.IsInteractionReservationTimedOut(
@@ -92,7 +94,6 @@ namespace RtsGame.Sim.Core
 
             // Prefer alternates after timeout, but allow deterministic fallback when
             // no alternative slot exists so isolated nodes stay usable.
-            bool allowExcludedFallback = true;
             return SpatialRules.TryReserveNearestReachableInteractionTile(
                 state,
                 unit,
