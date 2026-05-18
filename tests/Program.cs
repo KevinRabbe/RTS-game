@@ -186,9 +186,13 @@ namespace RtsGame.Tests
                 new TestCase("dry arabia berry group gather makes bounded food progress", DryArabiaBerryGroupGatherMakesBoundedFoodProgress),
                 new TestCase("berry visual radius matches simulation footprint radius", BerryVisualRadiusMatchesSimulationFootprintRadius),
                 new TestCase("thirty workers across resources keep progress or intent", ThirtyWorkersAcrossResourcesKeepProgressOrIntent),
+                new TestCase("thirty workers across resources keep progress or intent v2", ThirtyWorkersAcrossResourcesKeepProgressOrIntentV2),
                 new TestCase("fifty workers across resources keep progress or intent", FiftyWorkersAcrossResourcesKeepProgressOrIntent),
+                new TestCase("fifty workers across resources keep progress or intent v2", FiftyWorkersAcrossResourcesKeepProgressOrIntentV2),
                 new TestCase("one hundred twenty workers across resources keep progress or intent", OneHundredTwentyWorkersAcrossResourcesKeepProgressOrIntent),
+                new TestCase("one hundred twenty workers across resources keep progress or intent v2", OneHundredTwentyWorkersAcrossResourcesKeepProgressOrIntentV2),
                 new TestCase("six player mixed population traffic remains deterministic", SixPlayerMixedPopulationTrafficRemainsDeterministic),
+                new TestCase("six player mixed population traffic remains deterministic v2", SixPlayerMixedPopulationTrafficRemainsDeterministicV2),
                 new TestCase("path query budget stays bounded under pressure", PathQueryBudgetStaysBoundedUnderPressure),
                 new TestCase("repeated command replacement stays bounded", RepeatedCommandReplacementStaysBounded),
                 new TestCase("two to five villagers gather deposit crossing routes stay stable", TwoToFiveVillagersGatherDepositCrossingRoutesStayStable),
@@ -198,8 +202,11 @@ namespace RtsGame.Tests
                 new TestCase("repeated move replacement near tc hotspot stays stable", RepeatedMoveReplacementNearTcHotspotStaysStable),
                 new TestCase("repeated move replacement near tc hotspot stays stable v2", RepeatedMoveReplacementNearTcHotspotStaysStableV2),
                 new TestCase("six player seven twenty villager equivalent pressure stays bounded", SixPlayerSevenTwentyVillagerEquivalentPressureStaysBounded),
+                new TestCase("six player seven twenty villager equivalent pressure stays bounded v2", SixPlayerSevenTwentyVillagerEquivalentPressureStaysBoundedV2),
                 new TestCase("six player twelve hundred active unit pressure stays bounded", SixPlayerTwelveHundredActiveUnitPressureStaysBounded),
+                new TestCase("six player twelve hundred active unit pressure stays bounded v2", SixPlayerTwelveHundredActiveUnitPressureStaysBoundedV2),
                 new TestCase("pressure window budgets stay bounded", PressureWindowBudgetsStayBounded),
+                new TestCase("pressure window budgets stay bounded v2", PressureWindowBudgetsStayBoundedV2),
                 new TestCase("two units attempting same tile receive slots", TwoUnitsAttemptingSameTileReceiveSlots),
                 new TestCase("three units attempting same tile receive slots", ThreeUnitsAttemptingSameTileReceiveSlots),
                 new TestCase("two unit tile swap fails", TwoUnitTileSwapFails),
@@ -3613,17 +3620,32 @@ namespace RtsGame.Tests
 
         private static void ThirtyWorkersAcrossResourcesKeepProgressOrIntent()
         {
-            RunWorkerPressureScenario(3042, 30, 240, "thirty workers across resources");
+            RunWorkerPressureScenario(3042, 30, 240, "thirty workers across resources", false);
+        }
+
+        private static void ThirtyWorkersAcrossResourcesKeepProgressOrIntentV2()
+        {
+            RunWorkerPressureScenario(3042, 30, 240, "thirty workers across resources", true);
         }
 
         private static void FiftyWorkersAcrossResourcesKeepProgressOrIntent()
         {
-            RunWorkerPressureScenario(3043, 50, 280, "fifty workers across resources");
+            RunWorkerPressureScenario(3043, 50, 280, "fifty workers across resources", false);
+        }
+
+        private static void FiftyWorkersAcrossResourcesKeepProgressOrIntentV2()
+        {
+            RunWorkerPressureScenario(3043, 50, 280, "fifty workers across resources", true);
         }
 
         private static void OneHundredTwentyWorkersAcrossResourcesKeepProgressOrIntent()
         {
-            RunWorkerPressureScenario(3044, 120, 360, "one hundred twenty workers across resources");
+            RunWorkerPressureScenario(3044, 120, 360, "one hundred twenty workers across resources", false);
+        }
+
+        private static void OneHundredTwentyWorkersAcrossResourcesKeepProgressOrIntentV2()
+        {
+            RunWorkerPressureScenario(3044, 120, 360, "one hundred twenty workers across resources", true);
         }
 
         private static void PathQueryBudgetStaysBoundedUnderPressure()
@@ -3832,7 +3854,22 @@ namespace RtsGame.Tests
 
         private static void SixPlayerSevenTwentyVillagerEquivalentPressureStaysBounded()
         {
+            RunSixPlayerSevenTwentyVillagerEquivalentPressureStaysBounded(false);
+        }
+
+        private static void SixPlayerSevenTwentyVillagerEquivalentPressureStaysBoundedV2()
+        {
+            RunSixPlayerSevenTwentyVillagerEquivalentPressureStaysBounded(true);
+        }
+
+        private static void RunSixPlayerSevenTwentyVillagerEquivalentPressureStaysBounded(bool enableV2Villagers)
+        {
             var rules = GameRules.CreatePhaseZeroDefaults(6);
+            if (enableV2Villagers)
+            {
+                rules = rules.WithMovementSolverV2Villagers(true);
+            }
+
             GameState state = CreateOccupancyState(3054, 6);
             AddCompletedTownCenter(state, 0, FixedVector2.FromInts(12, 12));
             AddCompletedTownCenter(state, 1, FixedVector2.FromInts(36, 12));
@@ -3891,7 +3928,22 @@ namespace RtsGame.Tests
 
         private static void SixPlayerTwelveHundredActiveUnitPressureStaysBounded()
         {
+            RunSixPlayerTwelveHundredActiveUnitPressureStaysBounded(false);
+        }
+
+        private static void SixPlayerTwelveHundredActiveUnitPressureStaysBoundedV2()
+        {
+            RunSixPlayerTwelveHundredActiveUnitPressureStaysBounded(true);
+        }
+
+        private static void RunSixPlayerTwelveHundredActiveUnitPressureStaysBounded(bool enableV2Villagers)
+        {
             var rules = GameRules.CreatePhaseZeroDefaults(6);
+            if (enableV2Villagers)
+            {
+                rules = rules.WithMovementSolverV2Villagers(true);
+            }
+
             GameState state = CreateOccupancyState(30541, 6);
             AddCompletedTownCenter(state, 0, FixedVector2.FromInts(12, 12));
             AddCompletedTownCenter(state, 1, FixedVector2.FromInts(36, 12));
@@ -3975,7 +4027,22 @@ namespace RtsGame.Tests
 
         private static void PressureWindowBudgetsStayBounded()
         {
+            RunPressureWindowBudgetsStayBounded(false);
+        }
+
+        private static void PressureWindowBudgetsStayBoundedV2()
+        {
+            RunPressureWindowBudgetsStayBounded(true);
+        }
+
+        private static void RunPressureWindowBudgetsStayBounded(bool enableV2Villagers)
+        {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
+            if (enableV2Villagers)
+            {
+                rules = rules.WithMovementSolverV2Villagers(true);
+            }
+
             GameState state = CreateOccupancyState(3055, 1);
             AddCompletedTownCenter(state, 0, FixedVector2.FromInts(22, 22));
             int areaId = AddTestResourceArea(state, GatherProfileId.BerryBush, FixedVector2.FromInts(29, 22));
@@ -4015,7 +4082,22 @@ namespace RtsGame.Tests
 
         private static void SixPlayerMixedPopulationTrafficRemainsDeterministic()
         {
+            RunSixPlayerMixedPopulationTrafficRemainsDeterministic(false);
+        }
+
+        private static void SixPlayerMixedPopulationTrafficRemainsDeterministicV2()
+        {
+            RunSixPlayerMixedPopulationTrafficRemainsDeterministic(true);
+        }
+
+        private static void RunSixPlayerMixedPopulationTrafficRemainsDeterministic(bool enableV2Villagers)
+        {
             var rules = GameRules.CreatePhaseZeroDefaults(6);
+            if (enableV2Villagers)
+            {
+                rules = rules.WithMovementSolverV2Villagers(true);
+            }
+
             GameState first = GameInitializer.CreateDryArabiaTest01(3045);
             GameState second = GameInitializer.CreateDryArabiaTest01(3045);
             var firstBuffer = new CommandBuffer();
@@ -4064,9 +4146,13 @@ namespace RtsGame.Tests
             AssertEqual(first.LastChecksum, second.LastChecksum, "six-player mixed-pop pressure should remain deterministic");
         }
 
-        private static void RunWorkerPressureScenario(ulong seed, int totalWorkers, int ticks, string label)
+        private static void RunWorkerPressureScenario(ulong seed, int totalWorkers, int ticks, string label, bool enableV2Villagers)
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
+            if (enableV2Villagers)
+            {
+                rules = rules.WithMovementSolverV2Villagers(true);
+            }
             GameState state = CreateOccupancyState(seed);
             AddCompletedTownCenter(state, 0, FixedVector2.FromInts(20, 20));
             int foodAreaId = AddTestResourceArea(state, GatherProfileId.BerryBush, FixedVector2.FromInts(12, 15));
