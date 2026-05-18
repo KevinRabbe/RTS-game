@@ -10,9 +10,9 @@ namespace RtsGame.Sim.Systems
     /// </summary>
     public sealed class MovementSolverV2
     {
-        public bool IsEnabledFor(Unit unit)
+        public bool IsEnabledFor(GameRules rules, Unit unit)
         {
-            return unit.UnitTypeId == UnitTypeId.Villager && GameData.EnableMovementSolverV2ForVillagers;
+            return unit.UnitTypeId == UnitTypeId.Villager && rules.EnableMovementSolverV2Villagers;
         }
 
         public void OnBlocked(GameState state, Unit unit, MovementBlockReason reason)

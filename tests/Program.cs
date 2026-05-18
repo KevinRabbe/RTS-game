@@ -227,6 +227,7 @@ namespace RtsGame.Tests
                 new TestCase("deterministic reservation conflicts avoid unordered iteration", DeterministicReservationConflictsAvoidUnorderedIteration),
                 new TestCase("movement solver v2 villager flag defaults off", MovementSolverV2VillagerFlagDefaultsOff),
                 new TestCase("movement checksum includes v2 unit state", MovementChecksumIncludesV2UnitState),
+                new TestCase("movement solver v2 villager mode remains deterministic", MovementSolverV2VillagerModeRemainsDeterministic),
                 new TestCase("godot bridge does not reference godot api", GodotBridgeDoesNotReferenceGodotApi),
                 new TestCase("godot client script does not reference simulation core", GodotClientScriptDoesNotReferenceSimulationCore),
                 new TestCase("godot client script does not switch on raw primitive kind", GodotClientScriptDoesNotSwitchOnRawPrimitiveKind),
@@ -4612,6 +4613,34 @@ namespace RtsGame.Tests
             ulong changed = StateChecksum.Compute(changedState, rules);
 
             AssertEqual(false, withState == changed, "movement v2 state must be checksum-covered");
+        }
+
+        private static void MovementSolverV2VillagerModeRemainsDeterministic()
+        {
+            GameRules rules = GameRules.CreatePhaseZeroDefaults(1).WithMovementSolverV2Villagers(true);
+            GameState first = GameInitializer.CreateNomadStart(2002, 1);
+            GameState second = GameInitializer.CreateNomadStart(2002, 1);
+            Unit firstUnit = first.EntityState.Units[0];
+            Unit secondUnit = second.EntityState.Units[0];
+
+            FixedVector2 target = firstUnit.Position + FixedVector2.FromInts(8, 6);
+            firstUnit.MoveTarget = target;
+            firstUnit.HasMoveTarget = true;
+            firstUnit.TaskPhase = WorkerTaskPhase.MovingToCommandMove;
+            secondUnit.MoveTarget = target;
+            secondUnit.HasMoveTarget = true;
+            secondUnit.TaskPhase = WorkerTaskPhase.MovingToCommandMove;
+
+            var runner = new TickRunner();
+            for (int i = 0; i < 30; i++)
+            {
+                runner.AdvanceOneTick(first, rules, new CommandBuffer());
+                runner.AdvanceOneTick(second, rules, new CommandBuffer());
+            }
+
+            ulong firstChecksum = StateChecksum.Compute(first, rules);
+            ulong secondChecksum = StateChecksum.Compute(second, rules);
+            AssertEqual(firstChecksum, secondChecksum, "movement v2 mode must remain deterministic");
         }
 
         private static bool ContainsFieldAssignment(string source, string fieldName)

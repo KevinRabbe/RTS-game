@@ -23,6 +23,7 @@ namespace RtsGame.Sim.Checksums
             writer.WriteInt32(rules.MaxPlayers);
             writer.WriteInt32(rules.InputDelayTicks);
             writer.WriteInt32(rules.ChecksumIntervalTicks);
+            writer.WriteBool(rules.EnableMovementSolverV2Villagers);
             writer.WriteInt32(state.Tick);
             writer.WriteUInt64(state.MatchSeed);
             writer.WriteUInt64(state.RngState.Value);

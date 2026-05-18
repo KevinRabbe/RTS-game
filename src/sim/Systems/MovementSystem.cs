@@ -14,14 +14,14 @@ namespace RtsGame.Sim.Systems
         public void Run(GameState state, GameRules rules, TickCommandContext commandContext)
         {
             MovementContext context = MovementContext.Create(state);
-            MovementPlan[] plans = BuildPlans(state, context, movementSolverV2);
+            MovementPlan[] plans = BuildPlans(state, rules, context, movementSolverV2);
             MarkSharedDestinationConflicts(plans);
             MarkSwapConflicts(plans);
             MarkBlockedByStationaryUnits(context, plans);
             ApplyPlans(state, plans, movementSolverV2);
         }
 
-        private static MovementPlan[] BuildPlans(GameState state, MovementContext context, MovementSolverV2 solverV2)
+        private static MovementPlan[] BuildPlans(GameState state, GameRules rules, MovementContext context, MovementSolverV2 solverV2)
         {
             var plans = new MovementPlan[state.EntityState.Units.Count];
             for (int i = 0; i < state.EntityState.Units.Count; i++)
@@ -49,6 +49,29 @@ namespace RtsGame.Sim.Systems
                 int currentTileY = SpatialRules.GetTileY(unit.Position);
                 int targetTileX = SpatialRules.GetTileX(unit.MoveTarget);
                 int targetTileY = SpatialRules.GetTileY(unit.MoveTarget);
+                if (solverV2.IsEnabledFor(rules, unit)
+                    && TryBuildMovementSolverV2Plan(
+                        state,
+                        context,
+                        i,
+                        unit,
+                        speed,
+                        currentTileX,
+                        currentTileY,
+                        targetTileX,
+                        targetTileY,
+                        out MovementPlan v2Plan,
+                        out MovementBlockReason v2BlockReason))
+                {
+                    plans[i] = v2Plan;
+                    if (v2Plan.Blocked || v2Plan.ShouldClearTarget)
+                    {
+                        solverV2.OnBlocked(state, unit, v2BlockReason);
+                    }
+
+                    continue;
+                }
+
                 bool nextPathTileIsTarget = true;
                 int intendedNextTileX = targetTileX;
                 int intendedNextTileY = targetTileY;
@@ -355,6 +378,7 @@ namespace RtsGame.Sim.Systems
                 if (plans[i].ShouldClearTarget)
                 {
                     unit.HasMoveTarget = false;
+                    unit.Velocity = new FixedVector2(new Fixed(0), new Fixed(0));
                     unit.TaskPhase = GetPhaseAfterClearedMove(unit.TaskPhase);
                     ClearMoveDestinationReservation(state, unit);
                     solverV2.OnIdle(unit);
@@ -374,9 +398,11 @@ namespace RtsGame.Sim.Systems
                 if (!plans[i].AttemptsMove)
                 {
                     solverV2.OnIdle(unit);
+                    unit.Velocity = new FixedVector2(new Fixed(0), new Fixed(0));
                     continue;
                 }
 
+                unit.Velocity = plans[i].NextPosition - plans[i].CurrentPosition;
                 unit.Position = plans[i].NextPosition;
                 bool shouldRecordProgressTick = ShouldRecordProgressTick(state, unit, plans[i]);
                 if (shouldRecordProgressTick)
@@ -389,9 +415,131 @@ namespace RtsGame.Sim.Systems
                     unit.HasMoveTarget = false;
                     unit.TaskPhase = GetPhaseAfterArrivedMove(unit.TaskPhase);
                     ClearMoveDestinationReservation(state, unit);
+                    unit.Velocity = new FixedVector2(new Fixed(0), new Fixed(0));
                     solverV2.OnIdle(unit);
                 }
             }
+        }
+
+        private static bool TryBuildMovementSolverV2Plan(
+            GameState state,
+            MovementContext context,
+            int unitIndex,
+            Unit unit,
+            Fixed speed,
+            int currentTileX,
+            int currentTileY,
+            int targetTileX,
+            int targetTileY,
+            out MovementPlan plan,
+            out MovementBlockReason blockReason)
+        {
+            plan = new MovementPlan(unitIndex, unit.Id, unit.Position, unit.Position, false);
+            blockReason = MovementBlockReason.None;
+
+            int nextTileX = targetTileX;
+            int nextTileY = targetTileY;
+            if (currentTileX != targetTileX || currentTileY != targetTileY)
+            {
+                if (!state.PathQueries.TryNextStep(state, unit.Id, currentTileX, currentTileY, targetTileX, targetTileY, state.Tick, out nextTileX, out nextTileY))
+                {
+                    plan.Blocked = IsWorkerTaskMovementPhase(unit.TaskPhase);
+                    plan.ShouldClearTarget = !IsWorkerTaskMovementPhase(unit.TaskPhase);
+                    blockReason = MovementBlockReason.NoPath;
+                    return true;
+                }
+            }
+
+            FixedVector2 tileCenter = FixedVector2.FromInts(nextTileX, nextTileY);
+            FixedVector2 desiredDirection = tileCenter - unit.Position;
+            long desiredDistanceRaw = DeterministicMath.SqrtRaw(desiredDirection.LengthSquaredRaw());
+            if (desiredDistanceRaw == 0)
+            {
+                plan.AttemptsMove = true;
+                plan.NextPosition = unit.MoveTarget;
+                plan.WillReachTarget = true;
+                return true;
+            }
+
+            Fixed maxVelocity = speed;
+            Fixed desiredScale = maxVelocity / new Fixed(desiredDistanceRaw);
+            FixedVector2 desiredVelocity = FixedVector2.Multiply(desiredDirection, desiredScale);
+            Fixed maxAcceleration = speed / Fixed.FromRatio(2, 1);
+            FixedVector2 nextVelocity = MoveTowardVelocity(unit.Velocity, desiredVelocity, maxAcceleration);
+            FixedVector2 nextPosition = unit.Position + nextVelocity;
+
+            int projectedTileX = SpatialRules.GetTileX(nextPosition);
+            int projectedTileY = SpatialRules.GetTileY(nextPosition);
+            if (SpatialRules.IsTileBlockedForUnitMovement(state, projectedTileX, projectedTileY))
+            {
+                plan.Blocked = IsWorkerTaskMovementPhase(unit.TaskPhase);
+                plan.ShouldClearTarget = !IsWorkerTaskMovementPhase(unit.TaskPhase);
+                blockReason = MovementBlockReason.StaticBlocked;
+                return true;
+            }
+
+            if ((projectedTileX != currentTileX || projectedTileY != currentTileY)
+                && context.IsTileOccupied(projectedTileX, projectedTileY, unit.Id)
+                && !context.IsOccupyingUnitMoving(projectedTileX, projectedTileY, unit.Id))
+            {
+                if (TryBuildAlternateStepPlan(
+                    state,
+                    context,
+                    unit,
+                    currentTileX,
+                    currentTileY,
+                    targetTileX,
+                    targetTileY,
+                    nextTileX,
+                    nextTileY,
+                    speed,
+                    out FixedVector2 alternatePosition))
+                {
+                    nextPosition = alternatePosition;
+                }
+                else
+                {
+                    plan.Blocked = true;
+                    blockReason = MovementBlockReason.OccupiedNextTile;
+                    return true;
+                }
+            }
+
+            bool reachingTarget = projectedTileX == targetTileX
+                && projectedTileY == targetTileY
+                && DistanceRaw(unit.Position, unit.MoveTarget) <= speed.Raw;
+            plan.AttemptsMove = true;
+            plan.NextPosition = reachingTarget ? unit.MoveTarget : nextPosition;
+            plan.WillReachTarget = reachingTarget;
+            return true;
+        }
+
+        private static FixedVector2 MoveTowardVelocity(FixedVector2 current, FixedVector2 desired, Fixed maxDelta)
+        {
+            return new FixedVector2(
+                MoveTowardFixed(current.X, desired.X, maxDelta),
+                MoveTowardFixed(current.Y, desired.Y, maxDelta));
+        }
+
+        private static Fixed MoveTowardFixed(Fixed current, Fixed desired, Fixed maxDelta)
+        {
+            long deltaRaw = desired.Raw - current.Raw;
+            long limitRaw = maxDelta.Raw;
+            if (deltaRaw > limitRaw)
+            {
+                deltaRaw = limitRaw;
+            }
+            else if (deltaRaw < -limitRaw)
+            {
+                deltaRaw = -limitRaw;
+            }
+
+            return new Fixed(current.Raw + deltaRaw);
+        }
+
+        private static long DistanceRaw(FixedVector2 from, FixedVector2 to)
+        {
+            return DeterministicMath.SqrtRaw((to - from).LengthSquaredRaw());
         }
 
         private static void ClearMoveDestinationReservation(GameState state, Unit unit)
