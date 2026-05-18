@@ -3828,6 +3828,9 @@ namespace RtsGame.Tests
             var runner = new TickRunner();
             int maxPathCalls = 0;
             int maxRetargets = 0;
+            int initialFood = state.PlayerStates.Players[0].Resources.Food;
+            int initialWood = state.PlayerStates.Players[0].Resources.Wood;
+            int initialGold = state.PlayerStates.Players[0].Resources.Gold;
             for (int tick = 0; tick < 80; tick++)
             {
                 runner.AdvanceOneTick(state, rules, buffer);
@@ -3844,11 +3847,17 @@ namespace RtsGame.Tests
 
                 AssertNoLiveUnitStacking(state, "1200-active-unit pressure should not stack");
                 AssertNoDuplicateFinalPurposeReservations(state, "1200-active-unit pressure should not duplicate final-purpose reservations");
+                AssertEqual(true, state.DebugCounters.RejectedCommandCount <= 12, "1200-active-unit legal command rejection spam should stay bounded tick=" + tick + " rej=" + state.DebugCounters.RejectedCommandCount);
             }
 
             AssertEqual(1200, state.EntityState.Units.Count, "pressure scenario should hold 1200 active units");
             AssertEqual(true, maxPathCalls <= GameData.PathQueryBudgetPerTick, "1200-active-unit path query budget should hold max=" + maxPathCalls);
             AssertEqual(true, maxRetargets <= GameData.ReservationRetargetBudgetPerTick, "1200-active-unit retarget budget should hold max=" + maxRetargets);
+            bool gatheredAny = state.PlayerStates.Players[0].Resources.Food > initialFood
+                || state.PlayerStates.Players[0].Resources.Wood > initialWood
+                || state.PlayerStates.Players[0].Resources.Gold > initialGold;
+            int[] playerZeroWorkers = allWorkers.GetRange(0, 120).ToArray();
+            AssertEqual(true, gatheredAny || AnyWorkerHasResourceIntent(state, playerZeroWorkers), "1200-active-unit pressure should keep gather progress or worker intent");
         }
 
         private static void PressureWindowBudgetsStayBounded()
