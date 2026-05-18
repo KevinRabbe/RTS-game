@@ -365,9 +365,7 @@ namespace RtsGame.Sim.Systems
                 }
 
                 unit.Position = plans[i].NextPosition;
-                // Command-move no-progress should require tile-level progress to avoid sub-tile jitter resets.
-                // Worker task movement keeps existing behavior because task systems already own bounded retarget logic.
-                bool shouldRecordProgressTick = state.MovementProgressPolicy.ShouldRecordProgressTick(unit, plans[i].EntersNewTile, plans[i].WillReachTarget);
+                bool shouldRecordProgressTick = ShouldRecordProgressTick(state, unit, plans[i]);
                 if (shouldRecordProgressTick)
                 {
                     unit.LastMovedTick = state.Tick;
@@ -419,6 +417,35 @@ namespace RtsGame.Sim.Systems
             return phase == WorkerTaskPhase.MovingToCommandMove ? WorkerTaskPhase.Idle : phase;
         }
 
+        private static bool ShouldRecordProgressTick(GameState state, Unit unit, MovementPlan plan)
+        {
+            if (unit.TaskPhase == WorkerTaskPhase.MovingToResourceSlot
+                || unit.TaskPhase == WorkerTaskPhase.MovingToDropoffSlot
+                || unit.TaskPhase == WorkerTaskPhase.MovingToBuildSlot
+                || unit.TaskPhase == WorkerTaskPhase.BlockedWaiting)
+            {
+                if (!unit.HasMoveTarget)
+                {
+                    return plan.WillReachTarget;
+                }
+
+                int targetTileX = SpatialRules.GetTileX(unit.MoveTarget);
+                int targetTileY = SpatialRules.GetTileY(unit.MoveTarget);
+                int beforeTileX = SpatialRules.GetTileX(plan.CurrentPosition);
+                int beforeTileY = SpatialRules.GetTileY(plan.CurrentPosition);
+                int afterTileX = plan.NextTileX;
+                int afterTileY = plan.NextTileY;
+                int beforeDistance = Abs(beforeTileX - targetTileX) + Abs(beforeTileY - targetTileY);
+                int afterDistance = Abs(afterTileX - targetTileX) + Abs(afterTileY - targetTileY);
+
+                // Worker no-progress needs approach progress, not sideways jitter.
+                return afterDistance < beforeDistance || plan.WillReachTarget;
+            }
+
+            // Command-move retains policy-driven tile progress semantics.
+            return state.MovementProgressPolicy.ShouldRecordProgressTick(unit, plan.EntersNewTile, plan.WillReachTarget);
+        }
+
         private static bool IsWorkerTaskMovementPhase(WorkerTaskPhase phase)
         {
             return phase == WorkerTaskPhase.MovingToResourceSlot
@@ -466,7 +493,7 @@ namespace RtsGame.Sim.Systems
                         continue;
                     }
 
-                    if (unit.HasMoveTarget && unit.TaskPhase == WorkerTaskPhase.MovingToCommandMove)
+                    if (unit.HasMoveTarget)
                     {
                         context.movingUnitIds.Add(unit.Id);
                     }

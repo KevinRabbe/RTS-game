@@ -38,6 +38,40 @@ namespace RtsGame.Sim.Systems
                 int carryRoom = GameData.VillagerCarryCapacity - unit.CarriedAmount;
                 if (!SpatialRules.IsUnitInResourceInteractionRange(unit, node))
                 {
+                    int blockedTicks = unit.LastMovedTick < 0 ? 0 : state.Tick - unit.LastMovedTick;
+                    bool hardTimedOut = blockedTicks >= GameData.ReservationHardTimeoutTicks;
+                    bool hasActiveResourceApproach = unit.HasMoveTarget
+                        || (unit.ReservedInteractionKind == InteractionReservationKind.ResourceNode
+                            && unit.ReservedInteractionTargetId == node.Id);
+                    if (hardTimedOut && hasActiveResourceApproach)
+                    {
+                        SpatialRules.ClearInteractionReservation(state, unit, ReservationReleaseReason.Timeout);
+                        unit.LastReservationFailureTick = state.Tick;
+                        unit.LastReservationFailureReason = ReservationAttemptFailureReason.NoReachablePath;
+                        unit.TaskPhase = WorkerTaskPhase.BlockedWaiting;
+                        unit.HasMoveTarget = false;
+                        continue;
+                    }
+
+                    bool hasApproachStateForYield = unit.HasMoveTarget
+                        || (unit.ReservedInteractionKind == InteractionReservationKind.ResourceNode
+                            && unit.ReservedInteractionTargetId == node.Id);
+                    if (hasApproachStateForYield
+                        && blockedTicks >= GameData.NoProgressTimeoutTicks
+                        && ShouldYieldToContestedPeer(state, unit, node.Id))
+                    {
+                        unit.TaskPhase = WorkerTaskPhase.BlockedWaiting;
+                        unit.HasMoveTarget = false;
+                        continue;
+                    }
+
+                    if (ShouldDelayGatherReselect(state, unit))
+                    {
+                        unit.TaskPhase = WorkerTaskPhase.BlockedWaiting;
+                        unit.HasMoveTarget = false;
+                        continue;
+                    }
+
                     if (ShouldKeepCurrentApproachTarget(state, unit, node))
                     {
                         unit.TaskPhase = WorkerTaskPhase.MovingToResourceSlot;
@@ -46,13 +80,62 @@ namespace RtsGame.Sim.Systems
                         continue;
                     }
 
+                    bool allowAreaFallback = ShouldAllowAreaFallback(state, unit, node);
+                    blockedTicks = unit.LastMovedTick < 0 ? 0 : state.Tick - unit.LastMovedTick;
+                    hardTimedOut = blockedTicks >= GameData.ReservationHardTimeoutTicks;
+                    if (allowAreaFallback
+                        && unit.ReservedInteractionKind == InteractionReservationKind.ResourceNode
+                        && unit.ReservedInteractionTargetId == node.Id)
+                    {
+                        bool hadRecentReservationFailure = unit.LastReservationFailureTick >= 0
+                            && state.Tick - unit.LastReservationFailureTick <= GameData.ReservationRetargetCadenceTicks
+                            && (unit.LastReservationFailureReason == ReservationAttemptFailureReason.SlotUnavailable
+                                || unit.LastReservationFailureReason == ReservationAttemptFailureReason.NoReachablePath);
+                        if (!hadRecentReservationFailure)
+                        {
+                            // Preserve single-slot fallback behavior when a slot merely timed out.
+                            allowAreaFallback = true;
+                        }
+
+                        List<SpatialRules.TileCoord> interactionTiles = SpatialRules.EnumerateResourceInteractionTiles(state, node);
+                        bool hasAlternativeAvailable = false;
+                        for (int tileIndex = 0; tileIndex < interactionTiles.Count; tileIndex++)
+                        {
+                            SpatialRules.TileCoord tile = interactionTiles[tileIndex];
+                            bool isCurrentReservedTile = tile.X == unit.ReservedInteractionTileX
+                                && tile.Y == unit.ReservedInteractionTileY;
+                            if (isCurrentReservedTile)
+                            {
+                                continue;
+                            }
+
+                            if (SpatialRules.IsInteractionSlotAvailableForUnit(
+                                state,
+                                unit,
+                                InteractionReservationKind.ResourceNode,
+                                node.Id,
+                                tile.X,
+                                tile.Y))
+                            {
+                                hasAlternativeAvailable = true;
+                                break;
+                            }
+                        }
+
+                        if (hadRecentReservationFailure && hasAlternativeAvailable)
+                        {
+                            SpatialRules.ClearInteractionReservation(state, unit, ReservationReleaseReason.Timeout);
+                        }
+                    }
+
+                    bool preferCurrentNodeFirst = !hardTimedOut;
                     if (ResourceGatherTargeting.TryChooseResourceNodeAndReserveSlot(
                         state,
                         unit,
                         node.ResourceAreaId,
                         node.Id,
-                        true,
-                        ShouldAllowAreaFallback(state, unit, node),
+                        preferCurrentNodeFirst,
+                        allowAreaFallback,
                         out ResourceNode? selectedNode))
                     {
                         unit.CurrentResourceNodeId = selectedNode!.Id;
@@ -191,10 +274,64 @@ namespace RtsGame.Sim.Systems
                 node.Id);
         }
 
+        private static bool ShouldDelayGatherReselect(GameState state, Unit unit)
+        {
+            if (unit.TaskPhase != WorkerTaskPhase.BlockedWaiting)
+            {
+                return false;
+            }
+
+            if (unit.LastReservationFailureTick < 0)
+            {
+                return false;
+            }
+
+            if (unit.LastReservationFailureReason != ReservationAttemptFailureReason.SlotUnavailable
+                && unit.LastReservationFailureReason != ReservationAttemptFailureReason.NoReachablePath)
+            {
+                return false;
+            }
+
+            return state.Tick - unit.LastReservationFailureTick < GameData.ReservationRetargetCadenceTicks;
+        }
+
         private static int Min(int a, int b, int c)
         {
             int result = a < b ? a : b;
             return result < c ? result : c;
+        }
+
+        private static bool ShouldYieldToContestedPeer(GameState state, Unit unit, int resourceNodeId)
+        {
+            int unitTileX = SpatialRules.GetTileX(unit.Position);
+            int unitTileY = SpatialRules.GetTileY(unit.Position);
+            for (int i = 0; i < state.EntityState.Units.Count; i++)
+            {
+                Unit other = state.EntityState.Units[i];
+                if (other.IsDead
+                    || other.Id == unit.Id
+                    || other.CurrentResourceNodeId != resourceNodeId
+                    || other.TaskPhase != WorkerTaskPhase.MovingToResourceSlot
+                    || other.Id > unit.Id)
+                {
+                    continue;
+                }
+
+                int otherTileX = SpatialRules.GetTileX(other.Position);
+                int otherTileY = SpatialRules.GetTileY(other.Position);
+                int distance = Abs(unitTileX - otherTileX) + Abs(unitTileY - otherTileY);
+                if (distance <= 2)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static int Abs(int value)
+        {
+            return value < 0 ? -value : value;
         }
 
     }

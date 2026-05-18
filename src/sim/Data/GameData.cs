@@ -103,6 +103,9 @@ namespace RtsGame.Sim.Data
         public const int SlotScoringCongestionWeight = 1;
         public const int PathCostShortlistMaxCandidates = 12;
         public const int ReservationStaleEvictionWindowTicks = 24;
+        public const int ReservationHardTimeoutTicks = NoProgressTimeoutTicks * 2;
+        public const int GatherReservationChurnWindowTicks = 80;
+        public const int GatherReservationChurnMaxPerWindow = 32;
         public const int TownCenterWoodCost = 275;
         public const int WallWoodCost = 5;
         public const int TradePostWoodCost = 150;

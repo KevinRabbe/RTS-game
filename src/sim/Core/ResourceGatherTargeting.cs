@@ -36,6 +36,7 @@ namespace RtsGame.Sim.Core
                 return false;
             }
 
+            bool biasPreferredNode = preferPreferredNodeFirst;
             candidates.Sort((left, right) =>
             {
                 int leftReserved = CountReservedWorkersOnNode(state, left.Id);
@@ -56,8 +57,8 @@ namespace RtsGame.Sim.Core
                     return distanceCompare;
                 }
 
-                bool leftPreferred = left.Id == preferredNodeId;
-                bool rightPreferred = right.Id == preferredNodeId;
+                bool leftPreferred = biasPreferredNode && left.Id == preferredNodeId;
+                bool rightPreferred = biasPreferredNode && right.Id == preferredNodeId;
                 if (leftPreferred != rightPreferred)
                 {
                     return leftPreferred ? -1 : 1;
