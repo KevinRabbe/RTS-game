@@ -39,6 +39,15 @@ namespace RtsGame.Sim.Checksums
                 writer.WriteBool(unit.HasMoveTarget);
                 writer.WriteFixed(unit.MoveTarget.X);
                 writer.WriteFixed(unit.MoveTarget.Y);
+                writer.WriteFixed(unit.Velocity.X);
+                writer.WriteFixed(unit.Velocity.Y);
+                writer.WriteInt32(unit.LastSteeringDecisionTick);
+                writer.WriteInt32(unit.CorridorVersion);
+                writer.WriteInt32(unit.CorridorStepIndex);
+                writer.WriteInt32(unit.RetargetCooldownUntilTick);
+                writer.WriteUInt16((ushort)unit.MovementBlockedReason);
+                writer.WriteInt32(unit.BlockedSinceTick);
+                writer.WriteInt32(unit.LastMeaningfulProgressTick);
                 writer.WriteInt32(unit.LastMovedTick);
                 writer.WriteInt32(unit.HitPoints);
                 writer.WriteInt32(unit.CurrentBuildTargetId);

@@ -19,6 +19,14 @@ namespace RtsGame.Sim.Data
         public FixedVector2 Position { get; set; }
         public bool HasMoveTarget { get; set; }
         public FixedVector2 MoveTarget { get; set; }
+        public FixedVector2 Velocity { get; set; }
+        public int LastSteeringDecisionTick { get; set; }
+        public int CorridorVersion { get; set; }
+        public int CorridorStepIndex { get; set; }
+        public int RetargetCooldownUntilTick { get; set; }
+        public MovementBlockReason MovementBlockedReason { get; set; }
+        public int BlockedSinceTick { get; set; }
+        public int LastMeaningfulProgressTick { get; set; }
         public int LastMovedTick { get; set; }
         public int HitPoints { get; set; }
         public int CurrentBuildTargetId { get; set; }
@@ -75,6 +83,17 @@ namespace RtsGame.Sim.Data
         NoCandidates = 1,
         SlotUnavailable = 2,
         NoReachablePath = 3
+    }
+
+    public enum MovementBlockReason
+    {
+        None = 0,
+        OccupiedNextTile = 1,
+        ReservedNextTile = 2,
+        StaticBlocked = 3,
+        NoPath = 4,
+        SharedDestinationConflict = 5,
+        SwapConflict = 6
     }
 
     public sealed class Building

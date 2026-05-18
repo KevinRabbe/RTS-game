@@ -225,6 +225,8 @@ namespace RtsGame.Tests
                 new TestCase("simulation source routes pathfinding through service layer", SimulationSourceRoutesPathfindingThroughServiceLayer),
                 new TestCase("simulation source routes reservation writes through traffic service", SimulationSourceRoutesReservationWritesThroughTrafficService),
                 new TestCase("deterministic reservation conflicts avoid unordered iteration", DeterministicReservationConflictsAvoidUnorderedIteration),
+                new TestCase("movement solver v2 villager flag defaults off", MovementSolverV2VillagerFlagDefaultsOff),
+                new TestCase("movement checksum includes v2 unit state", MovementChecksumIncludesV2UnitState),
                 new TestCase("godot bridge does not reference godot api", GodotBridgeDoesNotReferenceGodotApi),
                 new TestCase("godot client script does not reference simulation core", GodotClientScriptDoesNotReferenceSimulationCore),
                 new TestCase("godot client script does not switch on raw primitive kind", GodotClientScriptDoesNotSwitchOnRawPrimitiveKind),
@@ -4575,6 +4577,41 @@ namespace RtsGame.Tests
             AssertFalse(text.Contains("HashSet<"), "reservation conflict resolution should avoid hash-set iteration in deterministic conflict decisions");
             AssertFalse(text.Contains("foreach (KeyValuePair"), "reservation conflict resolution should avoid dictionary iteration in deterministic conflict decisions");
             AssertEqual(true, text.Contains("for (int i = 0; i < candidates.Count; i++)"), "reservation conflict resolution should use ordered candidate iteration");
+        }
+
+        private static void MovementSolverV2VillagerFlagDefaultsOff()
+        {
+            AssertFalse(GameData.EnableMovementSolverV2ForVillagers, "movement v2 should stay disabled by default during scaffold milestone");
+        }
+
+        private static void MovementChecksumIncludesV2UnitState()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            GameState baseState = GameInitializer.CreateNomadStart(2001, 1);
+            Unit baseUnit = baseState.EntityState.Units[0];
+            baseUnit.Velocity = new FixedVector2(new Fixed(1200), new Fixed(-3400));
+            baseUnit.LastSteeringDecisionTick = 17;
+            baseUnit.CorridorVersion = 3;
+            baseUnit.CorridorStepIndex = 5;
+            baseUnit.RetargetCooldownUntilTick = 29;
+            baseUnit.MovementBlockedReason = MovementBlockReason.NoPath;
+            baseUnit.BlockedSinceTick = 15;
+            baseUnit.LastMeaningfulProgressTick = 14;
+            ulong withState = StateChecksum.Compute(baseState, rules);
+
+            GameState changedState = GameInitializer.CreateNomadStart(2001, 1);
+            Unit changedUnit = changedState.EntityState.Units[0];
+            changedUnit.Velocity = new FixedVector2(new Fixed(1200), new Fixed(-3400));
+            changedUnit.LastSteeringDecisionTick = 17;
+            changedUnit.CorridorVersion = 3;
+            changedUnit.CorridorStepIndex = 6;
+            changedUnit.RetargetCooldownUntilTick = 29;
+            changedUnit.MovementBlockedReason = MovementBlockReason.NoPath;
+            changedUnit.BlockedSinceTick = 15;
+            changedUnit.LastMeaningfulProgressTick = 14;
+            ulong changed = StateChecksum.Compute(changedState, rules);
+
+            AssertEqual(false, withState == changed, "movement v2 state must be checksum-covered");
         }
 
         private static bool ContainsFieldAssignment(string source, string fieldName)

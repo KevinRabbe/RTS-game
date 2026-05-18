@@ -9,18 +9,19 @@ namespace RtsGame.Sim.Systems
     {
         private static readonly int[] AlternateOffsetX = new[] { 1, 0, -1, 0, 1, 1, -1, -1 };
         private static readonly int[] AlternateOffsetY = new[] { 0, 1, 0, -1, 1, -1, 1, -1 };
+        private readonly MovementSolverV2 movementSolverV2 = new MovementSolverV2();
 
         public void Run(GameState state, GameRules rules, TickCommandContext commandContext)
         {
             MovementContext context = MovementContext.Create(state);
-            MovementPlan[] plans = BuildPlans(state, context);
+            MovementPlan[] plans = BuildPlans(state, context, movementSolverV2);
             MarkSharedDestinationConflicts(plans);
             MarkSwapConflicts(plans);
             MarkBlockedByStationaryUnits(context, plans);
-            ApplyPlans(state, plans);
+            ApplyPlans(state, plans, movementSolverV2);
         }
 
-        private static MovementPlan[] BuildPlans(GameState state, MovementContext context)
+        private static MovementPlan[] BuildPlans(GameState state, MovementContext context, MovementSolverV2 solverV2)
         {
             var plans = new MovementPlan[state.EntityState.Units.Count];
             for (int i = 0; i < state.EntityState.Units.Count; i++)
@@ -30,6 +31,7 @@ namespace RtsGame.Sim.Systems
                 plans[i] = plan;
                 if (unit.IsDead || !unit.HasMoveTarget)
                 {
+                    solverV2.OnIdle(unit);
                     continue;
                 }
 
@@ -38,6 +40,7 @@ namespace RtsGame.Sim.Systems
                 {
                     plan.ShouldClearTarget = true;
                     plans[i] = plan;
+                    solverV2.OnBlocked(state, unit, MovementBlockReason.NoPath);
                     continue;
                 }
 
@@ -56,10 +59,12 @@ namespace RtsGame.Sim.Systems
                         if (IsWorkerTaskMovementPhase(unit.TaskPhase))
                         {
                             plan.Blocked = true;
+                            solverV2.OnBlocked(state, unit, MovementBlockReason.NoPath);
                         }
                         else
                         {
                             plan.ShouldClearTarget = true;
+                            solverV2.OnBlocked(state, unit, MovementBlockReason.NoPath);
                         }
                         plans[i] = plan;
                         continue;
@@ -91,10 +96,12 @@ namespace RtsGame.Sim.Systems
                     if (IsWorkerTaskMovementPhase(unit.TaskPhase))
                     {
                         plan.Blocked = true;
+                        solverV2.OnBlocked(state, unit, MovementBlockReason.StaticBlocked);
                     }
                     else
                     {
                         plan.ShouldClearTarget = true;
+                        solverV2.OnBlocked(state, unit, MovementBlockReason.StaticBlocked);
                     }
                     plans[i] = plan;
                     continue;
@@ -340,7 +347,7 @@ namespace RtsGame.Sim.Systems
             }
         }
 
-        private static void ApplyPlans(GameState state, MovementPlan[] plans)
+        private static void ApplyPlans(GameState state, MovementPlan[] plans, MovementSolverV2 solverV2)
         {
             for (int i = 0; i < plans.Length; i++)
             {
@@ -350,17 +357,23 @@ namespace RtsGame.Sim.Systems
                     unit.HasMoveTarget = false;
                     unit.TaskPhase = GetPhaseAfterClearedMove(unit.TaskPhase);
                     ClearMoveDestinationReservation(state, unit);
+                    solverV2.OnIdle(unit);
                     continue;
                 }
 
                 if (plans[i].Blocked)
                 {
                     unit.TaskPhase = GetPhaseAfterBlockedMove(state, unit);
+                    if (unit.MovementBlockedReason == MovementBlockReason.None)
+                    {
+                        solverV2.OnBlocked(state, unit, MovementBlockReason.OccupiedNextTile);
+                    }
                     continue;
                 }
 
                 if (!plans[i].AttemptsMove)
                 {
+                    solverV2.OnIdle(unit);
                     continue;
                 }
 
@@ -369,12 +382,14 @@ namespace RtsGame.Sim.Systems
                 if (shouldRecordProgressTick)
                 {
                     unit.LastMovedTick = state.Tick;
+                    solverV2.OnProgress(state, unit);
                 }
                 if (plans[i].WillReachTarget)
                 {
                     unit.HasMoveTarget = false;
                     unit.TaskPhase = GetPhaseAfterArrivedMove(unit.TaskPhase);
                     ClearMoveDestinationReservation(state, unit);
+                    solverV2.OnIdle(unit);
                 }
             }
         }
