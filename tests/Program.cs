@@ -316,6 +316,7 @@ namespace RtsGame.Tests
                 new TestCase("godot hud text includes last command status", GodotHudTextIncludesLastCommandStatus),
                 new TestCase("godot hud text handles missing status", GodotHudTextHandlesMissingStatus),
                 new TestCase("godot selected status hides idle no progress ticks", GodotSelectedStatusHidesIdleNoProgressTicks),
+                new TestCase("godot selected status shows blocked waiting no progress ticks", GodotSelectedStatusShowsBlockedWaitingNoProgressTicks),
                 new TestCase("godot primitive hit test includes boundary", GodotPrimitiveHitTestIncludesBoundary),
                 new TestCase("godot building hit test includes footprint boundary", GodotBuildingHitTestIncludesFootprintBoundary),
                 new TestCase("godot primitive hit test supports rectangular bounds", GodotPrimitiveHitTestSupportsRectangularBounds),
@@ -6304,6 +6305,45 @@ namespace RtsGame.Tests
             string[] lines = GodotSelectedStatusBuilder.BuildLines(frame, new[] { 11 }, 0, 0);
 
             AssertEqual(true, lines[1].Contains("NoProgress -"), "idle unit without active move should hide stale no-progress counter");
+        }
+
+        private static void GodotSelectedStatusShowsBlockedWaitingNoProgressTicks()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(
+                new GodotPrimitiveDto[0],
+                new GodotBuildingStatusDto[0],
+                new[]
+                {
+                    new GodotUnitStatusDto(
+                        12,
+                        (int)UnitTypeId.Villager,
+                        false,
+                        0,
+                        0,
+                        0,
+                        0,
+                        19,
+                        44,
+                        Fixed.FromInt(19).Raw,
+                        Fixed.FromInt(44).Raw,
+                        (int)WorkerTaskPhase.BlockedWaiting,
+                        0,
+                        0,
+                        0,
+                        0,
+                        false,
+                        false,
+                        false,
+                        10,
+                        0,
+                        0,
+                        0,
+                        0)
+                });
+
+            string[] lines = GodotSelectedStatusBuilder.BuildLines(frame, new[] { 12 }, 0, 0);
+
+            AssertEqual(true, lines[1].Contains("NoProgress 9"), "blocked waiting unit should expose no-progress ticks for stall diagnosis");
         }
 
         private static void GodotPrimitiveHitTestIncludesBoundary()

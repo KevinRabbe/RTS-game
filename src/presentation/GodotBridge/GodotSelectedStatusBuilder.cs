@@ -35,7 +35,13 @@ namespace RtsGame.Presentation.GodotBridge
                     string ranges = "Range R:" + FormatBool(unit.InResourceInteractionRange)
                         + " D:" + FormatBool(unit.InDropoffInteractionRange)
                         + " B:" + FormatBool(unit.InBuildInteractionRange);
-                    string noProgress = !unit.HasMoveTarget || unit.TaskPhaseId == (int)WorkerTaskPhase.Idle || unit.LastMovedTick < 0
+                    bool isActiveMovementOrWaitPhase =
+                        unit.TaskPhaseId == (int)WorkerTaskPhase.MovingToResourceSlot
+                        || unit.TaskPhaseId == (int)WorkerTaskPhase.MovingToDropoffSlot
+                        || unit.TaskPhaseId == (int)WorkerTaskPhase.MovingToBuildSlot
+                        || unit.TaskPhaseId == (int)WorkerTaskPhase.MovingToCommandMove
+                        || unit.TaskPhaseId == (int)WorkerTaskPhase.BlockedWaiting;
+                    string noProgress = !isActiveMovementOrWaitPhase || unit.LastMovedTick < 0
                         ? "NoProgress -"
                         : "NoProgress " + (frame.Tick - unit.LastMovedTick);
                     bool isFullCarry = unit.CarriedAmount >= GameData.VillagerCarryCapacity;
