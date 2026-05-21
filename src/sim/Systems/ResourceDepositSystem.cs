@@ -17,6 +17,11 @@ namespace RtsGame.Sim.Systems
                     continue;
                 }
 
+                if (unit.TaskPhase == WorkerTaskPhase.MovingToCommandMove)
+                {
+                    continue;
+                }
+
                 Building? dropOff = FindNearestCompletedTownCenter(state, unit.OwnerPlayerIndex, unit.Position);
                 if (dropOff == null)
                 {

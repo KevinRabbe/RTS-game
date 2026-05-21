@@ -579,6 +579,27 @@ namespace RtsGame.Sim.Core
             int searchRadius,
             out TileCoord selected)
         {
+            return TryReserveNearestReachableMoveDestinationTile(
+                state,
+                unit,
+                targetTileX,
+                targetTileY,
+                searchRadius,
+                false,
+                default,
+                out selected);
+        }
+
+        public static bool TryReserveNearestReachableMoveDestinationTile(
+            GameState state,
+            Unit unit,
+            int targetTileX,
+            int targetTileY,
+            int searchRadius,
+            bool hasExcludedTile,
+            TileCoord excludedTile,
+            out TileCoord selected)
+        {
             selected = default;
             int unitTileX = GetTileX(unit.Position);
             int unitTileY = GetTileY(unit.Position);
@@ -594,6 +615,11 @@ namespace RtsGame.Sim.Core
                     for (int x = targetTileX - radius; x <= targetTileX + radius; x++)
                     {
                         if (Max(Abs(x - targetTileX), Abs(y - targetTileY)) != radius)
+                        {
+                            continue;
+                        }
+
+                        if (hasExcludedTile && x == excludedTile.X && y == excludedTile.Y)
                         {
                             continue;
                         }

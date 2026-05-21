@@ -180,6 +180,12 @@ namespace RtsGame.Tests
                 new TestCase("twenty unit group move settles or waits without stacking", TwentyUnitGroupMoveSettlesOrWaitsWithoutStacking),
                 new TestCase("group move avoids reserved final destination slots", GroupMoveAvoidsReservedFinalDestinationSlots),
                 new TestCase("group move does not cause endless jitter", GroupMoveDoesNotCauseEndlessJitter),
+                new TestCase("dry arabia two villager ground move near tc makes progress", DryArabiaTwoVillagerGroundMoveNearTcMakesProgress),
+                new TestCase("dry arabia four villager ground move around tc makes progress", DryArabiaFourVillagerGroundMoveAroundTcMakesProgress),
+                new TestCase("dry arabia five villager group move near resources stays bounded", DryArabiaFiveVillagerGroupMoveNearResourcesStaysBounded),
+                new TestCase("dry arabia repeated group move replacement clears stale destinations", DryArabiaRepeatedGroupMoveReplacementClearsStaleDestinations),
+                new TestCase("dry arabia group move followed by gather clears move destinations", DryArabiaGroupMoveFollowedByGatherClearsMoveDestinations),
+                new TestCase("dry arabia gather followed by group move clears resource reservations", DryArabiaGatherFollowedByGroupMoveClearsResourceReservations),
                 new TestCase("group gather does not collapse onto one interaction slot", GroupGatherDoesNotCollapseOntoOneInteractionSlot),
                 new TestCase("group gather workers make progress or wait cleanly", GroupGatherWorkersMakeProgressOrWaitCleanly),
                 new TestCase("group gather resolves clicked node to resource area distribution", GroupGatherResolvesClickedNodeToResourceAreaDistribution),
@@ -3514,6 +3520,225 @@ namespace RtsGame.Tests
             }
 
             AssertEqual(unitIds.Length, arrivedOrWaiting, "group move units should either arrive or keep stable destination reservations");
+        }
+
+        private static void DryArabiaTwoVillagerGroundMoveNearTcMakesProgress()
+        {
+            SimScenarioHarness scenario = CreateDryArabiaMoveReliabilityHarness(33001, 4, out GameState state, out int[] workers, out FixedVector2 tcPos, out _);
+            int[] selected = TakeSortedUnits(workers, 2);
+            IssueGroupMove(scenario, 0, selected, FixedVector2.FromInts(tcPos.X.FloorToInt() + 4, tcPos.Y.FloorToInt() - 3), 3300100);
+
+            DriveGroupMoveReliabilityTicks(scenario, selected, 220, selected.Length, "dry-arabia-two-villager-ground-move");
+        }
+
+        private static void DryArabiaFourVillagerGroundMoveAroundTcMakesProgress()
+        {
+            SimScenarioHarness scenario = CreateDryArabiaMoveReliabilityHarness(33002, 4, out GameState state, out int[] workers, out FixedVector2 tcPos, out _);
+            int[] selected = TakeSortedUnits(workers, 4);
+            IssueGroupMove(scenario, 0, selected, FixedVector2.FromInts(tcPos.X.FloorToInt() - 5, tcPos.Y.FloorToInt() + 4), 3300200);
+
+            DriveGroupMoveReliabilityTicks(scenario, selected, 320, selected.Length, "dry-arabia-four-villager-around-tc");
+        }
+
+        private static void DryArabiaFiveVillagerGroupMoveNearResourcesStaysBounded()
+        {
+            SimScenarioHarness scenario = CreateDryArabiaMoveReliabilityHarness(33003, 5, out GameState state, out int[] workers, out FixedVector2 tcPos, out _);
+            int[] selected = TakeSortedUnits(workers, 5);
+            IssueGroupMove(scenario, 0, selected, FixedVector2.FromInts(tcPos.X.FloorToInt() + 6, tcPos.Y.FloorToInt() + 5), 3300300);
+
+            DriveGroupMoveReliabilityTicks(scenario, selected, 360, 4, "dry-arabia-five-villager-resource-side-move");
+        }
+
+        private static void DryArabiaRepeatedGroupMoveReplacementClearsStaleDestinations()
+        {
+            SimScenarioHarness scenario = CreateDryArabiaMoveReliabilityHarness(33004, 5, out GameState state, out int[] workers, out FixedVector2 tcPos, out _);
+            int[] selected = TakeSortedUnits(workers, 5);
+            FixedVector2[] targets =
+            {
+                FixedVector2.FromInts(tcPos.X.FloorToInt() + 5, tcPos.Y.FloorToInt() - 2),
+                FixedVector2.FromInts(tcPos.X.FloorToInt() - 5, tcPos.Y.FloorToInt() + 3),
+                FixedVector2.FromInts(tcPos.X.FloorToInt() + 4, tcPos.Y.FloorToInt() + 5),
+                FixedVector2.FromInts(tcPos.X.FloorToInt() - 4, tcPos.Y.FloorToInt() - 4),
+            };
+
+            for (int i = 0; i < targets.Length; i++)
+            {
+                IssueGroupMove(scenario, 0, selected, targets[i], unchecked((uint)(3300400 + i)));
+                DriveGroupMoveReliabilityTicks(scenario, selected, 36, 3, "dry-arabia-repeated-group-move-" + i);
+            }
+
+            DriveGroupMoveReliabilityTicks(scenario, selected, 240, 0, "dry-arabia-repeated-group-move-final");
+        }
+
+        private static void DryArabiaGroupMoveFollowedByGatherClearsMoveDestinations()
+        {
+            SimScenarioHarness scenario = CreateDryArabiaMoveReliabilityHarness(33005, 5, out GameState state, out int[] workers, out FixedVector2 tcPos, out int foodId);
+            int[] selected = TakeSortedUnits(workers, 5);
+            IssueGroupMove(scenario, 0, selected, FixedVector2.FromInts(tcPos.X.FloorToInt() + 5, tcPos.Y.FloorToInt() + 4), 3300500);
+            DriveGroupMoveReliabilityTicks(scenario, selected, 40, 3, "dry-arabia-move-before-gather");
+
+            scenario.Step(
+                new CommandEnvelope(new CommandHeader(state.Tick, 0, 3300501, CommandType.GatherResource), new GatherResourceCommand(foodId, selected)),
+                new CommandEnvelope(new CommandHeader(state.Tick, 1, 3300502, CommandType.NoOp), new NoOpCommand()));
+
+            for (int i = 0; i < selected.Length; i++)
+            {
+                Unit unit = FindUnitById(state, selected[i]);
+                AssertEqual(false, unit.ReservedInteractionKind == InteractionReservationKind.MoveDestination, scenario.Fail("gather should clear stale move destination reservation"));
+                AssertEqual(true, unit.CurrentResourceNodeId != 0 || unit.TaskPhase == WorkerTaskPhase.BlockedWaiting, scenario.Fail("gather should establish resource intent"));
+            }
+
+            DriveFiveWorkerScenarioTicks(scenario, selected, 220, 900, "dry-arabia-move-followed-by-gather");
+        }
+
+        private static void DryArabiaGatherFollowedByGroupMoveClearsResourceReservations()
+        {
+            SimScenarioHarness scenario = CreateDryArabiaMoveReliabilityHarness(33006, 5, out GameState state, out int[] workers, out FixedVector2 tcPos, out int foodId);
+            int[] selected = TakeSortedUnits(workers, 5);
+            scenario.Step(
+                new CommandEnvelope(new CommandHeader(state.Tick, 0, 3300600, CommandType.GatherResource), new GatherResourceCommand(foodId, selected)),
+                new CommandEnvelope(new CommandHeader(state.Tick, 1, 3300601, CommandType.NoOp), new NoOpCommand()));
+            DriveFiveWorkerScenarioTicks(scenario, selected, 40, 900, "dry-arabia-gather-before-move");
+
+            IssueGroupMove(scenario, 0, selected, FixedVector2.FromInts(tcPos.X.FloorToInt() - 5, tcPos.Y.FloorToInt() + 5), 3300602);
+            for (int i = 0; i < selected.Length; i++)
+            {
+                Unit unit = FindUnitById(state, selected[i]);
+                AssertEqual(false, unit.ReservedInteractionKind == InteractionReservationKind.ResourceNode, scenario.Fail("move should clear stale resource reservation"));
+                AssertEqual(0, unit.CurrentResourceNodeId, scenario.Fail("move should clear current resource node"));
+                AssertEqual(WorkerTaskPhase.MovingToCommandMove, unit.TaskPhase, scenario.Fail("move should establish command-move intent"));
+            }
+
+            DriveGroupMoveReliabilityTicks(scenario, selected, 260, 4, "dry-arabia-gather-followed-by-move");
+        }
+
+        private static SimScenarioHarness CreateDryArabiaMoveReliabilityHarness(
+            ulong seed,
+            int minimumVillagers,
+            out GameState state,
+            out int[] workers,
+            out FixedVector2 tcPos,
+            out int foodId)
+        {
+            GameRules rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState setupState = GameInitializer.CreateDryArabiaTest01(seed);
+            var scenario = new SimScenarioHarness(setupState, rules, 2, unchecked((uint)(seed % 1000000UL)));
+            tcPos = DryArabiaTest01MapDefinition.GetTownCenterZone(0);
+
+            scenario.Step(
+                new CommandEnvelope(new CommandHeader(setupState.Tick, 0, unchecked((uint)(seed + 1)), CommandType.PlaceTownCenter), new PlaceTownCenterCommand(tcPos)),
+                new CommandEnvelope(new CommandHeader(setupState.Tick, 1, unchecked((uint)(seed + 2)), CommandType.NoOp), new NoOpCommand()));
+
+            int tcId = FindUnderConstructionBuildingId(setupState, 0, BuildingTypeId.TownCenter);
+            int[] builders = GetPlayerVillagerIds(setupState, 0);
+            scenario.Step(
+                new CommandEnvelope(new CommandHeader(setupState.Tick, 0, unchecked((uint)(seed + 3)), CommandType.AssignBuild), new AssignBuildCommand(tcId, builders)),
+                new CommandEnvelope(new CommandHeader(setupState.Tick, 1, unchecked((uint)(seed + 4)), CommandType.NoOp), new NoOpCommand()));
+            scenario.RunTicks(320, () => !setupState.EntityState.EntityLookup.ContainsKey(tcId) || !setupState.EntityState.Buildings[setupState.EntityState.EntityLookup[tcId].Index].IsUnderConstruction);
+            AssertEqual(true, FindCompletedBuildingId(setupState, 0, BuildingTypeId.TownCenter) != 0, scenario.Fail("dry arabia reliability setup should complete tc"));
+
+            while (GetPlayerVillagerIds(setupState, 0).Length < minimumVillagers)
+            {
+                int index = setupState.EntityState.Units.Count;
+                EntityFactory.CreateUnit(
+                    setupState,
+                    0,
+                    UnitTypeId.Villager,
+                    FixedVector2.FromInts(tcPos.X.FloorToInt() - 4 + (index % 5), tcPos.Y.FloorToInt() + 6 + (index % 2)));
+            }
+
+            workers = GetPlayerVillagerIds(setupState, 0);
+            Array.Sort(workers);
+            foodId = FindNearbyResourceNodeId(setupState, tcPos, ResourceType.Food);
+            AssertEqual(true, foodId != 0, scenario.Fail("dry arabia reliability setup should find nearby food"));
+            state = setupState;
+            return scenario;
+        }
+
+        private static int[] TakeSortedUnits(int[] unitIds, int count)
+        {
+            var copy = new int[unitIds.Length];
+            Array.Copy(unitIds, copy, unitIds.Length);
+            Array.Sort(copy);
+            var selected = new int[count];
+            for (int i = 0; i < count; i++)
+            {
+                selected[i] = copy[i];
+            }
+
+            return selected;
+        }
+
+        private static void IssueGroupMove(SimScenarioHarness scenario, int playerIndex, int[] unitIds, FixedVector2 target, uint sequence)
+        {
+            var command = new MoveUnitsCommand(unitIds, target);
+            var header = new CommandHeader(scenario.State.Tick, playerIndex, sequence, CommandType.MoveUnits);
+            AssertEqual(CommandValidationReason.Accepted, command.GetValidationReason(scenario.State, scenario.Rules, header), scenario.Fail("legal group move should validate before execution"));
+            scenario.Step(
+                new CommandEnvelope(header, command),
+                new CommandEnvelope(new CommandHeader(scenario.State.Tick, 1 - playerIndex, sequence + 1, CommandType.NoOp), new NoOpCommand()));
+
+            for (int i = 0; i < unitIds.Length; i++)
+            {
+                Unit unit = FindUnitById(scenario.State, unitIds[i]);
+                AssertEqual(0, unit.CurrentResourceNodeId, scenario.Fail("group move should clear resource node intent"));
+                AssertEqual(false, unit.ReservedInteractionKind == InteractionReservationKind.ResourceNode, scenario.Fail("group move should clear resource slot reservation"));
+                if (unit.HasMoveTarget)
+                {
+                    AssertEqual(InteractionReservationKind.MoveDestination, unit.ReservedInteractionKind, scenario.Fail("moving unit should reserve a move destination"));
+                }
+            }
+        }
+
+        private static void DriveGroupMoveReliabilityTicks(SimScenarioHarness scenario, int[] unitIds, int ticks, int minimumMovedUnits, string label)
+        {
+            var moved = new bool[unitIds.Length];
+            var startX = new long[unitIds.Length];
+            var startY = new long[unitIds.Length];
+            for (int i = 0; i < unitIds.Length; i++)
+            {
+                Unit unit = FindUnitById(scenario.State, unitIds[i]);
+                startX[i] = unit.Position.X.Raw;
+                startY[i] = unit.Position.Y.Raw;
+            }
+
+            for (int tick = 0; tick < ticks; tick++)
+            {
+                scenario.StepNoOps();
+                scenario.CaptureWorkerTrace(unitIds, 120);
+                scenario.AssertCoreInvariants(label);
+                AssertNoEndlessWorkerPhase(scenario.State, unitIds, WorkerTaskPhase.MovingToCommandMove, 900, scenario.Fail(label + " workers stuck moving-to-command-move"));
+
+                for (int i = 0; i < unitIds.Length; i++)
+                {
+                    Unit unit = FindUnitById(scenario.State, unitIds[i]);
+                    if (unit.Position.X.Raw != startX[i] || unit.Position.Y.Raw != startY[i])
+                    {
+                        moved[i] = true;
+                    }
+
+                    if (!unit.HasMoveTarget && unit.TaskPhase == WorkerTaskPhase.Idle)
+                    {
+                        AssertEqual(false, unit.ReservedInteractionKind == InteractionReservationKind.MoveDestination, scenario.Fail(label + " idle unit should not keep move destination reservation"));
+                    }
+
+                    if (unit.HasMoveTarget && unit.TaskPhase == WorkerTaskPhase.MovingToCommandMove)
+                    {
+                        AssertEqual(InteractionReservationKind.MoveDestination, unit.ReservedInteractionKind, scenario.Fail(label + " active command mover should keep move destination reservation"));
+                    }
+                }
+            }
+
+            int movedCount = 0;
+            for (int i = 0; i < moved.Length; i++)
+            {
+                if (moved[i])
+                {
+                    movedCount++;
+                }
+            }
+
+            AssertEqual(true, movedCount >= minimumMovedUnits, scenario.Fail(label + " expected bounded movement progress moved=" + movedCount + " required=" + minimumMovedUnits));
         }
 
         private static void GroupGatherDoesNotCollapseOntoOneInteractionSlot()

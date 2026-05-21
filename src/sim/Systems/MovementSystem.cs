@@ -18,6 +18,10 @@ namespace RtsGame.Sim.Systems
             MarkSharedDestinationConflicts(plans);
             MarkSwapConflicts(plans);
             MarkBlockedByStationaryUnits(context, plans);
+            ResolveBlockedAlternateSteps(state, context, plans);
+            MarkSharedDestinationConflicts(plans);
+            MarkSwapConflicts(plans);
+            MarkBlockedByStationaryUnits(context, plans);
             ApplyPlans(state, plans, movementSolverV2);
         }
 
@@ -35,6 +39,7 @@ namespace RtsGame.Sim.Systems
                     continue;
                 }
 
+                RetargetStaleCommandMoveDestination(state, unit);
                 Fixed speed = GameData.GetUnitMoveSpeed(unit.UnitTypeId);
                 if (speed.Raw <= 0)
                 {
@@ -316,6 +321,52 @@ namespace RtsGame.Sim.Systems
 
             memo[planIndex] = 1;
             return true;
+        }
+
+        private static void ResolveBlockedAlternateSteps(GameState state, MovementContext context, MovementPlan[] plans)
+        {
+            for (int i = 0; i < plans.Length; i++)
+            {
+                if (!plans[i].Blocked || !plans[i].AttemptsMove || !plans[i].EntersNewTile)
+                {
+                    continue;
+                }
+
+                Unit unit = state.EntityState.Units[plans[i].UnitIndex];
+                if (unit.IsDead || !unit.HasMoveTarget)
+                {
+                    continue;
+                }
+
+                Fixed speed = GameData.GetUnitMoveSpeed(unit.UnitTypeId);
+                if (speed.Raw <= 0)
+                {
+                    continue;
+                }
+
+                int currentTileX = plans[i].CurrentTileX;
+                int currentTileY = plans[i].CurrentTileY;
+                int targetTileX = SpatialRules.GetTileX(unit.MoveTarget);
+                int targetTileY = SpatialRules.GetTileY(unit.MoveTarget);
+                if (TryBuildAlternateStepPlan(
+                    state,
+                    context,
+                    unit,
+                    currentTileX,
+                    currentTileY,
+                    targetTileX,
+                    targetTileY,
+                    plans[i].NextTileX,
+                    plans[i].NextTileY,
+                    speed,
+                    out FixedVector2 alternatePosition))
+                {
+                    plans[i].NextPosition = alternatePosition;
+                    plans[i].WillReachTarget = false;
+                    plans[i].Blocked = false;
+                    plans[i].BlockReason = MovementBlockReason.None;
+                }
+            }
         }
 
         private static void MarkSharedDestinationConflicts(MovementPlan[] plans)
@@ -713,6 +764,49 @@ namespace RtsGame.Sim.Systems
             }
         }
 
+        private static void RetargetStaleCommandMoveDestination(GameState state, Unit unit)
+        {
+            if (unit.TaskPhase != WorkerTaskPhase.MovingToCommandMove
+                || unit.ReservedInteractionKind != InteractionReservationKind.MoveDestination
+                || !state.MovementProgressPolicy.IsNoProgressTimedOut(state, unit))
+            {
+                return;
+            }
+
+            int reservationAge = unit.LastReservationRetargetTick < 0 ? int.MaxValue : state.Tick - unit.LastReservationRetargetTick;
+            if (reservationAge < GameData.ReservationRetargetCadenceTicks)
+            {
+                return;
+            }
+
+            int commandTargetX = DecodeTileX(unit.ReservedInteractionTargetId);
+            int commandTargetY = DecodeTileY(unit.ReservedInteractionTargetId);
+            var excludedTile = new SpatialRules.TileCoord(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
+            SpatialRules.ClearInteractionReservation(state, unit, ReservationReleaseReason.Timeout);
+            if (SpatialRules.TryReserveNearestReachableMoveDestinationTile(
+                state,
+                unit,
+                commandTargetX,
+                commandTargetY,
+                5,
+                true,
+                excludedTile,
+                out SpatialRules.TileCoord replacement))
+            {
+                unit.MoveTarget = FixedVector2.FromInts(replacement.X, replacement.Y);
+                unit.LastMovedTick = state.Tick;
+                return;
+            }
+
+            SpatialRules.ReserveInteractionSlot(
+                state,
+                unit,
+                InteractionReservationKind.MoveDestination,
+                EncodeTileKey(commandTargetX, commandTargetY),
+                excludedTile);
+            unit.MoveTarget = FixedVector2.FromInts(excludedTile.X, excludedTile.Y);
+        }
+
         private static WorkerTaskPhase GetPhaseAfterClearedMove(WorkerTaskPhase phase)
         {
             if (phase == WorkerTaskPhase.MovingToCommandMove)
@@ -794,6 +888,16 @@ namespace RtsGame.Sim.Systems
         private static int EncodeTileKey(int tileX, int tileY)
         {
             return (tileY << 16) ^ (tileX & 0xFFFF);
+        }
+
+        private static int DecodeTileX(int key)
+        {
+            return key & 0xFFFF;
+        }
+
+        private static int DecodeTileY(int key)
+        {
+            return key >> 16;
         }
 
         private sealed class MovementContext
