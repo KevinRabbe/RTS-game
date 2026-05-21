@@ -101,18 +101,21 @@ namespace RtsGame.Sim.Systems
                 }
 
                 long distanceRaw = DeterministicMath.SqrtRaw(delta.LengthSquaredRaw());
-                if (distanceRaw == 0 || (nextPathTileIsTarget && distanceRaw <= speed.Raw))
+                bool willReachTarget = nextPathTileIsTarget && distanceRaw <= speed.Raw;
+                FixedVector2 nextPosition;
+                if (distanceRaw == 0 || distanceRaw <= speed.Raw)
                 {
-                    plan.AttemptsMove = true;
-                    plan.NextPosition = unit.MoveTarget;
-                    plan.WillReachTarget = true;
-                    plans[i] = plan;
-                    continue;
+                    nextPosition = willReachTarget
+                        ? unit.MoveTarget
+                        : FixedVector2.FromInts(intendedNextTileX, intendedNextTileY);
+                }
+                else
+                {
+                    Fixed distance = new Fixed(distanceRaw);
+                    Fixed stepScale = speed / distance;
+                    nextPosition = unit.Position + FixedVector2.Multiply(delta, stepScale);
                 }
 
-                Fixed distance = new Fixed(distanceRaw);
-                Fixed stepScale = speed / distance;
-                FixedVector2 nextPosition = unit.Position + FixedVector2.Multiply(delta, stepScale);
                 int projectedTileX = SpatialRules.GetTileX(nextPosition);
                 int projectedTileY = SpatialRules.GetTileY(nextPosition);
                 if (SpatialRules.IsTileBlockedForUnitMovement(state, projectedTileX, projectedTileY))
@@ -151,11 +154,13 @@ namespace RtsGame.Sim.Systems
                             out FixedVector2 alternatePosition))
                     {
                         nextPosition = alternatePosition;
+                        willReachTarget = false;
                     }
                 }
 
                 plan.AttemptsMove = true;
                 plan.NextPosition = nextPosition;
+                plan.WillReachTarget = willReachTarget;
                 plans[i] = plan;
             }
 
@@ -182,7 +187,10 @@ namespace RtsGame.Sim.Systems
             int bestStepClass = int.MaxValue;
             int bestCongestion = int.MaxValue;
             int bestTurnCost = int.MaxValue;
+            int bestBacktrackClass = int.MaxValue;
             bool found = false;
+            int previousTileX = SpatialRules.GetTileX(unit.Position - unit.Velocity);
+            int previousTileY = SpatialRules.GetTileY(unit.Position - unit.Velocity);
 
             for (int i = 0; i < AlternateOffsetX.Length; i++)
             {
@@ -202,16 +210,19 @@ namespace RtsGame.Sim.Systems
                 int stepClass = i < 4 ? 0 : 1;
                 int congestion = context.CountNearbyTraffic(candidateX, candidateY, unit.Id);
                 int turnCost = Abs(candidateX - intendedNextTileX) + Abs(candidateY - intendedNextTileY);
+                int backtrackClass = candidateX == previousTileX && candidateY == previousTileY ? 1 : 0;
                 if (!found
-                    || stepClass < bestStepClass
-                    || (stepClass == bestStepClass && distance < bestDistance)
-                    || (stepClass == bestStepClass && distance == bestDistance && congestion < bestCongestion)
-                    || (stepClass == bestStepClass && distance == bestDistance && congestion == bestCongestion && turnCost < bestTurnCost)
-                    || (stepClass == bestStepClass && distance == bestDistance && congestion == bestCongestion && turnCost == bestTurnCost && CompareTile(candidateX, candidateY, bestX, bestY) < 0))
+                    || backtrackClass < bestBacktrackClass
+                    || (backtrackClass == bestBacktrackClass && stepClass < bestStepClass)
+                    || (backtrackClass == bestBacktrackClass && stepClass == bestStepClass && distance < bestDistance)
+                    || (backtrackClass == bestBacktrackClass && stepClass == bestStepClass && distance == bestDistance && congestion < bestCongestion)
+                    || (backtrackClass == bestBacktrackClass && stepClass == bestStepClass && distance == bestDistance && congestion == bestCongestion && turnCost < bestTurnCost)
+                    || (backtrackClass == bestBacktrackClass && stepClass == bestStepClass && distance == bestDistance && congestion == bestCongestion && turnCost == bestTurnCost && CompareTile(candidateX, candidateY, bestX, bestY) < 0))
                 {
                     bestX = candidateX;
                     bestY = candidateY;
                     bestDistance = distance;
+                    bestBacktrackClass = backtrackClass;
                     bestStepClass = stepClass;
                     bestCongestion = congestion;
                     bestTurnCost = turnCost;
@@ -476,27 +487,36 @@ namespace RtsGame.Sim.Systems
                 return true;
             }
 
-            Fixed maxVelocity = speed;
-            Fixed desiredScale = maxVelocity / new Fixed(desiredDistanceRaw);
-            FixedVector2 desiredVelocity = FixedVector2.Multiply(desiredDirection, desiredScale);
-            bool shouldRecomputeSteering =
-                unit.LastSteeringDecisionTick == 0
-                || state.Tick - unit.LastSteeringDecisionTick >= GameData.MovementSteeringDecisionCadenceTicks;
-            if (shouldRecomputeSteering)
+            bool nextTileIsTarget = nextTileX == targetTileX && nextTileY == targetTileY;
+            FixedVector2 nextPosition;
+            if (desiredDistanceRaw <= speed.Raw)
             {
-                FixedVector2 separationVelocity = ComputeSeparationVelocity(context, unit, currentTileX, currentTileY, speed);
-                desiredVelocity = desiredVelocity + separationVelocity;
-                unit.LastSteeringDecisionTick = state.Tick;
+                nextPosition = nextTileIsTarget ? unit.MoveTarget : tileCenter;
             }
             else
             {
-                // Hysteresis: preserve committed short-horizon steering between decision ticks.
-                desiredVelocity = unit.Velocity;
-            }
+                Fixed maxVelocity = speed;
+                Fixed desiredScale = maxVelocity / new Fixed(desiredDistanceRaw);
+                FixedVector2 desiredVelocity = FixedVector2.Multiply(desiredDirection, desiredScale);
+                bool shouldRecomputeSteering =
+                    unit.LastSteeringDecisionTick == 0
+                    || state.Tick - unit.LastSteeringDecisionTick >= GameData.MovementSteeringDecisionCadenceTicks;
+                if (shouldRecomputeSteering)
+                {
+                    FixedVector2 separationVelocity = ComputeSeparationVelocity(context, unit, currentTileX, currentTileY, speed);
+                    desiredVelocity = desiredVelocity + separationVelocity;
+                    unit.LastSteeringDecisionTick = state.Tick;
+                }
+                else
+                {
+                    // Hysteresis: preserve committed short-horizon steering between decision ticks.
+                    desiredVelocity = unit.Velocity;
+                }
 
-            Fixed maxAcceleration = speed / Fixed.FromRatio(2, 1);
-            FixedVector2 nextVelocity = MoveTowardVelocity(unit.Velocity, desiredVelocity, maxAcceleration);
-            FixedVector2 nextPosition = unit.Position + nextVelocity;
+                Fixed maxAcceleration = speed / Fixed.FromRatio(2, 1);
+                FixedVector2 nextVelocity = MoveTowardVelocity(unit.Velocity, desiredVelocity, maxAcceleration);
+                nextPosition = unit.Position + nextVelocity;
+            }
 
             int projectedTileX = SpatialRules.GetTileX(nextPosition);
             int projectedTileY = SpatialRules.GetTileY(nextPosition);
@@ -547,6 +567,8 @@ namespace RtsGame.Sim.Systems
                     out FixedVector2 alternatePosition))
                 {
                     nextPosition = alternatePosition;
+                    projectedTileX = SpatialRules.GetTileX(nextPosition);
+                    projectedTileY = SpatialRules.GetTileY(nextPosition);
                 }
                 else
                 {

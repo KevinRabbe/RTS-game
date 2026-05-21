@@ -143,11 +143,19 @@ namespace RtsGame.Sim.Systems
 
         private static void ActivateDropoffApproach(GameState state, Unit unit, int approachX, int approachY)
         {
+            bool isFreshApproach = !unit.HasMoveTarget
+                || unit.TaskPhase == WorkerTaskPhase.BlockedWaiting
+                || unit.MoveTarget.X.Raw != Fixed.FromInt(approachX).Raw
+                || unit.MoveTarget.Y.Raw != Fixed.FromInt(approachY).Raw;
             unit.TaskPhase = WorkerTaskPhase.MovingToDropoffSlot;
             unit.HasMoveTarget = true;
             unit.MoveTarget = FixedVector2.FromInts(approachX, approachY);
-            // Reset progress window when a fresh dropoff approach becomes active.
-            unit.LastMovedTick = state.Tick;
+            // Only reset progress window on a fresh/changed approach. Reapplying the
+            // same slot each tick must not hide no-progress timeouts.
+            if (isFreshApproach)
+            {
+                unit.LastMovedTick = state.Tick;
+            }
         }
 
     }

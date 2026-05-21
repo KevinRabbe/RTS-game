@@ -39,6 +39,7 @@ namespace RtsGame.Sim.Systems
                 if (!SpatialRules.IsUnitInResourceInteractionRange(unit, node))
                 {
                     int blockedTicks = unit.LastMovedTick < 0 ? 0 : state.Tick - unit.LastMovedTick;
+                    bool noProgressTimedOut = state.MovementProgressPolicy.IsNoProgressTimedOut(state, unit);
                     bool hardTimedOut = blockedTicks >= GameData.ReservationHardTimeoutTicks;
                     bool hasActiveResourceApproach = unit.HasMoveTarget
                         || (unit.ReservedInteractionKind == InteractionReservationKind.ResourceNode
@@ -60,7 +61,7 @@ namespace RtsGame.Sim.Systems
                         continue;
                     }
 
-                    if (ShouldKeepCurrentApproachTarget(state, unit, node))
+                    if (!noProgressTimedOut && ShouldKeepCurrentApproachTarget(state, unit, node))
                     {
                         ActivateResourceApproach(state, unit);
                         continue;
@@ -214,12 +215,19 @@ namespace RtsGame.Sim.Systems
 
         private static void ActivateResourceApproach(GameState state, Unit unit)
         {
+            bool isFreshApproach = !unit.HasMoveTarget
+                || unit.TaskPhase == WorkerTaskPhase.BlockedWaiting
+                || unit.MoveTarget.X.Raw != Fixed.FromInt(unit.ReservedInteractionTileX).Raw
+                || unit.MoveTarget.Y.Raw != Fixed.FromInt(unit.ReservedInteractionTileY).Raw;
             unit.TaskPhase = WorkerTaskPhase.MovingToResourceSlot;
             unit.HasMoveTarget = true;
             unit.MoveTarget = FixedVector2.FromInts(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
-            // Reset progress window when (re)activating approach after waiting so
-            // deterministic no-progress recovery measures the new approach attempt.
-            unit.LastMovedTick = state.Tick;
+            // Only reset progress window on a fresh/changed approach. Reapplying the
+            // same target every tick must not mask no-progress stall detection.
+            if (isFreshApproach)
+            {
+                unit.LastMovedTick = state.Tick;
+            }
         }
 
         private static void ClearExhaustedGatherIntent(GameState state, Unit unit)

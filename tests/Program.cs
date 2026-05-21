@@ -185,6 +185,7 @@ namespace RtsGame.Tests
                 new TestCase("group gather resolves clicked node to resource area distribution", GroupGatherResolvesClickedNodeToResourceAreaDistribution),
                 new TestCase("group gather avoids single node collapse when sibling nodes exist", GroupGatherAvoidsSingleNodeCollapseWhenSiblingNodesExist),
                 new TestCase("dry arabia berry group gather makes bounded food progress", DryArabiaBerryGroupGatherMakesBoundedFoodProgress),
+                new TestCase("dry arabia four worker same resource avoids single worker starvation", DryArabiaFourWorkerSameResourceAvoidsSingleWorkerStarvation),
                 new TestCase("berry visual radius matches simulation footprint radius", BerryVisualRadiusMatchesSimulationFootprintRadius),
                 new TestCase("thirty workers across resources keep progress or intent", ThirtyWorkersAcrossResourcesKeepProgressOrIntent),
                 new TestCase("thirty workers across resources keep progress or intent v2", ThirtyWorkersAcrossResourcesKeepProgressOrIntentV2),
@@ -2591,10 +2592,11 @@ namespace RtsGame.Tests
                 tick++;
             }
 
+            int startFood = session.Peers[0].LocalState.PlayerStates.Players[0].Resources.Food;
             session.Broadcast(new CommandEnvelope(new CommandHeader(tick, 0, sequence++, CommandType.GatherResource), new GatherResourceCommand(1, new[] { 1, 2 })));
             AssertEqual(true, session.TryAdvanceOneTick(), "gather assignment tick should advance");
             tick++;
-            for (int i = 0; i < 200 && session.Peers[0].LocalState.PlayerStates.Players[0].Resources.Food < 10; i++)
+            for (int i = 0; i < 200 && session.Peers[0].LocalState.PlayerStates.Players[0].Resources.Food < startFood + 10; i++)
             {
                 session.Broadcast(new CommandEnvelope(new CommandHeader(tick, 0, sequence++, CommandType.NoOp), new NoOpCommand()));
                 AssertEqual(true, session.TryAdvanceOneTick(), "gather/deposit progression tick should advance");
@@ -2602,9 +2604,16 @@ namespace RtsGame.Tests
             }
 
             AssertEqual(0, session.DesyncReports.Count, "economy lockstep should not desync");
+            AssertEqual(true, session.Peers[0].LocalState.PlayerStates.Players[0].Resources.Food >= startFood + 10, "economy lockstep should gather and deposit food");
             Unit villager = session.Peers[0].LocalState.EntityState.Units[0];
             AssertEqual(1, villager.CurrentResourceNodeId, "villager should keep gather assignment in lockstep");
-            AssertEqual(true, villager.HasMoveTarget || villager.CarriedAmount > 0, "villager should be in deterministic gather loop state");
+            AssertEqual(
+                true,
+                villager.HasMoveTarget
+                    || villager.CarriedAmount > 0
+                    || villager.TaskPhase == WorkerTaskPhase.Gathering
+                    || villager.TaskPhase == WorkerTaskPhase.MovingToResourceSlot,
+                "villager should be in deterministic gather loop state phase=" + villager.TaskPhase + " hasMove=" + villager.HasMoveTarget + " carry=" + villager.CarriedAmount);
         }
 
         private static void TrainVillagerPaysCostAndCompletes()
@@ -3650,6 +3659,60 @@ namespace RtsGame.Tests
             }
 
             AssertEqual(true, progressed, "dry arabia berry group gather should make bounded food progress or maintain active gather intent");
+        }
+
+        private static void DryArabiaFourWorkerSameResourceAvoidsSingleWorkerStarvation()
+        {
+            GameRules rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = GameInitializer.CreateDryArabiaTest01(30281);
+            var scenario = new SimScenarioHarness(state, rules, 2, 3028100);
+            FixedVector2 tcPos = DryArabiaTest01MapDefinition.GetTownCenterZone(0);
+
+            scenario.Step(
+                new CommandEnvelope(new CommandHeader(state.Tick, 0, 3028101, CommandType.PlaceTownCenter), new PlaceTownCenterCommand(tcPos)),
+                new CommandEnvelope(new CommandHeader(state.Tick, 1, 3028102, CommandType.NoOp), new NoOpCommand()));
+
+            int tcId = FindUnderConstructionBuildingId(state, 0, BuildingTypeId.TownCenter);
+            int[] builders = GetPlayerVillagerIds(state, 0);
+            scenario.Step(
+                new CommandEnvelope(new CommandHeader(state.Tick, 0, 3028103, CommandType.AssignBuild), new AssignBuildCommand(tcId, builders)),
+                new CommandEnvelope(new CommandHeader(state.Tick, 1, 3028104, CommandType.NoOp), new NoOpCommand()));
+            scenario.RunTicks(260, () => !state.EntityState.EntityLookup.ContainsKey(tcId) || !state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index].IsUnderConstruction);
+
+            int[] workers = GetPlayerVillagerIds(state, 0);
+            Array.Sort(workers);
+            AssertEqual(true, workers.Length >= 4, scenario.Fail("expected at least four workers at start"));
+            int[] selected = new[] { workers[0], workers[1], workers[2], workers[3] };
+            int foodId = FindNearbyResourceNodeId(state, tcPos, ResourceType.Food);
+            AssertEqual(true, foodId != 0, scenario.Fail("expected nearby food node"));
+
+            scenario.Step(
+                new CommandEnvelope(new CommandHeader(state.Tick, 0, 3028105, CommandType.GatherResource), new GatherResourceCommand(foodId, selected)),
+                new CommandEnvelope(new CommandHeader(state.Tick, 1, 3028106, CommandType.NoOp), new NoOpCommand()));
+
+            int startFood = state.PlayerStates.Players[0].Resources.Food;
+            var productiveWorkers = new HashSet<int>();
+            for (int i = 0; i < 1100; i++)
+            {
+                scenario.StepNoOps();
+                scenario.CaptureWorkerTrace(selected, 120);
+                scenario.AssertCoreInvariants("dry-arabia-four-worker-same-resource");
+                AssertNoEndlessWorkerPhase(state, selected, WorkerTaskPhase.MovingToResourceSlot, 900, scenario.Fail("workers stuck moving-to-resource"));
+                AssertNoEndlessWorkerPhase(state, selected, WorkerTaskPhase.MovingToDropoffSlot, 900, scenario.Fail("workers stuck moving-to-dropoff"));
+
+                for (int u = 0; u < selected.Length; u++)
+                {
+                    Unit worker = FindUnitById(state, selected[u]);
+                    if (worker.TaskPhase == WorkerTaskPhase.Gathering || worker.CarriedAmount > 0)
+                    {
+                        productiveWorkers.Add(worker.Id);
+                    }
+                }
+            }
+
+            int gainedFood = state.PlayerStates.Players[0].Resources.Food - startFood;
+            AssertEqual(true, gainedFood >= 40, scenario.Fail("four-worker same-resource scenario should produce bounded food progress"));
+            AssertEqual(true, productiveWorkers.Count >= 2, scenario.Fail("scenario should not collapse to a single productive worker"));
         }
 
         private static void BerryVisualRadiusMatchesSimulationFootprintRadius()
@@ -6309,9 +6372,9 @@ namespace RtsGame.Tests
 
         private static void GodotSelectedStatusShowsBlockedWaitingNoProgressTicks()
         {
-            GodotFrameDto frame = CreateGodotInteractionFrame(
-                new GodotPrimitiveDto[0],
-                new GodotBuildingStatusDto[0],
+            GodotFrameDto frame = CreateGodotHudFrame(
+                19,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
                 new[]
                 {
                     new GodotUnitStatusDto(
@@ -6339,7 +6402,8 @@ namespace RtsGame.Tests
                         0,
                         0,
                         0)
-                });
+                },
+                new GodotBuildingStatusDto[0]);
 
             string[] lines = GodotSelectedStatusBuilder.BuildLines(frame, new[] { 12 }, 0, 0);
 
@@ -10218,7 +10282,7 @@ namespace RtsGame.Tests
             for (int i = 0; i < unitIds.Length; i++)
             {
                 Unit unit = FindUnitById(state, unitIds[i]);
-                GatherReservationChurnState churnState;
+                GatherReservationChurnState? churnState;
                 if (!tracker.TryGetValue(unit.Id, out churnState))
                 {
                     churnState = new GatherReservationChurnState();

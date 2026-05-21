@@ -74,6 +74,7 @@ public partial class RtsClientRoot : Node2D
 		}
 
 		UpdateCamera(delta);
+		RefreshHoveredTargetsFromMouse();
 		if (_commandMarkerTicksRemaining > 0)
 		{
 			_commandMarkerTicksRemaining--;
@@ -1347,6 +1348,24 @@ public partial class RtsClientRoot : Node2D
 		_hoveredResourceNodeId = FindResourceAt(GetGlobalMousePosition());
 		_hoveredBuildingId = FindHoveredBuildingAt(GetGlobalMousePosition());
 		QueueRedraw();
+	}
+
+	private void RefreshHoveredTargetsFromMouse()
+	{
+		if (_frame == null)
+		{
+			return;
+		}
+
+		Vector2 mouse = GetGlobalMousePosition();
+		int hoveredResource = FindResourceAt(mouse);
+		int hoveredBuilding = FindHoveredBuildingAt(mouse);
+		if (hoveredResource != _hoveredResourceNodeId || hoveredBuilding != _hoveredBuildingId)
+		{
+			_hoveredResourceNodeId = hoveredResource;
+			_hoveredBuildingId = hoveredBuilding;
+			QueueRedraw();
+		}
 	}
 
 	private int FindResourceAt(Vector2 screenPosition)
