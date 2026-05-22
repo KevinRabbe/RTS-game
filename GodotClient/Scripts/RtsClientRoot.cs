@@ -565,125 +565,20 @@ public partial class RtsClientRoot : Node2D
 
 	private void DrawPrimitive(GodotPrimitiveDto primitive)
 	{
-		switch (GodotPrimitiveDrawKindResolver.Resolve(primitive))
-		{
-			case GodotPrimitiveDrawKind.Unit:
-				DrawUnit(primitive);
-				break;
-			case GodotPrimitiveDrawKind.Building:
-				DrawBuilding(primitive);
-				break;
-			case GodotPrimitiveDrawKind.TradeRoute:
-				DrawTradeRoute(primitive);
-				break;
-			case GodotPrimitiveDrawKind.HealthBar:
-				DrawHealthBar(primitive);
-				break;
-			case GodotPrimitiveDrawKind.FogOverlay:
-				DrawFogOverlay();
-				break;
-			case GodotPrimitiveDrawKind.Resource:
-				DrawResource(primitive);
-				break;
-		}
-	}
-
-	private void DrawUnit(GodotPrimitiveDto primitive)
-	{
-		bool isSelected = _selectionController.IsUnitSelected(primitive.EntityId);
-		if (_spriteRenderer.TryDrawUnit(this, primitive, _frame, _selectionController.SelectedUnitIds, ToScreen, RawToPixels))
-		{
-			if (isSelected)
-			{
-				Vector2 center = ToScreen(primitive.XRaw, primitive.YRaw);
-				float radiusSource = Mathf.Max(RawToPixels(primitive.WidthRaw), RawToPixels(primitive.HeightRaw));
-				RtsSelectionRingRenderer.Draw(this, center, radiusSource, Colors.Aqua);
-			}
-
-			return;
-		}
-
-		Rect2 rect = PrimitiveRect(primitive);
-		Color color = RtsVisualStyleColors.Resolve(GodotVisualStyleResolver.ResolveUnit(primitive, LocalPlayerIndex));
-		DrawRect(rect, color);
-		if (isSelected)
-		{
-			Vector2 center = ToScreen(primitive.XRaw, primitive.YRaw);
-			float radiusSource = Mathf.Max(RawToPixels(primitive.WidthRaw), RawToPixels(primitive.HeightRaw));
-			RtsSelectionRingRenderer.Draw(this, center, radiusSource, Colors.Aqua);
-			DrawRect(rect.Grow(2.0f), Colors.White, false, 2.0f);
-		}
-	}
-
-	private void DrawBuilding(GodotPrimitiveDto primitive)
-	{
-		bool isSelected = _selectionController.SelectedBuildingId == primitive.EntityId;
-		bool isHovered = _hoveredBuildingId == primitive.EntityId;
-		if (_spriteRenderer.TryDrawBuilding(this, primitive, _frame, _selectionController.SelectedBuildingId, ToScreen, RawToPixels))
-		{
-			if (isSelected)
-			{
-				RtsBuildingFootprintOutlineRenderer.Draw(this, PrimitiveRect(primitive), Colors.Gold);
-			}
-			else if (isHovered)
-			{
-				RtsBuildingFootprintOutlineRenderer.Draw(this, PrimitiveRect(primitive), Colors.Khaki);
-			}
-
-			DrawConstructionOverlayIfNeeded(primitive);
-
-			return;
-		}
-
-		Rect2 rect = PrimitiveRect(primitive);
-		Color color = RtsVisualStyleColors.Resolve(GodotVisualStyleResolver.ResolveBuilding(primitive));
-		DrawRect(rect, color);
-		if (isSelected)
-		{
-			RtsBuildingFootprintOutlineRenderer.Draw(this, PrimitiveRect(primitive), Colors.Gold);
-		}
-		else if (isHovered)
-		{
-			RtsBuildingFootprintOutlineRenderer.Draw(this, PrimitiveRect(primitive), Colors.Khaki);
-		}
-
-		DrawConstructionOverlayIfNeeded(primitive);
-	}
-
-	private void DrawResource(GodotPrimitiveDto primitive)
-	{
-		if (_spriteRenderer.TryDrawResource(this, primitive, ToScreen, RawToPixels))
-		{
-			if (primitive.EntityId == _hoveredResourceNodeId)
-			{
-				RtsResourceHoverRenderer.DrawHoverRing(this, PrimitiveRect(primitive).Grow(6.0f));
-			}
-
-			return;
-		}
-
-		Rect2 rect = PrimitiveRect(primitive);
-		Color color = RtsVisualStyleColors.Resolve(GodotVisualStyleResolver.ResolveResource(primitive));
-		DrawCircle(rect.GetCenter(), rect.Size.X * 0.5f, color);
-		if (primitive.EntityId == _hoveredResourceNodeId)
-		{
-			RtsResourceHoverRenderer.DrawHoverRing(this, rect);
-		}
-	}
-
-	private void DrawTradeRoute(GodotPrimitiveDto primitive)
-	{
-		RtsTradeRouteRenderer.Draw(this, ToScreen(primitive.XRaw, primitive.YRaw), ToScreen(primitive.EndXRaw, primitive.EndYRaw));
-	}
-
-	private void DrawHealthBar(GodotPrimitiveDto primitive)
-	{
-		RtsHealthBarRenderer.Draw(this, ToScreen(primitive.XRaw, primitive.YRaw), primitive);
-	}
-
-	private void DrawFogOverlay()
-	{
-		DrawRect(new Rect2(Vector2.Zero, new Vector2(2048.0f, 1536.0f)), new Color(0.02f, 0.02f, 0.02f, 0.12f));
+		RtsPrimitiveRenderer.Draw(
+			this,
+			primitive,
+			_frame,
+			_spriteRenderer,
+			LocalPlayerIndex,
+			_selectionController.SelectedUnitIds,
+			_selectionController.SelectedBuildingId,
+			_hoveredBuildingId,
+			_hoveredResourceNodeId,
+			ToScreen,
+			RawToPixels,
+			PrimitiveRect,
+			DrawConstructionOverlayIfNeeded);
 	}
 
 	private void DrawHud()
