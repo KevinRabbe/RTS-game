@@ -487,7 +487,8 @@ namespace RtsGame.Tests
                 new TestCase("chaos v1 stress smoke", ChaosV1StressSmoke),
                 new TestCase("chaos v2 stress smoke", ChaosV2StressSmoke),
                 new TestCase("chaos v3 stress smoke", ChaosV3StressSmoke),
-                new TestCase("chaos v4 stress smoke", ChaosV4StressSmoke)
+                new TestCase("chaos v4 stress smoke", ChaosV4StressSmoke),
+                new TestCase("chaos v5 stress smoke", ChaosV5StressSmoke)
             };
 
             int failed = 0;
@@ -9906,6 +9907,14 @@ namespace RtsGame.Tests
             AssertEqual(true, result.Passed, "chaos v4 stress should pass invariants");
             AssertEqual(1200, result.FinalTick, "chaos v4 stress should reach requested tick");
             AssertEqual(1, result.ScenarioVersion, "chaos v4 version should be frozen at v1");
+        }
+
+        private static void ChaosV5StressSmoke()
+        {
+            StressScenarioResult result = new StressScenarioRunner().RunChaosV5(1200, 81);
+            AssertEqual(true, result.Passed, "chaos v5 stress should pass invariants");
+            AssertEqual(1200, result.FinalTick, "chaos v5 stress should reach requested tick");
+            AssertEqual(1, result.ScenarioVersion, "chaos v5 version should be frozen at v1");
         }
 
         private static ulong RunNoOpSimulation(int ticks, int players, ulong seed)

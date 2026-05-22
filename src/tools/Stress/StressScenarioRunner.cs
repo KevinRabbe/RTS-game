@@ -33,6 +33,12 @@ namespace RtsGame.Stress
             return RunScenario(scenario, seed);
         }
 
+        public StressScenarioResult RunChaosV5(int ticks, ulong seed)
+        {
+            var scenario = new ChaosV5Scenario(ticks);
+            return RunScenario(scenario, seed);
+        }
+
         private StressScenarioResult RunScenario(IStressScenario scenario, ulong seed)
         {
             GameRules rules = GameRules.CreatePhaseZeroDefaults(scenario.PlayerCount);
