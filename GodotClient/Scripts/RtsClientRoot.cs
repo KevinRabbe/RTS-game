@@ -1057,11 +1057,7 @@ public partial class RtsClientRoot : Node2D
 			return;
 		}
 
-		Vector2 center = ToScreen(primitive.XRaw, primitive.YRaw);
-		var bgRect = new Rect2(center.X - 44.0f, center.Y - 30.0f, 88.0f, 20.0f);
-		DrawRect(bgRect, new Color(0.0f, 0.0f, 0.0f, 0.5f));
-		DrawString(ThemeDB.FallbackFont, bgRect.Position + new Vector2(4.0f, 9.0f), "BUILDING", HorizontalAlignment.Left, -1.0f, 11, Colors.Khaki);
-		DrawString(ThemeDB.FallbackFont, bgRect.Position + new Vector2(4.0f, 19.0f), status.BuildProgressTicks + "/" + status.RequiredBuildTicks, HorizontalAlignment.Left, -1.0f, 10, Colors.LightGray);
+		RtsConstructionOverlayRenderer.Draw(this, ToScreen(primitive.XRaw, primitive.YRaw), status);
 	}
 
 	private void ConfirmTcPlacement(Vector2I tile)
