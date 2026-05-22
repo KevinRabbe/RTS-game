@@ -595,7 +595,9 @@ public partial class RtsClientRoot : Node2D
 		{
 			if (isSelected)
 			{
-				DrawSelectionRing(primitive, Colors.Aqua);
+				Vector2 center = ToScreen(primitive.XRaw, primitive.YRaw);
+				float radiusSource = Mathf.Max(RawToPixels(primitive.WidthRaw), RawToPixels(primitive.HeightRaw));
+				RtsSelectionRingRenderer.Draw(this, center, radiusSource, Colors.Aqua);
 			}
 
 			return;
@@ -606,7 +608,9 @@ public partial class RtsClientRoot : Node2D
 		DrawRect(rect, color);
 		if (isSelected)
 		{
-			DrawSelectionRing(primitive, Colors.Aqua);
+			Vector2 center = ToScreen(primitive.XRaw, primitive.YRaw);
+			float radiusSource = Mathf.Max(RawToPixels(primitive.WidthRaw), RawToPixels(primitive.HeightRaw));
+			RtsSelectionRingRenderer.Draw(this, center, radiusSource, Colors.Aqua);
 			DrawRect(rect.Grow(2.0f), Colors.White, false, 2.0f);
 		}
 	}
@@ -619,11 +623,11 @@ public partial class RtsClientRoot : Node2D
 		{
 			if (isSelected)
 			{
-				DrawBuildingFootprintOutline(primitive, Colors.Gold);
+				RtsBuildingFootprintOutlineRenderer.Draw(this, PrimitiveRect(primitive), Colors.Gold);
 			}
 			else if (isHovered)
 			{
-				DrawBuildingFootprintOutline(primitive, Colors.Khaki);
+				RtsBuildingFootprintOutlineRenderer.Draw(this, PrimitiveRect(primitive), Colors.Khaki);
 			}
 
 			DrawConstructionOverlayIfNeeded(primitive);
@@ -636,11 +640,11 @@ public partial class RtsClientRoot : Node2D
 		DrawRect(rect, color);
 		if (isSelected)
 		{
-			DrawBuildingFootprintOutline(primitive, Colors.Gold);
+			RtsBuildingFootprintOutlineRenderer.Draw(this, PrimitiveRect(primitive), Colors.Gold);
 		}
 		else if (isHovered)
 		{
-			DrawBuildingFootprintOutline(primitive, Colors.Khaki);
+			RtsBuildingFootprintOutlineRenderer.Draw(this, PrimitiveRect(primitive), Colors.Khaki);
 		}
 
 		DrawConstructionOverlayIfNeeded(primitive);
@@ -746,7 +750,8 @@ public partial class RtsClientRoot : Node2D
 
 		if (_showHotkeyHelp)
 		{
-			DrawHotkeyHelpPanel(uiOrigin, uiSize);
+			GodotHotkeyHelpEntry[] entries = GodotHotkeyHelpBuilder.Build(researchIsWired: true);
+			RtsHotkeyHelpPanelRenderer.Draw(this, uiOrigin, uiSize, entries);
 		}
 	}
 
@@ -788,24 +793,6 @@ public partial class RtsClientRoot : Node2D
 			_facade.MapHeightTiles,
 			TilePixels,
 			TileToRaw);
-	}
-
-	private void DrawHotkeyHelpPanel(Vector2 uiOrigin, Vector2 uiSize)
-	{
-		GodotHotkeyHelpEntry[] entries = GodotHotkeyHelpBuilder.Build(researchIsWired: true);
-		RtsHotkeyHelpPanelRenderer.Draw(this, uiOrigin, uiSize, entries);
-	}
-
-	private void DrawSelectionRing(GodotPrimitiveDto primitive, Color color)
-	{
-		Vector2 center = ToScreen(primitive.XRaw, primitive.YRaw);
-		float radiusSource = Mathf.Max(RawToPixels(primitive.WidthRaw), RawToPixels(primitive.HeightRaw));
-		RtsSelectionRingRenderer.Draw(this, center, radiusSource, color);
-	}
-
-	private void DrawBuildingFootprintOutline(GodotPrimitiveDto primitive, Color color)
-	{
-		RtsBuildingFootprintOutlineRenderer.Draw(this, PrimitiveRect(primitive), color);
 	}
 
 	private Vector2 GetUiOrigin()
