@@ -602,7 +602,7 @@ public partial class RtsClientRoot : Node2D
 		}
 
 		Rect2 rect = PrimitiveRect(primitive);
-		Color color = GetStyleColor(GodotVisualStyleResolver.ResolveUnit(primitive, LocalPlayerIndex));
+		Color color = RtsVisualStyleColors.Resolve(GodotVisualStyleResolver.ResolveUnit(primitive, LocalPlayerIndex));
 		DrawRect(rect, color);
 		if (isSelected)
 		{
@@ -632,7 +632,7 @@ public partial class RtsClientRoot : Node2D
 		}
 
 		Rect2 rect = PrimitiveRect(primitive);
-		Color color = GetStyleColor(GodotVisualStyleResolver.ResolveBuilding(primitive));
+		Color color = RtsVisualStyleColors.Resolve(GodotVisualStyleResolver.ResolveBuilding(primitive));
 		DrawRect(rect, color);
 		if (isSelected)
 		{
@@ -660,7 +660,7 @@ public partial class RtsClientRoot : Node2D
 		}
 
 		Rect2 rect = PrimitiveRect(primitive);
-		Color color = GetStyleColor(GodotVisualStyleResolver.ResolveResource(primitive));
+		Color color = RtsVisualStyleColors.Resolve(GodotVisualStyleResolver.ResolveResource(primitive));
 		DrawCircle(rect.GetCenter(), rect.Size.X * 0.5f, color);
 		if (primitive.EntityId == _hoveredResourceNodeId)
 		{
@@ -954,37 +954,6 @@ public partial class RtsClientRoot : Node2D
 				beforeRejected,
 				afterRejected,
 				_frame));
-	}
-
-	private static Color GetStyleColor(GodotVisualStyle style)
-	{
-		switch (style)
-		{
-			case GodotVisualStyle.EnemyUnit:
-				return Colors.IndianRed;
-			case GodotVisualStyle.LocalVillager:
-				return Colors.DeepSkyBlue;
-			case GodotVisualStyle.LocalScout:
-				return Colors.Aqua;
-			case GodotVisualStyle.LocalInfantry:
-				return Colors.RoyalBlue;
-			case GodotVisualStyle.LocalCavalry:
-				return Colors.CornflowerBlue;
-			case GodotVisualStyle.CapitalBuilding:
-				return Colors.Gold;
-			case GodotVisualStyle.NormalBuilding:
-				return Colors.SlateGray;
-			case GodotVisualStyle.Wall:
-				return Colors.DarkGray;
-			case GodotVisualStyle.FoodResource:
-				return Colors.ForestGreen;
-			case GodotVisualStyle.WoodResource:
-				return Colors.SaddleBrown;
-			case GodotVisualStyle.GoldResource:
-				return Colors.Goldenrod;
-			default:
-				return Colors.SteelBlue;
-		}
 	}
 
 	private Rect2 PrimitiveRect(GodotPrimitiveDto primitive)
