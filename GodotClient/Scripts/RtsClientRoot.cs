@@ -308,7 +308,7 @@ public partial class RtsClientRoot : Node2D
 
 	private void StartLocalMatch(int playerCount)
 	{
-		_facade = GodotClientFacade.CreateLocal(DefaultMatchSeed, playerCount);
+		_facade = RtsSessionBootstrap.StartLocalMatch(DefaultMatchSeed, playerCount);
 		ResetLocalRuntimeState();
 	}
 
@@ -316,7 +316,7 @@ public partial class RtsClientRoot : Node2D
 
 	private void StartDryArabiaTest01()
 	{
-		_facade = GodotClientFacade.CreateDryArabiaTest01(DefaultMatchSeed);
+		_facade = RtsSessionBootstrap.StartDryArabiaTest01(DefaultMatchSeed);
 		ResetLocalRuntimeState();
 	}
 
@@ -328,15 +328,16 @@ public partial class RtsClientRoot : Node2D
 			return;
 		}
 
-		_selectionController.Reset();
-		_tradeRouteSelection.Clear();
-		_hoveredResourceNodeId = 0;
-		_tcPlacementState.Reset();
-		_cameraController.EndMiddleDrag();
-		_tickAccumulator = 0.0;
-		_paused = false;
-		facade.AdvanceOneTick();
-		RefreshFrame();
+		RtsSessionBootstrap.ResetRuntimeState(
+			facade,
+			_selectionController,
+			_tradeRouteSelection,
+			_tcPlacementState,
+			_cameraController,
+			RefreshFrame,
+			ref _hoveredResourceNodeId,
+			ref _tickAccumulator,
+			ref _paused);
 	}
 
 	private void HandleMouse(InputEventMouseButton mouse)
