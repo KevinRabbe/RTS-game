@@ -947,10 +947,7 @@ public partial class RtsClientRoot : Node2D
 
 	private Rect2 PrimitiveRect(GodotPrimitiveDto primitive)
 	{
-		Vector2 center = ToScreen(primitive.XRaw, primitive.YRaw);
-		float width = RawToPixels(primitive.WidthRaw);
-		float height = RawToPixels(primitive.HeightRaw);
-		return new Rect2(center.X - width * 0.5f, center.Y - height * 0.5f, width, height);
+		return RtsPrimitiveRectBuilder.Build(primitive, RawToPixels, ToScreen);
 	}
 
 	private static Vector2 ToScreen(long xRaw, long yRaw)
