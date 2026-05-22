@@ -447,99 +447,45 @@ public partial class RtsClientRoot : Node2D
 
 	private void TrainFromSelectedBuilding(int unitTypeId)
 	{
-		if (_frame == null)
-		{
-			return;
-		}
-
-		if (!RtsBuildingActionGuard.CanTrainFromSelectedBuilding(_frame, _selectionController.SelectedBuildingId, unitTypeId, out GodotTrainActionState state))
-		{
-			if (_selectionController.SelectedBuildingId == 0)
-			{
-				_debugEventLog.Add("train blocked reason=building not selected unit=" + GodotBuildingDebugStatusBuilder.ResolveUnitTypeLabel(unitTypeId));
-				return;
-			}
-
-			_debugEventLog.Add(
-				"train blocked reason=" + GodotBuildingDebugStatusBuilder.ResolveTrainBlockedReason(state)
-				+ " building=" + _selectionController.SelectedBuildingId
-				+ " unit=" + GodotBuildingDebugStatusBuilder.ResolveUnitTypeLabel(unitTypeId));
-			RefreshFrame();
-			return;
-		}
-
-		QueueCommandAndConfirm(
-			"train p=" + LocalPlayerIndex + " " + GodotBuildingDebugStatusBuilder.BuildTrainIntentText(_selectionController.SelectedBuildingId, unitTypeId),
-			facade => facade.QueueTrainUnit(LocalPlayerIndex, _selectionController.SelectedBuildingId, unitTypeId));
+		RtsBuildingActionRouter.TrainFromSelectedBuilding(
+			_frame,
+			LocalPlayerIndex,
+			_selectionController.SelectedBuildingId,
+			unitTypeId,
+			_debugEventLog.Add,
+			RefreshFrame,
+			QueueCommandAndConfirm);
 	}
 
 	private void ResearchFromSelectedBuilding(int techId)
 	{
-		if (_frame == null)
-		{
-			return;
-		}
-
-		if (!RtsBuildingActionGuard.CanResearchInfantryAttackFromSelectedBuilding(_frame, _selectionController.SelectedBuildingId, out GodotResearchActionState state))
-		{
-			if (_selectionController.SelectedBuildingId == 0)
-			{
-				return;
-			}
-
-			_debugEventLog.Add("research blocked state=" + state + " building=" + _selectionController.SelectedBuildingId + " tech=" + techId);
-			RefreshFrame();
-			return;
-		}
-
-		QueueCommandAndConfirm(
-			"research p=" + LocalPlayerIndex + " building=" + _selectionController.SelectedBuildingId + " tech=" + techId,
-			facade => facade.QueueResearchTech(LocalPlayerIndex, _selectionController.SelectedBuildingId, techId));
+		RtsBuildingActionRouter.ResearchFromSelectedBuilding(
+			_frame,
+			LocalPlayerIndex,
+			_selectionController.SelectedBuildingId,
+			techId,
+			_debugEventLog.Add,
+			RefreshFrame,
+			QueueCommandAndConfirm);
 	}
 
 	private void TryCreateTradeRoute(Vector2 screenPosition)
 	{
-		if (_frame == null || !_selectionController.HasSelectedUnits)
-		{
-			return;
-		}
-
-		int tradeCartId = GodotTradeRouteRouter.FindSelectedTradeCart(_frame, _selectionController.GetSelectedUnitIdsSorted());
-		if (tradeCartId == 0)
-		{
-			_debugEventLog.Add("trade route blocked: no selected trade cart");
-			return;
-		}
-
-		int tradePostId = GodotTradeRouteRouter.FindLocalTradePostAt(
+		RtsBuildingActionRouter.TryCreateTradeRoute(
 			_frame,
 			LocalPlayerIndex,
-			ScreenToRaw(screenPosition.X),
-			ScreenToRaw(screenPosition.Y));
-
-		if (tradePostId == 0)
-		{
-			_debugEventLog.Add("trade route blocked: no local trade post under cursor");
-			return;
-		}
-
-		if (_tradeRouteSelection.TrySetFirstEndpoint(tradePostId))
-		{
-			_debugEventLog.Add("trade route step A set to tradePost=" + tradePostId);
-			RefreshFrame();
-			return;
-		}
-
-		if (!_tradeRouteSelection.TryConsumeRoute(tradePostId, out int routeA))
-		{
-			RefreshFrame();
-			return;
-		}
-
-		QueueCommandAndConfirm(
-			"trade route p=" + LocalPlayerIndex + " cart=" + tradeCartId + " A=" + routeA + " B=" + tradePostId,
-			facade => facade.QueueCreateTradeRoute(LocalPlayerIndex, tradeCartId, routeA, tradePostId));
-		_commandMarker.Set("TradeRoute", screenPosition, Colors.Gold);
+			_selectionController.HasSelectedUnits,
+			_selectionController.GetSelectedUnitIdsSorted(),
+			_tradeRouteSelection,
+			screenPosition,
+			ScreenToRaw,
+			ToScreen,
+			TileToRaw,
+			ScreenToTile,
+			_debugEventLog.Add,
+			RefreshFrame,
+			QueueCommandAndConfirm,
+			_commandMarker);
 	}
 
 	private void FinishSelectionDrag()
