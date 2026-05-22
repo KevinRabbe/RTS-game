@@ -966,29 +966,27 @@ public partial class RtsClientRoot : Node2D
 
 	private static Vector2 ToScreen(long xRaw, long yRaw)
 	{
-		return new Vector2(RawToPixels(xRaw), RawToPixels(yRaw));
+		return RtsCoordinateTransform.ToScreen(xRaw, yRaw, TilePixels);
 	}
 
 	private static float RawToPixels(long raw)
 	{
-		return GodotCoordinateMapper.RawToPixels(raw, TilePixels);
+		return RtsCoordinateTransform.RawToPixels(raw, TilePixels);
 	}
 
 	private static long ScreenToRaw(float screenCoordinate)
 	{
-		return GodotCoordinateMapper.ScreenToRaw(screenCoordinate, TilePixels);
+		return RtsCoordinateTransform.ScreenToRaw(screenCoordinate, TilePixels);
 	}
 
 	private static long TileToRaw(int tileCoordinate)
 	{
-		return ScreenToRaw(tileCoordinate * TilePixels);
+		return RtsCoordinateTransform.TileToRaw(tileCoordinate, TilePixels);
 	}
 
 	private static Vector2I ScreenToTile(Vector2 screenPosition)
 	{
-		int x = GodotCoordinateMapper.ScreenToTile(screenPosition.X, TilePixels);
-		int y = GodotCoordinateMapper.ScreenToTile(screenPosition.Y, TilePixels);
-		return new Vector2I(x, y);
+		return RtsCoordinateTransform.ScreenToTile(screenPosition, TilePixels);
 	}
 
 	private void RefreshFrame()
