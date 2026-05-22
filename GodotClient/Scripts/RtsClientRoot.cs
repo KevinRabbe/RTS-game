@@ -675,18 +675,7 @@ public partial class RtsClientRoot : Node2D
 
 	private void DrawHealthBar(GodotPrimitiveDto primitive)
 	{
-		if (primitive.MaxHitPoints <= 0)
-		{
-			return;
-		}
-
-		Vector2 center = ToScreen(primitive.XRaw, primitive.YRaw);
-		float width = 12.0f;
-		float ratio = Mathf.Clamp((float)primitive.CurrentHitPoints / primitive.MaxHitPoints, 0.0f, 1.0f);
-		var background = new Rect2(center.X - width * 0.5f, center.Y - 12.0f, width, 2.0f);
-		var foreground = new Rect2(background.Position, new Vector2(width * ratio, 2.0f));
-		DrawRect(background, Colors.Black);
-		DrawRect(foreground, Colors.LimeGreen);
+		RtsHealthBarRenderer.Draw(this, ToScreen(primitive.XRaw, primitive.YRaw), primitive);
 	}
 
 	private void DrawFogOverlay()
