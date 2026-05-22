@@ -670,7 +670,7 @@ public partial class RtsClientRoot : Node2D
 
 	private void DrawTradeRoute(GodotPrimitiveDto primitive)
 	{
-		DrawLine(ToScreen(primitive.XRaw, primitive.YRaw), ToScreen(primitive.EndXRaw, primitive.EndYRaw), Colors.Gold, 2.0f);
+		RtsTradeRouteRenderer.Draw(this, ToScreen(primitive.XRaw, primitive.YRaw), ToScreen(primitive.EndXRaw, primitive.EndYRaw));
 	}
 
 	private void DrawHealthBar(GodotPrimitiveDto primitive)
