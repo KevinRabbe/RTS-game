@@ -892,10 +892,7 @@ public partial class RtsClientRoot : Node2D
 	{
 		Vector2 center = ToScreen(primitive.XRaw, primitive.YRaw);
 		float radiusSource = Mathf.Max(RawToPixels(primitive.WidthRaw), RawToPixels(primitive.HeightRaw));
-		float radius = Mathf.Max(10.0f, radiusSource * 0.74f);
-		Vector2 ringCenter = center + new Vector2(0.0f, 4.0f);
-		DrawArc(ringCenter, radius + 1.5f, 0.0f, Mathf.Tau, 36, Colors.Black, 3.0f);
-		DrawArc(ringCenter, radius, 0.0f, Mathf.Tau, 36, color, 2.4f);
+		RtsSelectionRingRenderer.Draw(this, center, radiusSource, color);
 	}
 
 	private void DrawBuildingFootprintOutline(GodotPrimitiveDto primitive, Color color)
