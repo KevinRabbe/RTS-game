@@ -244,8 +244,8 @@ namespace RtsGame.Tests
                 new TestCase("simulation source routes reservation writes through traffic service", SimulationSourceRoutesReservationWritesThroughTrafficService),
                 new TestCase("deterministic reservation conflicts avoid unordered iteration", DeterministicReservationConflictsAvoidUnorderedIteration),
                 new TestCase("movement solver v2 villager flag defaults off", MovementSolverV2VillagerFlagDefaultsOff),
-                new TestCase("movement engine v2 flag defaults off", MovementEngineV2FlagDefaultsOff),
-                new TestCase("gather engine v2 flag defaults off", GatherEngineV2FlagDefaultsOff),
+                new TestCase("movement engine v2 flag defaults on", MovementEngineV2FlagDefaultsOn),
+                new TestCase("gather engine v2 flag defaults on", GatherEngineV2FlagDefaultsOn),
                 new TestCase("movement checksum includes v2 unit state", MovementChecksumIncludesV2UnitState),
                 new TestCase("rules checksum includes movement and gather v2 flags", RulesChecksumIncludesMovementAndGatherV2Flags),
                 new TestCase("movement solver v2 villager mode remains deterministic", MovementSolverV2VillagerModeRemainsDeterministic),
@@ -5053,16 +5053,16 @@ namespace RtsGame.Tests
             AssertFalse(GameData.EnableMovementSolverV2ForVillagers, "movement v2 should stay disabled by default during scaffold milestone");
         }
 
-        private static void MovementEngineV2FlagDefaultsOff()
+        private static void MovementEngineV2FlagDefaultsOn()
         {
             GameRules rules = GameRules.CreatePhaseZeroDefaults(1);
-            AssertFalse(rules.EnableMovementEngineV2, "movement engine v2 should default off during staged rollout");
+            AssertEqual(true, rules.EnableMovementEngineV2, "movement engine v2 should default on after staged rollout");
         }
 
-        private static void GatherEngineV2FlagDefaultsOff()
+        private static void GatherEngineV2FlagDefaultsOn()
         {
             GameRules rules = GameRules.CreatePhaseZeroDefaults(1);
-            AssertFalse(rules.EnableGatherEngineV2, "gather engine v2 should default off during staged rollout");
+            AssertEqual(true, rules.EnableGatherEngineV2, "gather engine v2 should default on after staged rollout");
         }
 
         private static void MovementChecksumIncludesV2UnitState()
@@ -5099,8 +5099,12 @@ namespace RtsGame.Tests
         {
             GameState state = GameInitializer.CreateNomadStart(2011, 1);
             GameRules baseRules = GameRules.CreatePhaseZeroDefaults(1);
-            GameRules movementV2Rules = baseRules.WithMovementEngineV2(true);
-            GameRules gatherV2Rules = baseRules.WithGatherEngineV2(true);
+            GameRules movementV2Rules = baseRules.WithMovementEngineV2(false);
+            GameRules gatherV2Rules = baseRules.WithGatherEngineV2(false);
+            AssertEqual(true, baseRules.EnableMovementEngineV2, "base movement engine v2 default should be on");
+            AssertEqual(false, movementV2Rules.EnableMovementEngineV2, "movement v2 override should disable movement engine");
+            AssertEqual(true, baseRules.EnableGatherEngineV2, "base gather engine v2 default should be on");
+            AssertEqual(false, gatherV2Rules.EnableGatherEngineV2, "gather v2 override should disable gather engine");
             ulong baseChecksum = StateChecksum.Compute(state, baseRules);
             ulong movementChecksum = StateChecksum.Compute(state, movementV2Rules);
             ulong gatherChecksum = StateChecksum.Compute(state, gatherV2Rules);

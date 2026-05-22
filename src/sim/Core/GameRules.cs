@@ -35,7 +35,7 @@ namespace RtsGame.Sim.Core
 
         public static GameRules CreatePhaseZeroDefaults(int playerCount)
         {
-            return new GameRules(1, playerCount, 2, 20);
+            return new GameRules(1, playerCount, 2, 20, DefaultTickRate, false, true, true);
         }
 
         public GameRules WithMovementSolverV2Villagers(bool enabled)

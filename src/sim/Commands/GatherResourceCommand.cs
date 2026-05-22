@@ -86,6 +86,7 @@ namespace RtsGame.Sim.Commands
         {
             ResourceNode clickedNode = GetResourceNode(state, ResourceNodeId);
             List<int> sortedUnitIds = StableSort.Sorted(UnitIds, (left, right) => left.CompareTo(right));
+            bool isGroupGather = sortedUnitIds.Count > 1;
             bool preferClickedNodeFirst = sortedUnitIds.Count == 1;
             for (int i = 0; i < sortedUnitIds.Count; i++)
             {
@@ -100,7 +101,7 @@ namespace RtsGame.Sim.Commands
                 unit.SiegeReloadTicksRemaining = 0;
                 unit.LastGatherFallbackReason = GatherFallbackReason.ExplicitRetarget;
                 unit.CurrentResourceNodeId = clickedNode.Id;
-                unit.AssignedResourceNodeId = clickedNode.Id;
+                unit.AssignedResourceNodeId = isGroupGather ? 0 : clickedNode.Id;
                 if (ResourceGatherTargeting.TryChooseResourceNodeAndReserveSlot(
                     state,
                     unit,
@@ -111,6 +112,10 @@ namespace RtsGame.Sim.Commands
                     out ResourceNode? selectedNode))
                 {
                     unit.CurrentResourceNodeId = selectedNode!.Id;
+                    if (!isGroupGather)
+                    {
+                        unit.AssignedResourceNodeId = selectedNode.Id;
+                    }
                     unit.HasMoveTarget = true;
                     unit.MoveTarget = FixedVector2.FromInts(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
                 }
