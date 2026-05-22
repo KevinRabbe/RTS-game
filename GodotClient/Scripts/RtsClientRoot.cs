@@ -179,7 +179,7 @@ public partial class RtsClientRoot : Node2D
 			DrawTcPlacementGhost();
 		}
 
-		DrawSelectionDragRectangle();
+		_selectionController.DrawDragRectangle(this);
 
 		DrawHud();
 	}
@@ -915,25 +915,6 @@ public partial class RtsClientRoot : Node2D
 		Rect2 rect = PrimitiveRect(primitive).Grow(2.0f);
 		DrawRect(rect, Colors.Black, false, 3.0f);
 		DrawRect(rect, color, false, 2.0f);
-	}
-
-	private void DrawSelectionDragRectangle()
-	{
-		if (!_selectionController.IsDragActive)
-		{
-			return;
-		}
-
-		Vector2 min = new Vector2(
-			Mathf.Min(_selectionController.DragStart.X, _selectionController.DragCurrent.X),
-			Mathf.Min(_selectionController.DragStart.Y, _selectionController.DragCurrent.Y));
-		Vector2 max = new Vector2(
-			Mathf.Max(_selectionController.DragStart.X, _selectionController.DragCurrent.X),
-			Mathf.Max(_selectionController.DragStart.Y, _selectionController.DragCurrent.Y));
-		Vector2 size = max - min;
-		var rect = new Rect2(min, size);
-		DrawRect(rect, new Color(0.25f, 0.8f, 1.0f, 0.12f), true);
-		DrawRect(rect, Colors.Aqua, false, 1.5f);
 	}
 
 	private Vector2 GetUiOrigin()

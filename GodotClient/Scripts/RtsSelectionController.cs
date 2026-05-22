@@ -146,6 +146,25 @@ internal sealed class RtsSelectionController
 		return _selectedUnitIds.Contains(unitId);
 	}
 
+	public void DrawDragRectangle(CanvasItem canvas)
+	{
+		if (!_dragActive)
+		{
+			return;
+		}
+
+		Vector2 min = new Vector2(
+			Mathf.Min(_dragStart.X, _dragCurrent.X),
+			Mathf.Min(_dragStart.Y, _dragCurrent.Y));
+		Vector2 max = new Vector2(
+			Mathf.Max(_dragStart.X, _dragCurrent.X),
+			Mathf.Max(_dragStart.Y, _dragCurrent.Y));
+		Vector2 size = max - min;
+		var rect = new Rect2(min, size);
+		canvas.DrawRect(rect, new Color(0.25f, 0.8f, 1.0f, 0.12f), true);
+		canvas.DrawRect(rect, Colors.Aqua, false, 1.5f);
+	}
+
 	private void SelectUnitsInRectangle(
 		GodotFrameDto frame,
 		int localPlayerIndex,
