@@ -20,6 +20,7 @@ public partial class RtsClientRoot : Node2D
 	private Camera2D? _camera;
 	private readonly RtsCameraController _cameraController = new RtsCameraController();
 	private readonly RtsSelectionController _selectionController = new RtsSelectionController();
+	private readonly RtsCommandMarker _commandMarker = new RtsCommandMarker();
 	private GodotClientFacade? _facade;
 	private GodotFrameDto? _frame;
 	private readonly Phase6SpriteRenderer _spriteRenderer = new Phase6SpriteRenderer();
@@ -28,10 +29,6 @@ public partial class RtsClientRoot : Node2D
 	private bool _showDebugOverlay = true;
 	private bool _showHotkeyHelp;
 	private bool _screenshotMode;
-	private string _commandMarkerLabel = "";
-	private Color _commandMarkerColor = Colors.White;
-	private Vector2 _commandMarkerWorldPosition = Vector2.Zero;
-	private int _commandMarkerTicksRemaining;
 	private int _hoveredResourceNodeId;
 	private int _hoveredBuildingId;
 	private int _pendingTradeRouteAId;
@@ -61,10 +58,7 @@ public partial class RtsClientRoot : Node2D
 
 		_cameraController.UpdateEdgeAndKeyPan(_camera, GetViewport(), delta);
 		RefreshHoveredTargetsFromMouse();
-		if (_commandMarkerTicksRemaining > 0)
-		{
-			_commandMarkerTicksRemaining--;
-		}
+		_commandMarker.Tick();
 
 		// Update TC placement ghost tile each frame (no command spam).
 		if (_tcPlacementMode && _frame != null)
@@ -275,7 +269,7 @@ public partial class RtsClientRoot : Node2D
 		if (key.Keycode == Key.W)
 		{
 			Vector2I tile = ScreenToTile(GetGlobalMousePosition());
-			SetCommandMarker("Wall", ToScreen(TileToRaw(tile.X), TileToRaw(tile.Y)), Colors.LightGray);
+			_commandMarker.Set("Wall", ToScreen(TileToRaw(tile.X), TileToRaw(tile.Y)), Colors.LightGray);
 			QueueCommandAndConfirm(
 				"place wall p=" + LocalPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ")",
 				facade => facade.QueuePlaceWall(LocalPlayerIndex, tile.X, tile.Y));
@@ -285,7 +279,7 @@ public partial class RtsClientRoot : Node2D
 		if (key.Keycode == Key.T)
 		{
 			Vector2I tile = ScreenToTile(GetGlobalMousePosition());
-			SetCommandMarker("TradePost", ToScreen(TileToRaw(tile.X), TileToRaw(tile.Y)), Colors.Gold);
+			_commandMarker.Set("TradePost", ToScreen(TileToRaw(tile.X), TileToRaw(tile.Y)), Colors.Gold);
 			QueueCommandAndConfirm(
 				"place trade post p=" + LocalPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ")",
 				facade => facade.QueuePlaceTradePost(LocalPlayerIndex, tile.X, tile.Y));
@@ -420,7 +414,7 @@ public partial class RtsClientRoot : Node2D
 				GodotPrimitiveDto? target = FindPrimitiveByEntityId(frame, intent.TargetEntityId);
 				if (target != null)
 				{
-					SetCommandMarker("Attack", ToScreen(target.XRaw, target.YRaw), Colors.IndianRed);
+					_commandMarker.Set("Attack", ToScreen(target.XRaw, target.YRaw), Colors.IndianRed);
 				}
 
 				QueueCommandAndConfirm(
@@ -432,7 +426,7 @@ public partial class RtsClientRoot : Node2D
 				GodotPrimitiveDto? target = FindPrimitiveByEntityId(frame, intent.TargetEntityId);
 				if (target != null)
 				{
-					SetCommandMarker("Build", ToScreen(target.XRaw, target.YRaw), Colors.Khaki);
+					_commandMarker.Set("Build", ToScreen(target.XRaw, target.YRaw), Colors.Khaki);
 				}
 
 				QueueCommandAndConfirm(
@@ -444,7 +438,7 @@ public partial class RtsClientRoot : Node2D
 				GodotPrimitiveDto? target = FindPrimitiveByEntityId(frame, intent.ResourceNodeId);
 				if (target != null)
 				{
-					SetCommandMarker("Gather", ToScreen(target.XRaw, target.YRaw), Colors.ForestGreen);
+					_commandMarker.Set("Gather", ToScreen(target.XRaw, target.YRaw), Colors.ForestGreen);
 				}
 
 				QueueCommandAndConfirm(
@@ -453,7 +447,7 @@ public partial class RtsClientRoot : Node2D
 			}
 			else if (intent.Kind == GodotInteractionIntentKind.Move)
 			{
-				SetCommandMarker("Move", ToScreen(TileToRaw(tile.X), TileToRaw(tile.Y)), Colors.LightSkyBlue);
+				_commandMarker.Set("Move", ToScreen(TileToRaw(tile.X), TileToRaw(tile.Y)), Colors.LightSkyBlue);
 				QueueCommandAndConfirm(
 					"move p=" + LocalPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ") units=[" + string.Join(",", selectedUnitIds) + "]",
 					f => f.QueueMoveUnits(LocalPlayerIndex, selectedUnitIds, tile.X, tile.Y));
@@ -553,7 +547,7 @@ public partial class RtsClientRoot : Node2D
 		QueueCommandAndConfirm(
 			"trade route p=" + LocalPlayerIndex + " cart=" + tradeCartId + " A=" + routeA + " B=" + tradePostId,
 			facade => facade.QueueCreateTradeRoute(LocalPlayerIndex, tradeCartId, routeA, tradePostId));
-		SetCommandMarker("TradeRoute", screenPosition, Colors.Gold);
+		_commandMarker.Set("TradeRoute", screenPosition, Colors.Gold);
 		_pendingTradeRouteAId = 0;
 	}
 
@@ -764,7 +758,7 @@ public partial class RtsClientRoot : Node2D
 				Colors.LightGray);
 		}
 
-		DrawCommandMarker();
+		_commandMarker.Draw(this);
 
 		Vector2 uiSize = GetUiSize();
 		if (_showDebugOverlay)
@@ -952,18 +946,6 @@ public partial class RtsClientRoot : Node2D
 		DrawRect(rect, Colors.Aqua, false, 1.5f);
 	}
 
-	private void DrawCommandMarker()
-	{
-		if (_commandMarkerTicksRemaining <= 0)
-		{
-			return;
-		}
-
-		float pulse = 1.0f + (_commandMarkerTicksRemaining % 6) * 0.08f;
-		DrawArc(_commandMarkerWorldPosition, 8.0f * pulse, 0.0f, Mathf.Tau, 36, _commandMarkerColor, 2.0f);
-		DrawString(ThemeDB.FallbackFont, _commandMarkerWorldPosition + new Vector2(10.0f, -8.0f), _commandMarkerLabel, HorizontalAlignment.Left, -1.0f, 12, _commandMarkerColor);
-	}
-
 	private static Vector2 GetUiOriginFromCamera(Camera2D? camera, Rect2 viewportRect)
 	{
 		if (camera == null)
@@ -1046,14 +1028,6 @@ public partial class RtsClientRoot : Node2D
 		}
 
 		return null;
-	}
-
-	private void SetCommandMarker(string label, Vector2 worldPosition, Color color)
-	{
-		_commandMarkerLabel = label;
-		_commandMarkerWorldPosition = worldPosition;
-		_commandMarkerColor = color;
-		_commandMarkerTicksRemaining = 40;
 	}
 
 	private static Color GetStyleColor(GodotVisualStyle style)
@@ -1290,7 +1264,7 @@ public partial class RtsClientRoot : Node2D
 			return;
 		}
 
-		SetCommandMarker("TC", ToScreen(TileToRaw(tile.X), TileToRaw(tile.Y)), Colors.LightBlue);
+		_commandMarker.Set("TC", ToScreen(TileToRaw(tile.X), TileToRaw(tile.Y)), Colors.LightBlue);
 		int beforeExecuted = frameBefore.Match.ExecutedCommandCount;
 		int beforeRejected = frameBefore.Match.RejectedCommandCount;
 		QueueCommandAndConfirm(
