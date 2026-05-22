@@ -1123,7 +1123,7 @@ public partial class RtsClientRoot : Node2D
 			return 0;
 		}
 
-		return GodotInteractionRouter.FindResourceAt(_frame, ScreenToRaw(screenPosition.X), ScreenToRaw(screenPosition.Y));
+		return RtsHoverProbe.FindResourceAt(_frame, ScreenToRaw(screenPosition.X), ScreenToRaw(screenPosition.Y));
 	}
 
 	private int FindHoveredBuildingAt(Vector2 screenPosition)
@@ -1133,28 +1133,11 @@ public partial class RtsClientRoot : Node2D
 			return 0;
 		}
 
-		long xRaw = ScreenToRaw(screenPosition.X);
-		long yRaw = ScreenToRaw(screenPosition.Y);
-		for (int i = 0; i < _frame.Primitives.Length; i++)
-		{
-			GodotPrimitiveDto primitive = _frame.Primitives[i];
-			if (primitive.OwnerPlayerIndex != LocalPlayerIndex)
-			{
-				continue;
-			}
-
-			if (GodotPrimitiveDrawKindResolver.Resolve(primitive) != GodotPrimitiveDrawKind.Building)
-			{
-				continue;
-			}
-
-			if (GodotPrimitiveHitTest.ContainsPointForInteraction(primitive, xRaw, yRaw))
-			{
-				return primitive.EntityId;
-			}
-		}
-
-		return 0;
+		return RtsHoverProbe.FindLocalBuildingAt(
+			_frame,
+			LocalPlayerIndex,
+			ScreenToRaw(screenPosition.X),
+			ScreenToRaw(screenPosition.Y));
 	}
 
 	private void DrawConstructionOverlayIfNeeded(GodotPrimitiveDto primitive)
