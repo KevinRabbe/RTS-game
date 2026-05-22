@@ -81,10 +81,11 @@ namespace RtsGame.Sim.Systems
                         continue;
                     }
 
-                    if (ShouldDelayGatherReselect(state, unit))
+                    if (ShouldDelayGatherReselect(state, rules, unit))
                     {
                         unit.TaskPhase = WorkerTaskPhase.BlockedWaiting;
                         unit.HasMoveTarget = false;
+                        unit.LastGatherFallbackReason = GatherFallbackReason.StaleTimeout;
                         continue;
                     }
 
@@ -310,8 +311,22 @@ namespace RtsGame.Sim.Systems
                 node.Id);
         }
 
-        private static bool ShouldDelayGatherReselect(GameState state, Unit unit)
+        private static bool ShouldDelayGatherReselect(GameState state, GameRules rules, Unit unit)
         {
+            if (rules.EnableGatherEngineV2)
+            {
+                int churnWindowAge = unit.ReservationChurnWindowStartTick < 0 ? int.MaxValue : state.Tick - unit.ReservationChurnWindowStartTick;
+                if (churnWindowAge > GameData.GatherReservationChurnWindowTicks)
+                {
+                    unit.ReservationChurnWindowStartTick = -1;
+                    unit.ReservationChurnCountWindow = 0;
+                }
+                else if (unit.ReservationChurnCountWindow >= GameData.GatherReservationChurnMaxPerWindow)
+                {
+                    return true;
+                }
+            }
+
             if (unit.TaskPhase != WorkerTaskPhase.BlockedWaiting)
             {
                 return false;

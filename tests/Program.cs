@@ -249,7 +249,9 @@ namespace RtsGame.Tests
                 new TestCase("movement checksum includes v2 unit state", MovementChecksumIncludesV2UnitState),
                 new TestCase("rules checksum includes movement and gather v2 flags", RulesChecksumIncludesMovementAndGatherV2Flags),
                 new TestCase("movement solver v2 villager mode remains deterministic", MovementSolverV2VillagerModeRemainsDeterministic),
+                new TestCase("movement engine v2 mode remains deterministic", MovementEngineV2ModeRemainsDeterministic),
                 new TestCase("movement solver v2 updates corridor memory fields", MovementSolverV2UpdatesCorridorMemoryFields),
+                new TestCase("gather engine v2 mode remains deterministic", GatherEngineV2ModeRemainsDeterministic),
                 new TestCase("godot bridge does not reference godot api", GodotBridgeDoesNotReferenceGodotApi),
                 new TestCase("godot client script does not reference simulation core", GodotClientScriptDoesNotReferenceSimulationCore),
                 new TestCase("godot client script does not switch on raw primitive kind", GodotClientScriptDoesNotSwitchOnRawPrimitiveKind),
@@ -5135,6 +5137,34 @@ namespace RtsGame.Tests
             AssertEqual(firstChecksum, secondChecksum, "movement v2 mode must remain deterministic");
         }
 
+        private static void MovementEngineV2ModeRemainsDeterministic()
+        {
+            GameRules rules = GameRules.CreatePhaseZeroDefaults(1).WithMovementEngineV2(true);
+            GameState first = GameInitializer.CreateNomadStart(2012, 1);
+            GameState second = GameInitializer.CreateNomadStart(2012, 1);
+            Unit firstUnit = first.EntityState.Units[0];
+            Unit secondUnit = second.EntityState.Units[0];
+
+            FixedVector2 target = firstUnit.Position + FixedVector2.FromInts(10, 6);
+            firstUnit.MoveTarget = target;
+            firstUnit.HasMoveTarget = true;
+            firstUnit.TaskPhase = WorkerTaskPhase.MovingToCommandMove;
+            secondUnit.MoveTarget = target;
+            secondUnit.HasMoveTarget = true;
+            secondUnit.TaskPhase = WorkerTaskPhase.MovingToCommandMove;
+
+            var runner = new TickRunner();
+            for (int i = 0; i < 30; i++)
+            {
+                runner.AdvanceOneTick(first, rules, new CommandBuffer());
+                runner.AdvanceOneTick(second, rules, new CommandBuffer());
+            }
+
+            ulong firstChecksum = StateChecksum.Compute(first, rules);
+            ulong secondChecksum = StateChecksum.Compute(second, rules);
+            AssertEqual(firstChecksum, secondChecksum, "movement engine v2 mode must remain deterministic");
+        }
+
         private static void MovementSolverV2UpdatesCorridorMemoryFields()
         {
             GameRules rules = GameRules.CreatePhaseZeroDefaults(1).WithMovementSolverV2Villagers(true);
@@ -5157,6 +5187,38 @@ namespace RtsGame.Tests
             AssertEqual(false, unit.CorridorVersion == initialCorridorVersion, "v2 should stamp corridor identity from target tile");
             AssertEqual(true, unit.CorridorStepIndex >= initialStep, "v2 should track corridor step progression");
             AssertEqual(true, unit.LastSteeringDecisionTick >= initialDecisionTick, "v2 should track steering decisions");
+        }
+
+        private static void GatherEngineV2ModeRemainsDeterministic()
+        {
+            GameRules rules = GameRules.CreatePhaseZeroDefaults(1).WithGatherEngineV2(true);
+            GameState first = CreateSingleNodeResourceAreaState(2013, GatherProfileId.BerryBush, out int nodeId, out _);
+            GameState second = CreateSingleNodeResourceAreaState(2013, GatherProfileId.BerryBush, out _, out _);
+            Unit firstWorker = first.EntityState.Units[0];
+            Unit secondWorker = second.EntityState.Units[0];
+
+            FixedVector2 tcPosition = FixedVector2.FromInts(8, 8);
+            EntityFactory.CreateTownCenter(first, 0, tcPosition);
+            EntityFactory.CreateTownCenter(second, 0, tcPosition);
+            first.EntityState.Buildings[0].IsUnderConstruction = false;
+            second.EntityState.Buildings[0].IsUnderConstruction = false;
+
+            var command = new GatherResourceCommand(nodeId, new[] { firstWorker.Id });
+            var header = new CommandHeader(first.Tick, 0, 0, CommandType.GatherResource);
+            command.Execute(first, rules, header);
+            var command2 = new GatherResourceCommand(nodeId, new[] { secondWorker.Id });
+            command2.Execute(second, rules, header);
+
+            var runner = new TickRunner();
+            for (int i = 0; i < 40; i++)
+            {
+                runner.AdvanceOneTick(first, rules, new CommandBuffer());
+                runner.AdvanceOneTick(second, rules, new CommandBuffer());
+            }
+
+            ulong firstChecksum = StateChecksum.Compute(first, rules);
+            ulong secondChecksum = StateChecksum.Compute(second, rules);
+            AssertEqual(firstChecksum, secondChecksum, "gather engine v2 mode must remain deterministic");
         }
 
         private static bool ContainsFieldAssignment(string source, string fieldName)

@@ -46,8 +46,14 @@ namespace RtsGame.Sim.Systems
 
     internal sealed class MovementV2LocalAvoidanceSelector
     {
+        private static readonly DeterministicTrafficLanePreferenceScorerV2 ScorerV2 = new DeterministicTrafficLanePreferenceScorerV2();
+
         public void BeforeRun(GameState state, GameRules rules)
         {
+            if (state.TrafficReservations is DeterministicTrafficReservationService traffic)
+            {
+                traffic.LanePreferenceScorer = ScorerV2;
+            }
         }
     }
 
