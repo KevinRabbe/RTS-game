@@ -771,25 +771,7 @@ public partial class RtsClientRoot : Node2D
 		string[] buildingLines = GodotBuildingDebugStatusBuilder.BuildLines(_frame, _selectionController.SelectedBuildingId);
 		RtsHudPanelRenderer.DrawSelectedStatusPanel(this, uiOrigin, uiSize, statusLines);
 		RtsHudPanelRenderer.DrawBuildingStatusPanel(this, uiOrigin, buildingLines);
-
-		float panelWidth = 420.0f;
-		float panelHeight = 168.0f;
-		Vector2 panelPos = uiOrigin + new Vector2(Mathf.Max(0.0f, uiSize.X - panelWidth - 12.0f), 88.0f);
-		DrawRect(new Rect2(panelPos, new Vector2(panelWidth, panelHeight)), new Color(0.0f, 0.0f, 0.0f, 0.52f));
-		
-		string debugTitle = _camera != null 
-			? $"Debug Overlay (F10) - Cam: {_camera.Position.X:F0},{_camera.Position.Y:F0}" 
-			: "Debug Overlay (F10)";
-		DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(10.0f, 20.0f), debugTitle, HorizontalAlignment.Left, -1.0f, 15, Colors.WhiteSmoke);
-
-		string[] events = _debugEventLog.GetLines();
-		DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(10.0f, 40.0f), "Events", HorizontalAlignment.Left, -1.0f, 14, Colors.WhiteSmoke);
-		int maxEvents = Mathf.Min(events.Length, 8);
-		for (int i = 0; i < maxEvents; i++)
-		{
-			int eventIndex = events.Length - maxEvents + i;
-			DrawString(ThemeDB.FallbackFont, panelPos + new Vector2(10.0f, 58.0f + i * 13.0f), events[eventIndex], HorizontalAlignment.Left, -1.0f, 12, Colors.LightGray);
-		}
+		RtsDebugOverlayRenderer.Draw(this, uiOrigin, uiSize, _camera, _debugEventLog.GetLines());
 	}
 
 	private void DrawSpatialBlockersOverlay()
@@ -799,57 +781,13 @@ public partial class RtsClientRoot : Node2D
 			return;
 		}
 
-		Color blockedColor = new Color(0.95f, 0.2f, 0.2f, 0.18f);
-		float tileSize = TilePixels;
-		int width = _facade.MapWidthTiles;
-		int height = _facade.MapHeightTiles;
-		for (int y = 0; y < height; y++)
-		{
-			for (int x = 0; x < width; x++)
-			{
-				if (!IsTileBlockedByVisibleSimEntity(x, y))
-				{
-					continue;
-				}
-
-				DrawRect(new Rect2(x * tileSize, y * tileSize, tileSize, tileSize), blockedColor);
-			}
-		}
-	}
-
-	private bool IsTileBlockedByVisibleSimEntity(int tileX, int tileY)
-	{
-		if (_frame == null)
-		{
-			return false;
-		}
-
-		long tileXRaw = TileToRaw(tileX);
-		long tileYRaw = TileToRaw(tileY);
-		for (int i = 0; i < _frame.Primitives.Length; i++)
-		{
-			GodotPrimitiveDto primitive = _frame.Primitives[i];
-			GodotPrimitiveDrawKind kind = GodotPrimitiveDrawKindResolver.Resolve(primitive);
-			if (kind == GodotPrimitiveDrawKind.Building || kind == GodotPrimitiveDrawKind.Resource)
-			{
-				if (IsWithinPrimitiveBounds(tileXRaw, tileYRaw, primitive))
-				{
-					return true;
-				}
-			}
-		}
-
-		return false;
-	}
-
-	private static bool IsWithinPrimitiveBounds(long tileXRaw, long tileYRaw, GodotPrimitiveDto primitive)
-	{
-		long halfWidthRaw = primitive.WidthRaw / 2;
-		long halfHeightRaw = primitive.HeightRaw / 2;
-		return tileXRaw >= primitive.XRaw - halfWidthRaw
-			&& tileXRaw <= primitive.XRaw + halfWidthRaw
-			&& tileYRaw >= primitive.YRaw - halfHeightRaw
-			&& tileYRaw <= primitive.YRaw + halfHeightRaw;
+		RtsSpatialBlockerOverlayRenderer.Draw(
+			this,
+			_frame,
+			_facade.MapWidthTiles,
+			_facade.MapHeightTiles,
+			TilePixels,
+			TileToRaw);
 	}
 
 	private void DrawHotkeyHelpPanel(Vector2 uiOrigin, Vector2 uiSize)
