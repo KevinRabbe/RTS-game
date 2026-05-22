@@ -748,18 +748,7 @@ public partial class RtsClientRoot : Node2D
 
 	private void DrawConstructionOverlayIfNeeded(GodotPrimitiveDto primitive)
 	{
-		if (_frame == null)
-		{
-			return;
-		}
-
-		GodotBuildingStatusDto? status = RtsFrameLookup.FindBuildingStatus(_frame, primitive.EntityId);
-		if (status == null || !status.IsUnderConstruction)
-		{
-			return;
-		}
-
-		RtsConstructionOverlayRenderer.Draw(this, ToScreen(primitive.XRaw, primitive.YRaw), status);
+		RtsConstructionOverlayBridge.DrawIfNeeded(this, _frame, primitive, ToScreen);
 	}
 
 	private void ConfirmTcPlacement(Vector2I tile)
