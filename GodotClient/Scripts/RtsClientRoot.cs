@@ -1231,22 +1231,6 @@ public partial class RtsClientRoot : Node2D
 		}
 
 		Vector2 center = ToScreen(TileToRaw(_tcPlacementState.HoveredTile.X), TileToRaw(_tcPlacementState.HoveredTile.Y));
-		float tileSize = TilePixels;
-		
-		// TC is 2 radius -> diameter 4 tiles approx. We use RawToPixels for consistency.
-		// TC SizeRaw is not directly known without primitive, but usually 4 * FixedOneRaw = 64 pixels.
-		float size = 4.0f * tileSize;
-		Rect2 rect = new Rect2(center.X - size * 0.5f, center.Y - size * 0.5f, size, size);
-
-		Color ghostColor = _tcPlacementState.PreviewResult == TcPlacementPreviewResult.Valid ? new Color(0.2f, 1.0f, 0.2f, 0.5f) : new Color(1.0f, 0.2f, 0.2f, 0.5f);
-		DrawRect(rect, new Color(ghostColor, 0.2f)); // fill
-		DrawRect(rect, ghostColor, false, 2.0f);     // border
-
-		// Draw radius
-		float radiusPixels = 2.0f * tileSize; // TC Placement Radius = 2
-		DrawArc(center, radiusPixels, 0.0f, Mathf.Tau, 32, ghostColor, 1.0f);
-
-		// Label
-		DrawString(ThemeDB.FallbackFont, rect.Position + new Vector2(0.0f, -4.0f), "[TC] " + _tcPlacementState.PreviewResult, HorizontalAlignment.Left, -1.0f, 12, ghostColor);
+		RtsTownCenterPlacementGhostRenderer.Draw(this, center, TilePixels, _tcPlacementState.PreviewResult);
 	}
 }
