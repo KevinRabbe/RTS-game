@@ -186,124 +186,36 @@ public partial class RtsClientRoot : Node2D
 
 	private void HandleKey(InputEventKey key)
 	{
-		if (key.Keycode == Key.F1)
-		{
-			StartDryArabiaTest01();
-			_debugEventLog.Add("restart " + DryArabiaMapName + " 1v1 (F1)");
-			return;
-		}
-
-		if (key.Keycode == Key.F6)
-		{
-			StartLocalMatch(6);
-			_debugEventLog.Add("restart local 6-player ffa (F6)");
-			return;
-		}
-
-		if (key.Keycode == Key.F12)
-		{
-			_screenshotMode = !_screenshotMode;
-			_debugEventLog.Add(_screenshotMode ? "screenshot mode on" : "screenshot mode off");
-			RefreshFrame();
-			return;
-		}
-
-		if (key.Keycode == Key.Space)
-		{
-			_paused = !_paused;
-			_debugEventLog.Add(_paused ? "pause on" : "pause off");
-			RefreshFrame();
-			return;
-		}
-
-		if (key.Keycode == Key.F9)
-		{
-			_spriteRenderer.ToggleRenderMode();
-			_debugEventLog.Add("render mode -> " + _spriteRenderer.RenderModeLabel);
-			RefreshFrame();
-			return;
-		}
-
-		if (key.Keycode == Key.F10)
-		{
-			_showDebugOverlay = !_showDebugOverlay;
-			_debugEventLog.Add(_showDebugOverlay ? "debug overlay on" : "debug overlay off");
-			RefreshFrame();
-			return;
-		}
-
-		if (key.Keycode == Key.H || key.Keycode == Key.F11)
-		{
-			_showHotkeyHelp = !_showHotkeyHelp;
-			_debugEventLog.Add(_showHotkeyHelp ? "hotkey help on" : "hotkey help off");
-			RefreshFrame();
-			return;
-		}
-
-		if (key.Keycode == Key.C)
-		{
-			_tcPlacementState.Enter(_frame, ScreenToTile(GetGlobalMousePosition()));
-			_debugEventLog.Add("TC placement mode entered");
-			QueueRedraw();
-			return;
-		}
-
-		if (key.Keycode == Key.Escape && _tcPlacementState.IsActive)
-		{
-			_tcPlacementState.Cancel();
-			_debugEventLog.Add("TC placement cancelled (Esc)");
-			QueueRedraw();
-			return;
-		}
-
-		if (key.Keycode == Key.W)
-		{
-			Vector2I tile = ScreenToTile(GetGlobalMousePosition());
-			_commandMarker.Set("Wall", ToScreen(TileToRaw(tile.X), TileToRaw(tile.Y)), Colors.LightGray);
-			QueueCommandAndConfirm(
-				"place wall p=" + LocalPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ")",
-				facade => facade.QueuePlaceWall(LocalPlayerIndex, tile.X, tile.Y));
-			return;
-		}
-
-		if (key.Keycode == Key.T)
-		{
-			Vector2I tile = ScreenToTile(GetGlobalMousePosition());
-			_commandMarker.Set("TradePost", ToScreen(TileToRaw(tile.X), TileToRaw(tile.Y)), Colors.Gold);
-			QueueCommandAndConfirm(
-				"place trade post p=" + LocalPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ")",
-				facade => facade.QueuePlaceTradePost(LocalPlayerIndex, tile.X, tile.Y));
-			return;
-		}
-
-		if (key.Keycode == Key.R)
-		{
-			TryCreateTradeRoute(GetGlobalMousePosition());
-			return;
-		}
-
-		if (key.Keycode == Key.V)
-		{
-			TrainFromSelectedBuilding(VillagerUnitTypeId);
-			return;
-		}
-
-		if (key.Keycode == Key.I)
-		{
-			TrainFromSelectedBuilding(InfantryUnitTypeId);
-			return;
-		}
-
-		if (key.Keycode == Key.K)
-		{
-			TrainFromSelectedBuilding(TradeCartUnitTypeId);
-			return;
-		}
-
-		if (key.Keycode == Key.Y)
-		{
-			ResearchFromSelectedBuilding(InfantryAttackTechId);
-		}
+		RtsInputKeyRouter.HandleKey(
+			key,
+			_frame,
+			LocalPlayerIndex,
+			DryArabiaMapName,
+			GetGlobalMousePosition,
+			ScreenToTile,
+			TileToRaw,
+			ToScreen,
+			_spriteRenderer,
+			_tcPlacementState,
+			StartDryArabiaTest01,
+			StartLocalMatch,
+			TryCreateTradeRoute,
+			TrainFromSelectedBuilding,
+			ResearchFromSelectedBuilding,
+			QueueCommandAndConfirm,
+			RefreshFrame,
+			QueueRedraw,
+			_debugEventLog.Add,
+			_commandMarker,
+			ref _screenshotMode,
+			ref _paused,
+			ref _showDebugOverlay,
+			ref _showHotkeyHelp,
+			VillagerUnitTypeId,
+			InfantryUnitTypeId,
+			TradeCartUnitTypeId,
+			InfantryAttackTechId,
+			LocalPlayerIndex);
 	}
 
 	private void StartLocalMatch(int playerCount)
