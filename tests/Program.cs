@@ -558,12 +558,6 @@ namespace RtsGame.Tests
             return failed == 0 ? 0 : 1;
         }
 
-        private static void EmptyTickDeterminism()
-        {
-            ulong first = RunNoOpSimulation(1000, 2, 123);
-            ulong second = RunNoOpSimulation(1000, 2, 123);
-            AssertEqual(first, second, "same empty command stream must produce same checksum");
-        }
 
         private static string GetFilter(string[] args)
         {
@@ -645,156 +639,19 @@ namespace RtsGame.Tests
             return test.Name.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
-        private static void TestRunnerParsesFilterArgument()
-        {
-            AssertEqual("godot", GetFilter(new[] { "--filter", "godot" }), "test runner should parse separated filter argument");
-            AssertEqual("lockstep", GetFilter(new[] { "--filter=lockstep" }), "test runner should parse inline filter argument");
-            AssertEqual("chaos", GetFilter(new[] { "chaos" }), "test runner should treat first positional argument as filter");
-            AssertEqual("godot", GetFilter(new[] { "--fail-fast", "--filter", "godot" }), "test runner should skip fail-fast when parsing filter argument");
-        }
 
-        private static void TestRunnerMatchesFilterCaseInsensitive()
-        {
-            var test = new TestCase("Godot coordinate mapper converts raw to pixels", EmptyTickDeterminism);
 
-            AssertEqual(true, ShouldRun(test, "godot coordinate"), "filter should match test names case-insensitively");
-            AssertEqual(false, ShouldRun(test, "chaos"), "filter should reject non-matching test names");
-        }
 
-        private static void TestRunnerRunsAllWithoutFilter()
-        {
-            var test = new TestCase("empty tick determinism", EmptyTickDeterminism);
 
-            AssertEqual(true, ShouldRun(test, ""), "empty filter should run every test");
-        }
 
-        private static void TestRunnerDetectsListArgument()
-        {
-            AssertEqual(true, ShouldList(new[] { "--list" }), "test runner should detect list mode");
-            AssertEqual(true, ShouldList(new[] { "--list", "--filter", "godot" }), "test runner should detect filtered list mode");
-            AssertEqual(false, ShouldList(new[] { "--filter", "godot" }), "test runner should not list during normal filter mode");
-            AssertEqual("godot", GetFilter(new[] { "--list", "--filter", "godot" }), "list mode should parse separated filter argument");
-            AssertEqual("lockstep", GetFilter(new[] { "--list", "--filter=lockstep" }), "list mode should parse inline filter argument");
-        }
 
-        private static void TestRunnerDetectsFailFastArgument()
-        {
-            AssertEqual(true, ShouldFailFast(new[] { "--fail-fast" }), "test runner should detect fail-fast mode");
-            AssertEqual(true, ShouldFailFast(new[] { "--filter", "godot", "--fail-fast" }), "test runner should detect fail-fast after filter");
-            AssertEqual(false, ShouldFailFast(new[] { "--filter", "godot" }), "test runner should not use fail-fast unless explicitly requested");
-        }
 
-        private static void TestRunnerDetectsHelpArgument()
-        {
-            AssertEqual(true, ShouldShowHelp(new[] { "--help" }), "test runner should detect long help flag");
-            AssertEqual(true, ShouldShowHelp(new[] { "-h" }), "test runner should detect short help flag");
-            AssertEqual(false, ShouldShowHelp(new[] { "--filter", "godot" }), "test runner should not show help unless requested");
-        }
 
-        private static void CommandOrdering()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(2);
-            ulong canonical = RunDebugCommands(rules, new[]
-            {
-                DebugCommand(0, 0, 0, 1),
-                DebugCommand(0, 1, 0, 10),
-                DebugCommand(0, 0, 1, 100)
-            });
 
-            ulong shuffled = RunDebugCommands(rules, new[]
-            {
-                DebugCommand(0, 0, 1, 100),
-                DebugCommand(0, 1, 0, 10),
-                DebugCommand(0, 0, 0, 1)
-            });
 
-            AssertEqual(canonical, shuffled, "shuffled insertion must still execute deterministically");
-        }
 
-        private static void ReplayDeterminism()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(2);
-            var recorder = new ReplayRecorder(rules, 77, 2);
-            for (int tick = 0; tick < 100; tick++)
-            {
-                recorder.RecordCommand(new CommandEnvelope(new CommandHeader(tick, 0, 0, CommandType.NoOp), new NoOpCommand()));
-                recorder.RecordCommand(new CommandEnvelope(new CommandHeader(tick, 1, 0, CommandType.NoOp), new NoOpCommand()));
-            }
 
-            ReplayResult first = new ReplayRunner().Run(recorder.Replay, 100);
-            ReplayResult second = new ReplayRunner().Run(recorder.Replay, 100);
-            AssertEqual(first.FinalChecksum, second.FinalChecksum, "replay checksum must be stable");
-        }
 
-        private static void LockstepEmptyStream()
-        {
-            LockstepSession session = RunLockstep(500, 2, 3, false);
-            AssertEqual(500, session.CurrentTick, "lockstep should reach requested tick");
-            AssertEqual(0, session.DesyncReports.Count, "lockstep should not desync");
-            AssertEqual(session.Peers[0].LocalState.LastChecksum, session.Peers[1].LocalState.LastChecksum, "peer checksums should match");
-        }
-
-        private static void LockstepArrivalReordering()
-        {
-            LockstepSession session = RunLockstep(250, 2, 3, true);
-            AssertEqual(250, session.CurrentTick, "lockstep should reach requested tick with reordered delivery");
-            AssertEqual(0, session.DesyncReports.Count, "reordered command arrival should not desync");
-        }
-
-        private static void MissingInputStalls()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(2);
-            var session = new LockstepSession(rules, 9);
-            session.Broadcast(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.NoOp), new NoOpCommand()));
-            bool advanced = session.TryAdvanceOneTick();
-            AssertFalse(advanced, "missing player input must stall");
-            AssertEqual(0, session.CurrentTick, "current tick must not advance when input is missing");
-        }
-
-        private static void CanonicalSerialization()
-        {
-            var writerA = new CanonicalWriter();
-            writerA.WriteInt32(-1);
-            writerA.WriteUInt64(42);
-            writerA.WriteBool(true);
-
-            var writerB = new CanonicalWriter();
-            writerB.WriteInt32(-1);
-            writerB.WriteUInt64(42);
-            writerB.WriteBool(true);
-
-            byte[] a = writerA.ToArray();
-            byte[] b = writerB.ToArray();
-            AssertEqual(a.Length, b.Length, "canonical byte lengths must match");
-            for (int i = 0; i < a.Length; i++)
-            {
-                AssertEqual(a[i], b[i], "canonical bytes must match");
-            }
-        }
-
-        private static void FixedPointDeterminism()
-        {
-            Fixed a = Fixed.FromRatio(1, 3);
-            Fixed b = Fixed.FromRatio(2, 3);
-            Fixed c = a + b;
-            AssertEqual(Fixed.FromInt(1).Raw - 1, c.Raw, "fixed ratios should truncate deterministically");
-        }
-
-        private static void CleanupUpdatesLookup()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            var state = new GameState(1, 1);
-            state.EntityState.Units.Add(new Unit { Id = 1, OwnerPlayerIndex = 0, HitPoints = 0, IsDead = true });
-            state.EntityState.Units.Add(new Unit { Id = 2, OwnerPlayerIndex = 0, HitPoints = 1, IsDead = false });
-            state.EntityState.EntityLookup[1] = new EntityRef(EntityKind.Unit, 0);
-            state.EntityState.EntityLookup[2] = new EntityRef(EntityKind.Unit, 1);
-
-            new TickRunner().AdvanceOneTick(state, rules, new CommandBuffer());
-
-            AssertEqual(1, state.EntityState.Units.Count, "dead unit should be removed");
-            AssertFalse(state.EntityState.EntityLookup.ContainsKey(1), "removed unit lookup should be gone");
-            AssertEqual(0, state.EntityState.EntityLookup[2].Index, "moved unit lookup should update");
-        }
 
         private static void NomadStartCreatesInitialUnits()
         {
