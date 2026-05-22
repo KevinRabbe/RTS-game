@@ -254,107 +254,32 @@ public partial class RtsClientRoot : Node2D
 
 	private void HandleMouse(InputEventMouseButton mouse)
 	{
-		GodotFrameDto? frame = _frame;
-		if (_facade == null || frame == null)
-		{
-			return;
-		}
-
 		Vector2 mouseWorldPosition = GetGlobalMousePosition();
 		Vector2I tile = ScreenToTile(mouseWorldPosition);
 		long mouseXRaw = ScreenToRaw(mouseWorldPosition.X);
 		long mouseYRaw = ScreenToRaw(mouseWorldPosition.Y);
-
-		// --- Placement mode intercept ---
-		if (_tcPlacementState.IsActive)
-		{
-			if (mouse.ButtonIndex == MouseButton.Left)
-			{
-				ConfirmTcPlacement(tile);
-			}
-			else if (mouse.ButtonIndex == MouseButton.Right)
-			{
-				_tcPlacementState.Cancel();
-				_debugEventLog.Add("TC placement cancelled (RMB)");
-				QueueRedraw();
-			}
-			return;
-		}
-		// ---------------------------------
-
-		if (mouse.ButtonIndex == MouseButton.Left)
-		{
-			_tradeRouteSelection.Clear();
-			_selectionController.SelectAt(
-				frame,
-				LocalPlayerIndex,
-				mouseWorldPosition,
-				ScreenToRaw,
-				RtsHoverStateResolver.FindResourceAt(_frame, mouseWorldPosition, (int)TilePixels),
-				_hoveredResourceNodeId,
-				_debugEventLog.Add);
-			RefreshFrame();
-			return;
-		}
-
-		if (mouse.ButtonIndex == MouseButton.Right && _selectionController.HasSelectedUnits)
-		{
-			int[] selectedUnitIds = _selectionController.GetSelectedUnitIdsSorted();
-			GodotInteractionProbeResult probe = GodotInteractionProbe.Probe(frame, LocalPlayerIndex, mouseXRaw, mouseYRaw);
-			GodotInteractionIntent intent = GodotInteractionRouter.RouteRightClick(
-				frame,
-				LocalPlayerIndex,
-				_selectionController.HasSelectedUnits,
-				mouseXRaw,
-				mouseYRaw);
-			_debugEventLog.Add(
-				"rclick raw=(" + mouseXRaw + "," + mouseYRaw + ") tile=(" + tile.X + "," + tile.Y + ") target="
-				+ probe.TargetKind + ":" + probe.TargetEntityId + " route=" + intent.Kind);
-
-			if (intent.Kind == GodotInteractionIntentKind.Attack)
-			{
-				GodotPrimitiveDto? target = RtsFrameLookup.FindPrimitiveByEntityId(frame, intent.TargetEntityId);
-				if (target != null)
-				{
-					_commandMarker.Set("Attack", ToScreen(target.XRaw, target.YRaw), Colors.IndianRed);
-				}
-
-				QueueCommandAndConfirm(
-					"attack p=" + LocalPlayerIndex + " targetEntity=" + intent.TargetEntityId + " units=[" + string.Join(",", selectedUnitIds) + "]",
-					f => f.QueueAttack(LocalPlayerIndex, selectedUnitIds, intent.TargetEntityId));
-			}
-			else if (intent.Kind == GodotInteractionIntentKind.AssignBuild)
-			{
-				GodotPrimitiveDto? target = RtsFrameLookup.FindPrimitiveByEntityId(frame, intent.TargetEntityId);
-				if (target != null)
-				{
-					_commandMarker.Set("Build", ToScreen(target.XRaw, target.YRaw), Colors.Khaki);
-				}
-
-				QueueCommandAndConfirm(
-					"assign build p=" + LocalPlayerIndex + " targetBuilding=" + intent.TargetEntityId + " units=[" + string.Join(",", selectedUnitIds) + "]",
-					f => f.QueueAssignBuild(LocalPlayerIndex, intent.TargetEntityId, selectedUnitIds));
-			}
-			else if (intent.Kind == GodotInteractionIntentKind.GatherResource)
-			{
-				GodotPrimitiveDto? target = RtsFrameLookup.FindPrimitiveByEntityId(frame, intent.ResourceNodeId);
-				if (target != null)
-				{
-					_commandMarker.Set("Gather", ToScreen(target.XRaw, target.YRaw), Colors.ForestGreen);
-				}
-
-				QueueCommandAndConfirm(
-					"gather p=" + LocalPlayerIndex + " resource=" + intent.ResourceNodeId + " units=[" + string.Join(",", selectedUnitIds) + "]",
-					f => f.QueueGatherResource(LocalPlayerIndex, intent.ResourceNodeId, selectedUnitIds));
-			}
-			else if (intent.Kind == GodotInteractionIntentKind.Move)
-			{
-				_commandMarker.Set("Move", ToScreen(TileToRaw(tile.X), TileToRaw(tile.Y)), Colors.LightSkyBlue);
-				QueueCommandAndConfirm(
-					"move p=" + LocalPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ") units=[" + string.Join(",", selectedUnitIds) + "]",
-					f => f.QueueMoveUnits(LocalPlayerIndex, selectedUnitIds, tile.X, tile.Y));
-			}
-		}
+		RtsInputMouseRouter.HandleMouse(
+			mouse,
+			_facade,
+			_frame,
+			LocalPlayerIndex,
+			mouseWorldPosition,
+			tile,
+			mouseXRaw,
+			mouseYRaw,
+			_hoveredResourceNodeId,
+			_tcPlacementState,
+			_selectionController,
+			_tradeRouteSelection,
+			RtsHoverStateResolver.FindResourceAt,
+			RefreshFrame,
+			QueueRedraw,
+			_debugEventLog.Add,
+			ConfirmTcPlacement,
+			QueueCommandAndConfirm,
+			ToScreen,
+			TileToRaw,
+			_commandMarker.Set);
 	}
 
 	private void TrainFromSelectedBuilding(int unitTypeId)
