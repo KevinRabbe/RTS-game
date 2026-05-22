@@ -400,7 +400,7 @@ public partial class RtsClientRoot : Node2D
 
 			if (intent.Kind == GodotInteractionIntentKind.Attack)
 			{
-				GodotPrimitiveDto? target = FindPrimitiveByEntityId(frame, intent.TargetEntityId);
+				GodotPrimitiveDto? target = RtsFrameLookup.FindPrimitiveByEntityId(frame, intent.TargetEntityId);
 				if (target != null)
 				{
 					_commandMarker.Set("Attack", ToScreen(target.XRaw, target.YRaw), Colors.IndianRed);
@@ -412,7 +412,7 @@ public partial class RtsClientRoot : Node2D
 			}
 			else if (intent.Kind == GodotInteractionIntentKind.AssignBuild)
 			{
-				GodotPrimitiveDto? target = FindPrimitiveByEntityId(frame, intent.TargetEntityId);
+				GodotPrimitiveDto? target = RtsFrameLookup.FindPrimitiveByEntityId(frame, intent.TargetEntityId);
 				if (target != null)
 				{
 					_commandMarker.Set("Build", ToScreen(target.XRaw, target.YRaw), Colors.Khaki);
@@ -424,7 +424,7 @@ public partial class RtsClientRoot : Node2D
 			}
 			else if (intent.Kind == GodotInteractionIntentKind.GatherResource)
 			{
-				GodotPrimitiveDto? target = FindPrimitiveByEntityId(frame, intent.ResourceNodeId);
+				GodotPrimitiveDto? target = RtsFrameLookup.FindPrimitiveByEntityId(frame, intent.ResourceNodeId);
 				if (target != null)
 				{
 					_commandMarker.Set("Gather", ToScreen(target.XRaw, target.YRaw), Colors.ForestGreen);
@@ -975,19 +975,6 @@ public partial class RtsClientRoot : Node2D
 				_frame));
 	}
 
-	private static GodotPrimitiveDto? FindPrimitiveByEntityId(GodotFrameDto frame, int entityId)
-	{
-		for (int i = 0; i < frame.Primitives.Length; i++)
-		{
-			if (frame.Primitives[i].EntityId == entityId)
-			{
-				return frame.Primitives[i];
-			}
-		}
-
-		return null;
-	}
-
 	private static Color GetStyleColor(GodotVisualStyle style)
 	{
 		switch (style)
@@ -1116,7 +1103,7 @@ public partial class RtsClientRoot : Node2D
 			return;
 		}
 
-		GodotBuildingStatusDto? status = FindBuildingStatus(_frame, primitive.EntityId);
+		GodotBuildingStatusDto? status = RtsFrameLookup.FindBuildingStatus(_frame, primitive.EntityId);
 		if (status == null || !status.IsUnderConstruction)
 		{
 			return;
@@ -1127,19 +1114,6 @@ public partial class RtsClientRoot : Node2D
 		DrawRect(bgRect, new Color(0.0f, 0.0f, 0.0f, 0.5f));
 		DrawString(ThemeDB.FallbackFont, bgRect.Position + new Vector2(4.0f, 9.0f), "BUILDING", HorizontalAlignment.Left, -1.0f, 11, Colors.Khaki);
 		DrawString(ThemeDB.FallbackFont, bgRect.Position + new Vector2(4.0f, 19.0f), status.BuildProgressTicks + "/" + status.RequiredBuildTicks, HorizontalAlignment.Left, -1.0f, 10, Colors.LightGray);
-	}
-
-	private static GodotBuildingStatusDto? FindBuildingStatus(GodotFrameDto frame, int buildingId)
-	{
-		for (int i = 0; i < frame.BuildingStatuses.Length; i++)
-		{
-			if (frame.BuildingStatuses[i].BuildingId == buildingId)
-			{
-				return frame.BuildingStatuses[i];
-			}
-		}
-
-		return null;
 	}
 
 	private void ConfirmTcPlacement(Vector2I tile)
