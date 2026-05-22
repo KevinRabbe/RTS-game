@@ -21,6 +21,7 @@ public partial class RtsClientRoot : Node2D
 	private readonly RtsCameraController _cameraController = new RtsCameraController();
 	private readonly RtsSelectionController _selectionController = new RtsSelectionController();
 	private readonly RtsCommandMarker _commandMarker = new RtsCommandMarker();
+	private readonly RtsTradeRouteSelection _tradeRouteSelection = new RtsTradeRouteSelection();
 	private GodotClientFacade? _facade;
 	private GodotFrameDto? _frame;
 	private readonly Phase6SpriteRenderer _spriteRenderer = new Phase6SpriteRenderer();
@@ -31,7 +32,6 @@ public partial class RtsClientRoot : Node2D
 	private bool _screenshotMode;
 	private int _hoveredResourceNodeId;
 	private int _hoveredBuildingId;
-	private int _pendingTradeRouteAId;
 
 	// TC placement mode
 	private bool _tcPlacementMode;
@@ -339,7 +339,7 @@ public partial class RtsClientRoot : Node2D
 		}
 
 		_selectionController.Reset();
-		_pendingTradeRouteAId = 0;
+		_tradeRouteSelection.Clear();
 		_hoveredResourceNodeId = 0;
 		_tcPlacementMode = false;
 		_tcPreviewResult = TcPlacementPreviewResult.Unknown;
@@ -382,7 +382,7 @@ public partial class RtsClientRoot : Node2D
 
 		if (mouse.ButtonIndex == MouseButton.Left)
 		{
-			_pendingTradeRouteAId = 0;
+			_tradeRouteSelection.Clear();
 			_selectionController.SelectAt(
 				frame,
 				LocalPlayerIndex,
@@ -535,20 +535,23 @@ public partial class RtsClientRoot : Node2D
 			return;
 		}
 
-		if (_pendingTradeRouteAId == 0 || _pendingTradeRouteAId == tradePostId)
+		if (_tradeRouteSelection.TrySetFirstEndpoint(tradePostId))
 		{
-			_pendingTradeRouteAId = tradePostId;
 			_debugEventLog.Add("trade route step A set to tradePost=" + tradePostId);
 			RefreshFrame();
 			return;
 		}
 
-		int routeA = _pendingTradeRouteAId;
+		if (!_tradeRouteSelection.TryConsumeRoute(tradePostId, out int routeA))
+		{
+			RefreshFrame();
+			return;
+		}
+
 		QueueCommandAndConfirm(
 			"trade route p=" + LocalPlayerIndex + " cart=" + tradeCartId + " A=" + routeA + " B=" + tradePostId,
 			facade => facade.QueueCreateTradeRoute(LocalPlayerIndex, tradeCartId, routeA, tradePostId));
 		_commandMarker.Set("TradeRoute", screenPosition, Colors.Gold);
-		_pendingTradeRouteAId = 0;
 	}
 
 	private void FinishSelectionDrag()
@@ -568,7 +571,7 @@ public partial class RtsClientRoot : Node2D
 			_debugEventLog.Add);
 		if (handled)
 		{
-			_pendingTradeRouteAId = 0;
+			_tradeRouteSelection.Clear();
 			RefreshFrame();
 		}
 	}
