@@ -22,6 +22,7 @@ public partial class RtsClientRoot : Node2D
 	private readonly RtsSelectionController _selectionController = new RtsSelectionController();
 	private readonly RtsCommandMarker _commandMarker = new RtsCommandMarker();
 	private readonly RtsTradeRouteSelection _tradeRouteSelection = new RtsTradeRouteSelection();
+	private readonly RtsTownCenterPlacementState _tcPlacementState = new RtsTownCenterPlacementState();
 	private GodotClientFacade? _facade;
 	private GodotFrameDto? _frame;
 	private readonly Phase6SpriteRenderer _spriteRenderer = new Phase6SpriteRenderer();
@@ -32,11 +33,6 @@ public partial class RtsClientRoot : Node2D
 	private bool _screenshotMode;
 	private int _hoveredResourceNodeId;
 	private int _hoveredBuildingId;
-
-	// TC placement mode
-	private bool _tcPlacementMode;
-	private Vector2I _tcHoveredTile;
-	private TcPlacementPreviewResult _tcPreviewResult = TcPlacementPreviewResult.Unknown;
 
 	public override void _Ready()
 	{
@@ -61,13 +57,11 @@ public partial class RtsClientRoot : Node2D
 		_commandMarker.Tick();
 
 		// Update TC placement ghost tile each frame (no command spam).
-		if (_tcPlacementMode && _frame != null)
+		if (_tcPlacementState.IsActive && _frame != null)
 		{
 			Vector2I newTile = ScreenToTile(GetGlobalMousePosition());
-			if (newTile != _tcHoveredTile)
+			if (_tcPlacementState.UpdateHoverIfChanged(_frame, newTile))
 			{
-				_tcHoveredTile = newTile;
-				_tcPreviewResult = TcPlacementPreview.Evaluate(_frame, _tcHoveredTile.X, _tcHoveredTile.Y);
 				QueueRedraw();
 			}
 		}
@@ -125,7 +119,7 @@ public partial class RtsClientRoot : Node2D
 				return;
 			}
 
-			if (_tcPlacementMode)
+			if (_tcPlacementState.IsActive)
 			{
 				if (mouse.Pressed)
 				{
@@ -180,7 +174,7 @@ public partial class RtsClientRoot : Node2D
 			DrawPrimitive(_frame.Primitives[i]);
 		}
 
-		if (_tcPlacementMode)
+		if (_tcPlacementState.IsActive)
 		{
 			DrawTcPlacementGhost();
 		}
@@ -248,19 +242,15 @@ public partial class RtsClientRoot : Node2D
 
 		if (key.Keycode == Key.C)
 		{
-			_tcPlacementMode = true;
-			_tcHoveredTile = ScreenToTile(GetGlobalMousePosition());
-			_tcPreviewResult = _frame != null
-				? TcPlacementPreview.Evaluate(_frame, _tcHoveredTile.X, _tcHoveredTile.Y)
-				: TcPlacementPreviewResult.Unknown;
+			_tcPlacementState.Enter(_frame, ScreenToTile(GetGlobalMousePosition()));
 			_debugEventLog.Add("TC placement mode entered");
 			QueueRedraw();
 			return;
 		}
 
-		if (key.Keycode == Key.Escape && _tcPlacementMode)
+		if (key.Keycode == Key.Escape && _tcPlacementState.IsActive)
 		{
-			_tcPlacementMode = false;
+			_tcPlacementState.Cancel();
 			_debugEventLog.Add("TC placement cancelled (Esc)");
 			QueueRedraw();
 			return;
@@ -341,8 +331,7 @@ public partial class RtsClientRoot : Node2D
 		_selectionController.Reset();
 		_tradeRouteSelection.Clear();
 		_hoveredResourceNodeId = 0;
-		_tcPlacementMode = false;
-		_tcPreviewResult = TcPlacementPreviewResult.Unknown;
+		_tcPlacementState.Reset();
 		_cameraController.EndMiddleDrag();
 		_tickAccumulator = 0.0;
 		_paused = false;
@@ -364,7 +353,7 @@ public partial class RtsClientRoot : Node2D
 		long mouseYRaw = ScreenToRaw(mouseWorldPosition.Y);
 
 		// --- Placement mode intercept ---
-		if (_tcPlacementMode)
+		if (_tcPlacementState.IsActive)
 		{
 			if (mouse.ButtonIndex == MouseButton.Left)
 			{
@@ -372,7 +361,7 @@ public partial class RtsClientRoot : Node2D
 			}
 			else if (mouse.ButtonIndex == MouseButton.Right)
 			{
-				_tcPlacementMode = false;
+				_tcPlacementState.Cancel();
 				_debugEventLog.Add("TC placement cancelled (RMB)");
 				QueueRedraw();
 			}
@@ -1256,13 +1245,13 @@ public partial class RtsClientRoot : Node2D
 			return;
 		}
 
-		_tcPlacementMode = false;
+		_tcPlacementState.Cancel();
 		GodotFrameDto frameBefore = _frame;
-		TcPlacementPreviewResult previewBefore = _tcPreviewResult;
+		TcPlacementPreviewResult previewBefore = _tcPlacementState.PreviewResult;
 
-		if (_tcPreviewResult != TcPlacementPreviewResult.Valid)
+		if (_tcPlacementState.PreviewResult != TcPlacementPreviewResult.Valid)
 		{
-			_debugEventLog.Add("TC placement rejected by preview: " + _tcPreviewResult);
+			_debugEventLog.Add("TC placement rejected by preview: " + _tcPlacementState.PreviewResult);
 			QueueRedraw();
 			return;
 		}
@@ -1305,7 +1294,7 @@ public partial class RtsClientRoot : Node2D
 			return;
 		}
 
-		Vector2 center = ToScreen(TileToRaw(_tcHoveredTile.X), TileToRaw(_tcHoveredTile.Y));
+		Vector2 center = ToScreen(TileToRaw(_tcPlacementState.HoveredTile.X), TileToRaw(_tcPlacementState.HoveredTile.Y));
 		float tileSize = TilePixels;
 		
 		// TC is 2 radius -> diameter 4 tiles approx. We use RawToPixels for consistency.
@@ -1313,7 +1302,7 @@ public partial class RtsClientRoot : Node2D
 		float size = 4.0f * tileSize;
 		Rect2 rect = new Rect2(center.X - size * 0.5f, center.Y - size * 0.5f, size, size);
 
-		Color ghostColor = _tcPreviewResult == TcPlacementPreviewResult.Valid ? new Color(0.2f, 1.0f, 0.2f, 0.5f) : new Color(1.0f, 0.2f, 0.2f, 0.5f);
+		Color ghostColor = _tcPlacementState.PreviewResult == TcPlacementPreviewResult.Valid ? new Color(0.2f, 1.0f, 0.2f, 0.5f) : new Color(1.0f, 0.2f, 0.2f, 0.5f);
 		DrawRect(rect, new Color(ghostColor, 0.2f)); // fill
 		DrawRect(rect, ghostColor, false, 2.0f);     // border
 
@@ -1322,6 +1311,6 @@ public partial class RtsClientRoot : Node2D
 		DrawArc(center, radiusPixels, 0.0f, Mathf.Tau, 32, ghostColor, 1.0f);
 
 		// Label
-		DrawString(ThemeDB.FallbackFont, rect.Position + new Vector2(0.0f, -4.0f), "[TC] " + _tcPreviewResult, HorizontalAlignment.Left, -1.0f, 12, ghostColor);
+		DrawString(ThemeDB.FallbackFont, rect.Position + new Vector2(0.0f, -4.0f), "[TC] " + _tcPlacementState.PreviewResult, HorizontalAlignment.Left, -1.0f, 12, ghostColor);
 	}
 }
