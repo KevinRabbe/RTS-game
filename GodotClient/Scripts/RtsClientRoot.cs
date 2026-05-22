@@ -652,8 +652,7 @@ public partial class RtsClientRoot : Node2D
 		{
 			if (primitive.EntityId == _hoveredResourceNodeId)
 			{
-				Rect2 spriteRect = PrimitiveRect(primitive).Grow(6.0f);
-				DrawArc(spriteRect.GetCenter(), spriteRect.Size.X * 0.65f, 0.0f, Mathf.Tau, 32, Colors.White, 2.0f);
+				RtsResourceHoverRenderer.DrawHoverRing(this, PrimitiveRect(primitive).Grow(6.0f));
 			}
 
 			return;
@@ -664,7 +663,7 @@ public partial class RtsClientRoot : Node2D
 		DrawCircle(rect.GetCenter(), rect.Size.X * 0.5f, color);
 		if (primitive.EntityId == _hoveredResourceNodeId)
 		{
-			DrawArc(rect.GetCenter(), rect.Size.X * 0.65f, 0.0f, Mathf.Tau, 32, Colors.White, 2.0f);
+			RtsResourceHoverRenderer.DrawHoverRing(this, rect);
 		}
 	}
 
