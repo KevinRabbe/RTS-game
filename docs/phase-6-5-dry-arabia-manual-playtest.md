@@ -23,6 +23,7 @@ This document outlines the manual verification steps for the Phase 6.5 gameplay 
 - [ ] Verify **Population** changes from `5/0` to `5/10` upon completion.
 - [ ] **Gather Food** (Right click berry bushes).
 - [ ] **Gather Wood** (Right click trees).
+- [ ] Verify **mixed selection gather** is tolerant: selecting multiple villagers where one carries another resource should still assign eligible villagers (no full-command reject).
 - [ ] **Gather Gold** (Right click gold mines).
 - [ ] Verify **carrying resource** status appears in the selected unit status panel.
 - [ ] Verify **deposit/stockpile** increase when villagers return resources to the TC.
@@ -42,3 +43,12 @@ This document outlines the manual verification steps for the Phase 6.5 gameplay 
 - **Asset Backgrounds:** Some transparency/background cleanup may be performed manually in later passes.
 - **UI State:** Currently using debug/playtest UI overlays; final production UI is not yet implemented.
 - **No Networking/Bots:** This phase is focused on local human playability and core simulation verification.
+
+## Latest Stabilization Notes (2026-05-22)
+- Gather command mixed-selection behavior was hardened:
+  - incompatible carriers are skipped per-unit,
+  - command remains accepted when at least one selected villager is eligible.
+- Deterministic gates after this fix:
+  - tests: `469/469` pass
+  - `chaos-v4` 5000 ticks pass
+  - `chaos-v5` 5000 ticks pass

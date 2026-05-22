@@ -8,6 +8,7 @@ obj/
 
 # Godot local cache
 .godot/
+GodotClient/Scripts/*.uid
 
 # OS noise
 Thumbs.db
