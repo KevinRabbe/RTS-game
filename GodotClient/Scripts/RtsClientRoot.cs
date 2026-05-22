@@ -377,7 +377,7 @@ public partial class RtsClientRoot : Node2D
 				LocalPlayerIndex,
 				mouseWorldPosition,
 				ScreenToRaw,
-				FindResourceAt(mouseWorldPosition),
+				RtsHoverStateResolver.FindResourceAt(_frame, mouseWorldPosition, (int)TilePixels),
 				_hoveredResourceNodeId,
 				_debugEventLog.Add);
 			RefreshFrame();
@@ -553,7 +553,7 @@ public partial class RtsClientRoot : Node2D
 			_frame,
 			LocalPlayerIndex,
 			ScreenToRaw,
-			FindResourceAt(GetGlobalMousePosition()),
+			RtsHoverStateResolver.FindResourceAt(_frame, GetGlobalMousePosition(), (int)TilePixels),
 			_hoveredResourceNodeId,
 			_debugEventLog.Add);
 		if (handled)
@@ -722,8 +722,9 @@ public partial class RtsClientRoot : Node2D
 		{
 			_debugEventLog.Add(depositEvent);
 		}
-		_hoveredResourceNodeId = FindResourceAt(GetGlobalMousePosition());
-		_hoveredBuildingId = FindHoveredBuildingAt(GetGlobalMousePosition());
+		Vector2 mouse = GetGlobalMousePosition();
+		_hoveredResourceNodeId = RtsHoverStateResolver.FindResourceAt(_frame, mouse, (int)TilePixels);
+		_hoveredBuildingId = RtsHoverStateResolver.FindHoveredBuildingAt(_frame, LocalPlayerIndex, mouse, (int)TilePixels);
 		QueueRedraw();
 	}
 
@@ -735,38 +736,14 @@ public partial class RtsClientRoot : Node2D
 		}
 
 		Vector2 mouse = GetGlobalMousePosition();
-		int hoveredResource = FindResourceAt(mouse);
-		int hoveredBuilding = FindHoveredBuildingAt(mouse);
+		int hoveredResource = RtsHoverStateResolver.FindResourceAt(_frame, mouse, (int)TilePixels);
+		int hoveredBuilding = RtsHoverStateResolver.FindHoveredBuildingAt(_frame, LocalPlayerIndex, mouse, (int)TilePixels);
 		if (hoveredResource != _hoveredResourceNodeId || hoveredBuilding != _hoveredBuildingId)
 		{
 			_hoveredResourceNodeId = hoveredResource;
 			_hoveredBuildingId = hoveredBuilding;
 			QueueRedraw();
 		}
-	}
-
-	private int FindResourceAt(Vector2 screenPosition)
-	{
-		if (_frame == null)
-		{
-			return 0;
-		}
-
-		return RtsHoverProbe.FindResourceAt(_frame, ScreenToRaw(screenPosition.X), ScreenToRaw(screenPosition.Y));
-	}
-
-	private int FindHoveredBuildingAt(Vector2 screenPosition)
-	{
-		if (_frame == null)
-		{
-			return 0;
-		}
-
-		return RtsHoverProbe.FindLocalBuildingAt(
-			_frame,
-			LocalPlayerIndex,
-			ScreenToRaw(screenPosition.X),
-			ScreenToRaw(screenPosition.Y));
 	}
 
 	private void DrawConstructionOverlayIfNeeded(GodotPrimitiveDto primitive)
