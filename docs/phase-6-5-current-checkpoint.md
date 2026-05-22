@@ -12,12 +12,12 @@
 - [x] Sprite/primitive toggle pipeline (`F9`) with fallback diagnostics.
 - [x] Multi-villager movement reliability hardening (`#33`).
 - [x] Worker reservation/no-progress lifecycle stabilization (`#29`).
-- [x] Full deterministic gate remains green (`tests=462 failed=0`, ChaosV4 5000 ticks clean).
+- [x] Full deterministic gate remains green (`tests=468 failed=0`, ChaosV4/ChaosV5 5000 ticks clean).
 
 ### Next Planned Steps
 1. Phase 6.5 manual playability smoke rerun and notes refresh.
-2. Focused `RtsClientRoot` controller split (input/camera/selection extraction only, no gameplay changes).
-3. Keep scenario-first regression discipline for any further reliability bug.
+2. Keep scenario-first regression discipline for any further reliability bug.
+3. Use ChaosV5 in addition to ChaosV4 for movement/gather pressure regression checks.
 
 ## Constraints & Forbidden Areas (Current Phase)
 - No bots (AI) implementation.

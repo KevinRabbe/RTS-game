@@ -17,6 +17,13 @@ Equivalent local helper:
 
 The full run covers deterministic simulation, replay, lockstep, presentation boundaries, Godot bridge helpers, and chaos stress smoke scenarios.
 
+For long-run deterministic pressure checks, run headless stress scenarios explicitly:
+
+```powershell
+dotnet run --project src\tools\Headless\RtsGame.Headless.csproj --no-build -- run-stress --scenario chaos-v4 --ticks 5000 --seed 77
+dotnet run --project src\tools\Headless\RtsGame.Headless.csproj --no-build -- run-stress --scenario chaos-v5 --ticks 5000 --seed 77
+```
+
 GitHub Actions uses the same build and full-suite commands in `.github/workflows/ci.yml`.
 
 ## Focused Runs
