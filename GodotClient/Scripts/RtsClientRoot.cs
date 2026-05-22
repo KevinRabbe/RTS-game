@@ -16,12 +16,10 @@ public partial class RtsClientRoot : Node2D
 	private const int TownCenterBuildingTypeId = 1;
 	private const int WallBuildingTypeId = 2;
 	private const int TradePostBuildingTypeId = 3;
-	private const float DragSelectionThresholdPixels = 6.0f;
-
-	private readonly List<int> _selectedUnitIds = new List<int>();
 	private readonly GodotDebugEventLog _debugEventLog = new GodotDebugEventLog(10);
 	private Camera2D? _camera;
 	private readonly RtsCameraController _cameraController = new RtsCameraController();
+	private readonly RtsSelectionController _selectionController = new RtsSelectionController();
 	private GodotClientFacade? _facade;
 	private GodotFrameDto? _frame;
 	private readonly Phase6SpriteRenderer _spriteRenderer = new Phase6SpriteRenderer();
@@ -36,18 +34,12 @@ public partial class RtsClientRoot : Node2D
 	private int _commandMarkerTicksRemaining;
 	private int _hoveredResourceNodeId;
 	private int _hoveredBuildingId;
-	private int _selectedBuildingId;
 	private int _pendingTradeRouteAId;
 
 	// TC placement mode
 	private bool _tcPlacementMode;
 	private Vector2I _tcHoveredTile;
 	private TcPlacementPreviewResult _tcPreviewResult = TcPlacementPreviewResult.Unknown;
-
-	// Left-mouse drag selection in world/sim pixel coordinates.
-	private bool _selectionDragActive;
-	private Vector2 _selectionDragStart = Vector2.Zero;
-	private Vector2 _selectionDragCurrent = Vector2.Zero;
 
 	public override void _Ready()
 	{
@@ -152,7 +144,8 @@ public partial class RtsClientRoot : Node2D
 			{
 				if (mouse.Pressed)
 				{
-					BeginSelectionDrag();
+					_selectionController.BeginDrag(GetGlobalMousePosition());
+					QueueRedraw();
 				}
 				else
 				{
@@ -168,9 +161,9 @@ public partial class RtsClientRoot : Node2D
 			return;
 		}
 
-		if (@event is InputEventMouseMotion && _selectionDragActive)
+		if (@event is InputEventMouseMotion && _selectionController.IsDragActive)
 		{
-			_selectionDragCurrent = GetGlobalMousePosition();
+			_selectionController.UpdateDrag(GetGlobalMousePosition());
 			QueueRedraw();
 		}
 	}
@@ -351,14 +344,12 @@ public partial class RtsClientRoot : Node2D
 			return;
 		}
 
-		_selectedUnitIds.Clear();
-		_selectedBuildingId = 0;
+		_selectionController.Reset();
 		_pendingTradeRouteAId = 0;
 		_hoveredResourceNodeId = 0;
 		_tcPlacementMode = false;
 		_tcPreviewResult = TcPlacementPreviewResult.Unknown;
 		_cameraController.EndMiddleDrag();
-		_selectionDragActive = false;
 		_tickAccumulator = 0.0;
 		_paused = false;
 		facade.AdvanceOneTick();
@@ -397,19 +388,27 @@ public partial class RtsClientRoot : Node2D
 
 		if (mouse.ButtonIndex == MouseButton.Left)
 		{
-			SelectAt(mouseWorldPosition);
+			_pendingTradeRouteAId = 0;
+			_selectionController.SelectAt(
+				frame,
+				LocalPlayerIndex,
+				mouseWorldPosition,
+				ScreenToRaw,
+				FindResourceAt(mouseWorldPosition),
+				_hoveredResourceNodeId,
+				_debugEventLog.Add);
 			RefreshFrame();
 			return;
 		}
 
-		if (mouse.ButtonIndex == MouseButton.Right && _selectedUnitIds.Count > 0)
+		if (mouse.ButtonIndex == MouseButton.Right && _selectionController.HasSelectedUnits)
 		{
-			int[] selectedUnitIds = GetSelectedUnitIdsSorted();
+			int[] selectedUnitIds = _selectionController.GetSelectedUnitIdsSorted();
 			GodotInteractionProbeResult probe = GodotInteractionProbe.Probe(frame, LocalPlayerIndex, mouseXRaw, mouseYRaw);
 			GodotInteractionIntent intent = GodotInteractionRouter.RouteRightClick(
 				frame,
 				LocalPlayerIndex,
-				_selectedUnitIds.Count > 0,
+				_selectionController.HasSelectedUnits,
 				mouseXRaw,
 				mouseYRaw);
 			_debugEventLog.Add(
@@ -464,7 +463,7 @@ public partial class RtsClientRoot : Node2D
 
 	private void TrainFromSelectedBuilding(int unitTypeId)
 	{
-		if (_selectedBuildingId == 0)
+		if (_selectionController.SelectedBuildingId == 0)
 		{
 			_debugEventLog.Add("train blocked reason=building not selected unit=" + GodotBuildingDebugStatusBuilder.ResolveUnitTypeLabel(unitTypeId));
 			return;
@@ -475,25 +474,25 @@ public partial class RtsClientRoot : Node2D
 			return;
 		}
 
-		GodotTrainActionState state = GodotTrainActionEvaluator.Evaluate(_frame, _selectedBuildingId, unitTypeId);
+		GodotTrainActionState state = GodotTrainActionEvaluator.Evaluate(_frame, _selectionController.SelectedBuildingId, unitTypeId);
 		if (state != GodotTrainActionState.Ready)
 		{
 			_debugEventLog.Add(
 				"train blocked reason=" + GodotBuildingDebugStatusBuilder.ResolveTrainBlockedReason(state)
-				+ " building=" + _selectedBuildingId
+				+ " building=" + _selectionController.SelectedBuildingId
 				+ " unit=" + GodotBuildingDebugStatusBuilder.ResolveUnitTypeLabel(unitTypeId));
 			RefreshFrame();
 			return;
 		}
 
 		QueueCommandAndConfirm(
-			"train p=" + LocalPlayerIndex + " " + GodotBuildingDebugStatusBuilder.BuildTrainIntentText(_selectedBuildingId, unitTypeId),
-			facade => facade.QueueTrainUnit(LocalPlayerIndex, _selectedBuildingId, unitTypeId));
+			"train p=" + LocalPlayerIndex + " " + GodotBuildingDebugStatusBuilder.BuildTrainIntentText(_selectionController.SelectedBuildingId, unitTypeId),
+			facade => facade.QueueTrainUnit(LocalPlayerIndex, _selectionController.SelectedBuildingId, unitTypeId));
 	}
 
 	private void ResearchFromSelectedBuilding(int techId)
 	{
-		if (_selectedBuildingId == 0)
+		if (_selectionController.SelectedBuildingId == 0)
 		{
 			return;
 		}
@@ -503,27 +502,27 @@ public partial class RtsClientRoot : Node2D
 			return;
 		}
 
-		GodotResearchActionState state = GodotResearchActionEvaluator.EvaluateInfantryAttack1(_frame, _selectedBuildingId);
+		GodotResearchActionState state = GodotResearchActionEvaluator.EvaluateInfantryAttack1(_frame, _selectionController.SelectedBuildingId);
 		if (state != GodotResearchActionState.Ready)
 		{
-			_debugEventLog.Add("research blocked state=" + state + " building=" + _selectedBuildingId + " tech=" + techId);
+			_debugEventLog.Add("research blocked state=" + state + " building=" + _selectionController.SelectedBuildingId + " tech=" + techId);
 			RefreshFrame();
 			return;
 		}
 
 		QueueCommandAndConfirm(
-			"research p=" + LocalPlayerIndex + " building=" + _selectedBuildingId + " tech=" + techId,
-			facade => facade.QueueResearchTech(LocalPlayerIndex, _selectedBuildingId, techId));
+			"research p=" + LocalPlayerIndex + " building=" + _selectionController.SelectedBuildingId + " tech=" + techId,
+			facade => facade.QueueResearchTech(LocalPlayerIndex, _selectionController.SelectedBuildingId, techId));
 	}
 
 	private void TryCreateTradeRoute(Vector2 screenPosition)
 	{
-		if (_frame == null || _selectedUnitIds.Count == 0)
+		if (_frame == null || !_selectionController.HasSelectedUnits)
 		{
 			return;
 		}
 
-		int tradeCartId = GodotTradeRouteRouter.FindSelectedTradeCart(_frame, GetSelectedUnitIdsSorted());
+		int tradeCartId = GodotTradeRouteRouter.FindSelectedTradeCart(_frame, _selectionController.GetSelectedUnitIdsSorted());
 		if (tradeCartId == 0)
 		{
 			_debugEventLog.Add("trade route blocked: no selected trade cart");
@@ -558,113 +557,26 @@ public partial class RtsClientRoot : Node2D
 		_pendingTradeRouteAId = 0;
 	}
 
-	private void BeginSelectionDrag()
-	{
-		_selectionDragActive = true;
-		_selectionDragStart = GetGlobalMousePosition();
-		_selectionDragCurrent = _selectionDragStart;
-		QueueRedraw();
-	}
-
 	private void FinishSelectionDrag()
 	{
-		if (!_selectionDragActive)
-		{
-			return;
-		}
-
-		_selectionDragCurrent = GetGlobalMousePosition();
-		Vector2 delta = _selectionDragCurrent - _selectionDragStart;
-		bool isRectangleSelection = delta.LengthSquared() >= DragSelectionThresholdPixels * DragSelectionThresholdPixels;
-		_selectionDragActive = false;
-
-		if (isRectangleSelection)
-		{
-			SelectUnitsInRectangle(_selectionDragStart, _selectionDragCurrent);
-		}
-		else
-		{
-			SelectAt(_selectionDragCurrent);
-		}
-
-		RefreshFrame();
-	}
-
-	private void SelectUnitsInRectangle(Vector2 start, Vector2 end)
-	{
-		_selectedUnitIds.Clear();
-		_selectedBuildingId = 0;
-		_pendingTradeRouteAId = 0;
 		if (_frame == null)
 		{
 			return;
 		}
 
-		int[] selected = GodotSelectionRouter.SelectUnitsInRectangle(
+		bool handled = _selectionController.CompleteDragAndSelect(
+			GetGlobalMousePosition(),
 			_frame,
 			LocalPlayerIndex,
-			ScreenToRaw(start.X),
-			ScreenToRaw(start.Y),
-			ScreenToRaw(end.X),
-			ScreenToRaw(end.Y));
-
-		for (int i = 0; i < selected.Length; i++)
+			ScreenToRaw,
+			FindResourceAt(GetGlobalMousePosition()),
+			_hoveredResourceNodeId,
+			_debugEventLog.Add);
+		if (handled)
 		{
-			_selectedUnitIds.Add(selected[i]);
+			_pendingTradeRouteAId = 0;
+			RefreshFrame();
 		}
-
-		if (selected.Length == 0)
-		{
-			_debugEventLog.Add("box select none");
-		}
-		else
-		{
-			_debugEventLog.Add("box select units=" + string.Join(",", selected));
-		}
-	}
-
-	private void SelectAt(Vector2 screenPosition)
-	{
-		_selectedUnitIds.Clear();
-		_selectedBuildingId = 0;
-		_pendingTradeRouteAId = 0;
-		int clickedResourceId = FindResourceAt(screenPosition);
-		if (_frame == null)
-		{
-			return;
-		}
-
-		GodotSelectionResult selection = GodotSelectionRouter.SelectAt(
-			_frame,
-			LocalPlayerIndex,
-			ScreenToRaw(screenPosition.X),
-			ScreenToRaw(screenPosition.Y));
-
-		if (selection.Kind == GodotSelectionKind.Unit)
-		{
-			_selectedUnitIds.Add(selection.EntityId);
-			_debugEventLog.Add("select unit=" + selection.EntityId);
-		}
-		else if (selection.Kind == GodotSelectionKind.Building)
-		{
-			_selectedBuildingId = selection.EntityId;
-			_debugEventLog.Add("select building=" + selection.EntityId);
-		}
-		else if (clickedResourceId != 0)
-		{
-			_debugEventLog.Add("select resource=" + clickedResourceId + " hovered=" + _hoveredResourceNodeId);
-		}
-		else
-		{
-			_debugEventLog.Add("selection cleared");
-		}
-	}
-
-	private int[] GetSelectedUnitIdsSorted()
-	{
-		int[] selected = _selectedUnitIds.ToArray();
-		Array.Sort(selected);
-		return selected;
 	}
 
 	private void DrawPrimitive(GodotPrimitiveDto primitive)
@@ -694,8 +606,8 @@ public partial class RtsClientRoot : Node2D
 
 	private void DrawUnit(GodotPrimitiveDto primitive)
 	{
-		bool isSelected = _selectedUnitIds.Contains(primitive.EntityId);
-		if (_spriteRenderer.TryDrawUnit(this, primitive, _frame, _selectedUnitIds, ToScreen, RawToPixels))
+		bool isSelected = _selectionController.IsUnitSelected(primitive.EntityId);
+		if (_spriteRenderer.TryDrawUnit(this, primitive, _frame, _selectionController.SelectedUnitIds, ToScreen, RawToPixels))
 		{
 			if (isSelected)
 			{
@@ -717,9 +629,9 @@ public partial class RtsClientRoot : Node2D
 
 	private void DrawBuilding(GodotPrimitiveDto primitive)
 	{
-		bool isSelected = _selectedBuildingId == primitive.EntityId;
+		bool isSelected = _selectionController.SelectedBuildingId == primitive.EntityId;
 		bool isHovered = _hoveredBuildingId == primitive.EntityId;
-		if (_spriteRenderer.TryDrawBuilding(this, primitive, _frame, _selectedBuildingId, ToScreen, RawToPixels))
+		if (_spriteRenderer.TryDrawBuilding(this, primitive, _frame, _selectionController.SelectedBuildingId, ToScreen, RawToPixels))
 		{
 			if (isSelected)
 			{
@@ -815,8 +727,8 @@ public partial class RtsClientRoot : Node2D
 
 		string[] lines = GodotHudTextBuilder.BuildLines(
 			_frame,
-			GetSelectedUnitIdsSorted(),
-			_selectedBuildingId,
+			_selectionController.GetSelectedUnitIdsSorted(),
+			_selectionController.SelectedBuildingId,
 			_hoveredResourceNodeId,
 			_paused);
 
@@ -883,8 +795,8 @@ public partial class RtsClientRoot : Node2D
 
 	private void DrawDebugOverlay(Vector2 uiOrigin, Vector2 uiSize)
 	{
-		string[] statusLines = GodotSelectedStatusBuilder.BuildLines(_frame, _selectedUnitIds, _selectedBuildingId, _hoveredResourceNodeId);
-		string[] buildingLines = GodotBuildingDebugStatusBuilder.BuildLines(_frame, _selectedBuildingId);
+		string[] statusLines = GodotSelectedStatusBuilder.BuildLines(_frame, _selectionController.SelectedUnitIds, _selectionController.SelectedBuildingId, _hoveredResourceNodeId);
+		string[] buildingLines = GodotBuildingDebugStatusBuilder.BuildLines(_frame, _selectionController.SelectedBuildingId);
 		DrawSelectedStatusPanel(uiOrigin, uiSize, statusLines);
 		DrawBuildingStatusPanel(uiOrigin, buildingLines);
 
@@ -1023,17 +935,17 @@ public partial class RtsClientRoot : Node2D
 
 	private void DrawSelectionDragRectangle()
 	{
-		if (!_selectionDragActive)
+		if (!_selectionController.IsDragActive)
 		{
 			return;
 		}
 
 		Vector2 min = new Vector2(
-			Mathf.Min(_selectionDragStart.X, _selectionDragCurrent.X),
-			Mathf.Min(_selectionDragStart.Y, _selectionDragCurrent.Y));
+			Mathf.Min(_selectionController.DragStart.X, _selectionController.DragCurrent.X),
+			Mathf.Min(_selectionController.DragStart.Y, _selectionController.DragCurrent.Y));
 		Vector2 max = new Vector2(
-			Mathf.Max(_selectionDragStart.X, _selectionDragCurrent.X),
-			Mathf.Max(_selectionDragStart.Y, _selectionDragCurrent.Y));
+			Mathf.Max(_selectionController.DragStart.X, _selectionController.DragCurrent.X),
+			Mathf.Max(_selectionController.DragStart.Y, _selectionController.DragCurrent.Y));
 		Vector2 size = max - min;
 		var rect = new Rect2(min, size);
 		DrawRect(rect, new Color(0.25f, 0.8f, 1.0f, 0.12f), true);
