@@ -176,7 +176,7 @@ public partial class RtsClientRoot : Node2D
 
 		if (_tcPlacementState.IsActive)
 		{
-			DrawTcPlacementGhost();
+			RtsTownCenterPlacementRenderer.DrawGhost(this, _tcPlacementState, TilePixels, TileToRaw, ToScreen);
 		}
 
 		_selectionController.DrawDragRectangle(this);
@@ -829,14 +829,4 @@ public partial class RtsClientRoot : Node2D
 				LocalPlayerIndex));
 	}
 
-	private void DrawTcPlacementGhost()
-	{
-		if (_frame == null)
-		{
-			return;
-		}
-
-		Vector2 center = ToScreen(TileToRaw(_tcPlacementState.HoveredTile.X), TileToRaw(_tcPlacementState.HoveredTile.Y));
-		RtsTownCenterPlacementGhostRenderer.Draw(this, center, TilePixels, _tcPlacementState.PreviewResult);
-	}
 }
