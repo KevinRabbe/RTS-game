@@ -446,20 +446,19 @@ public partial class RtsClientRoot : Node2D
 
 	private void TrainFromSelectedBuilding(int unitTypeId)
 	{
-		if (_selectionController.SelectedBuildingId == 0)
-		{
-			_debugEventLog.Add("train blocked reason=building not selected unit=" + GodotBuildingDebugStatusBuilder.ResolveUnitTypeLabel(unitTypeId));
-			return;
-		}
-
 		if (_frame == null)
 		{
 			return;
 		}
 
-		GodotTrainActionState state = GodotTrainActionEvaluator.Evaluate(_frame, _selectionController.SelectedBuildingId, unitTypeId);
-		if (state != GodotTrainActionState.Ready)
+		if (!RtsBuildingActionGuard.CanTrainFromSelectedBuilding(_frame, _selectionController.SelectedBuildingId, unitTypeId, out GodotTrainActionState state))
 		{
+			if (_selectionController.SelectedBuildingId == 0)
+			{
+				_debugEventLog.Add("train blocked reason=building not selected unit=" + GodotBuildingDebugStatusBuilder.ResolveUnitTypeLabel(unitTypeId));
+				return;
+			}
+
 			_debugEventLog.Add(
 				"train blocked reason=" + GodotBuildingDebugStatusBuilder.ResolveTrainBlockedReason(state)
 				+ " building=" + _selectionController.SelectedBuildingId
@@ -475,19 +474,18 @@ public partial class RtsClientRoot : Node2D
 
 	private void ResearchFromSelectedBuilding(int techId)
 	{
-		if (_selectionController.SelectedBuildingId == 0)
-		{
-			return;
-		}
-
 		if (_frame == null)
 		{
 			return;
 		}
 
-		GodotResearchActionState state = GodotResearchActionEvaluator.EvaluateInfantryAttack1(_frame, _selectionController.SelectedBuildingId);
-		if (state != GodotResearchActionState.Ready)
+		if (!RtsBuildingActionGuard.CanResearchInfantryAttackFromSelectedBuilding(_frame, _selectionController.SelectedBuildingId, out GodotResearchActionState state))
 		{
+			if (_selectionController.SelectedBuildingId == 0)
+			{
+				return;
+			}
+
 			_debugEventLog.Add("research blocked state=" + state + " building=" + _selectionController.SelectedBuildingId + " tech=" + techId);
 			RefreshFrame();
 			return;
