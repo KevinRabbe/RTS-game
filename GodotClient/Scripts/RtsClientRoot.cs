@@ -897,9 +897,7 @@ public partial class RtsClientRoot : Node2D
 
 	private void DrawBuildingFootprintOutline(GodotPrimitiveDto primitive, Color color)
 	{
-		Rect2 rect = PrimitiveRect(primitive).Grow(2.0f);
-		DrawRect(rect, Colors.Black, false, 3.0f);
-		DrawRect(rect, color, false, 2.0f);
+		RtsBuildingFootprintOutlineRenderer.Draw(this, PrimitiveRect(primitive), color);
 	}
 
 	private Vector2 GetUiOrigin()
