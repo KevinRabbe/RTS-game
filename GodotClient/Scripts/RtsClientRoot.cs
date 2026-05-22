@@ -592,7 +592,7 @@ public partial class RtsClientRoot : Node2D
 
 		if (_screenshotMode)
 		{
-			DrawMinimalHud(uiOrigin);
+			RtsHudTopBarRenderer.DrawMinimal(this, uiOrigin, _frame, _spriteRenderer);
 			return;
 		}
 
@@ -603,37 +603,7 @@ public partial class RtsClientRoot : Node2D
 			_hoveredResourceNodeId,
 			_paused);
 
-		float hudHeight = 64.0f;
-		if (_spriteRenderer.LoadedAssetCount < _spriteRenderer.ExpectedAssetCount)
-		{
-			hudHeight = 82.0f;
-		}
-
-		DrawRect(new Rect2(uiOrigin, new Vector2(1120.0f, hudHeight)), new Color(0.0f, 0.0f, 0.0f, 0.50f));
-		for (int i = 0; i < lines.Length; i++)
-		{
-			DrawString(ThemeDB.FallbackFont, uiOrigin + new Vector2(12.0f, 20.0f + i * 18.0f), lines[i], HorizontalAlignment.Left, -1.0f, 16, Colors.White);
-		}
-
-		DrawString(
-			ThemeDB.FallbackFont,
-			uiOrigin + new Vector2(12.0f, 56.0f),
-			"Render " + _spriteRenderer.RenderModeLabel + " (F9)  Assets " + _spriteRenderer.LoadedAssetCount + "/" + _spriteRenderer.ExpectedAssetCount,
-			HorizontalAlignment.Left,
-			-1.0f,
-			16,
-			Colors.White);
-		if (_spriteRenderer.LoadedAssetCount < _spriteRenderer.ExpectedAssetCount)
-		{
-			DrawString(
-				ThemeDB.FallbackFont,
-				uiOrigin + new Vector2(12.0f, 74.0f),
-				"Missing: " + _spriteRenderer.MissingAssetsLabel,
-				HorizontalAlignment.Left,
-				-1.0f,
-				14,
-				Colors.LightGray);
-		}
+		RtsHudTopBarRenderer.DrawMain(this, uiOrigin, lines, _spriteRenderer);
 
 		_commandMarker.Draw(this);
 
@@ -648,21 +618,6 @@ public partial class RtsClientRoot : Node2D
 			GodotHotkeyHelpEntry[] entries = GodotHotkeyHelpBuilder.Build(researchIsWired: true);
 			RtsHotkeyHelpPanelRenderer.Draw(this, uiOrigin, uiSize, entries);
 		}
-	}
-
-	private void DrawMinimalHud(Vector2 uiOrigin)
-	{
-		GodotLocalPlayerDto player = _frame!.LocalPlayer;
-		string line = "Tick " + _frame.Tick
-			+ "  Map " + _frame.MapName
-			+ "  Food " + player.Food
-			+ "  Wood " + player.Wood
-			+ "  Gold " + player.Gold
-			+ "  Pop " + player.PopulationUsed + "/" + player.PopulationCap
-			+ "  " + _spriteRenderer.RenderModeLabel;
-
-		DrawRect(new Rect2(uiOrigin, new Vector2(1120.0f, 32.0f)), new Color(0.0f, 0.0f, 0.0f, 0.50f));
-		DrawString(ThemeDB.FallbackFont, uiOrigin + new Vector2(12.0f, 22.0f), line, HorizontalAlignment.Left, -1.0f, 16, Colors.White);
 	}
 
 	private void DrawDebugOverlay(Vector2 uiOrigin, Vector2 uiSize)
