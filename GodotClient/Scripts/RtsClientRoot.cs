@@ -1092,7 +1092,10 @@ public partial class RtsClientRoot : Node2D
 	{
 		GodotFrameDto? previous = _frame;
 		_frame = _facade!.GetFrame(LocalPlayerIndex);
-		LogDepositEvents(previous, _frame);
+		if (RtsDepositEventTracker.TryBuildDepositEvent(previous, _frame, out string depositEvent))
+		{
+			_debugEventLog.Add(depositEvent);
+		}
 		_hoveredResourceNodeId = FindResourceAt(GetGlobalMousePosition());
 		_hoveredBuildingId = FindHoveredBuildingAt(GetGlobalMousePosition());
 		QueueRedraw();
@@ -1167,54 +1170,6 @@ public partial class RtsClientRoot : Node2D
 			if (frame.BuildingStatuses[i].BuildingId == buildingId)
 			{
 				return frame.BuildingStatuses[i];
-			}
-		}
-
-		return null;
-	}
-
-	private void LogDepositEvents(GodotFrameDto? previous, GodotFrameDto current)
-	{
-		if (previous == null)
-		{
-			return;
-		}
-
-		int foodDelta = current.LocalPlayer.Food - previous.LocalPlayer.Food;
-		int woodDelta = current.LocalPlayer.Wood - previous.LocalPlayer.Wood;
-		int goldDelta = current.LocalPlayer.Gold - previous.LocalPlayer.Gold;
-		if (foodDelta <= 0 && woodDelta <= 0 && goldDelta <= 0)
-		{
-			return;
-		}
-
-		for (int i = 0; i < previous.UnitStatuses.Length; i++)
-		{
-			GodotUnitStatusDto before = previous.UnitStatuses[i];
-			if (before.CarriedAmount <= 0)
-			{
-				continue;
-			}
-
-			GodotUnitStatusDto? after = FindUnitStatus(current, before.UnitId);
-			if (after == null || after.CarriedAmount > 0)
-			{
-				continue;
-			}
-
-			string resource = before.CarriedResourceTypeId == 1 ? "food" : before.CarriedResourceTypeId == 2 ? "wood" : before.CarriedResourceTypeId == 3 ? "gold" : "resource";
-			_debugEventLog.Add("unit " + before.UnitId + " deposited " + before.CarriedAmount + " " + resource);
-			return;
-		}
-	}
-
-	private static GodotUnitStatusDto? FindUnitStatus(GodotFrameDto frame, int unitId)
-	{
-		for (int i = 0; i < frame.UnitStatuses.Length; i++)
-		{
-			if (frame.UnitStatuses[i].UnitId == unitId)
-			{
-				return frame.UnitStatuses[i];
 			}
 		}
 
