@@ -1210,17 +1210,12 @@ public partial class RtsClientRoot : Node2D
 
 	private void LogTcPreviewCommandMismatch(Vector2I tile, TcPlacementPreviewResult previewResult, GodotFrameDto frameBefore)
 	{
-		GodotLocalPlayerDto player = frameBefore.LocalPlayer;
 		_debugEventLog.Add(
-			"Preview/command mismatch tile=(" + tile.X + "," + tile.Y + ")"
-			+ " preview=" + previewResult
-			+ " command=PlaceTownCenter"
-			+ " player=" + LocalPlayerIndex
-			+ " wood=" + player.Wood
-			+ " hasCapitalPlaced=" + player.HasCapitalBeenPlaced
-			+ " connected=" + player.IsConnected
-			+ " defeated=" + player.IsDefeated
-			+ " resigned=" + player.IsResigned);
+			RtsTownCenterPlacementDiagnostics.BuildPreviewCommandMismatchMessage(
+				tile,
+				previewResult,
+				frameBefore.LocalPlayer,
+				LocalPlayerIndex));
 	}
 
 	private void DrawTcPlacementGhost()
