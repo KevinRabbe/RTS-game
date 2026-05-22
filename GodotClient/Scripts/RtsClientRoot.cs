@@ -9,9 +9,6 @@ public partial class RtsClientRoot : Node2D
 	private const float TilePixels = 16.0f;
 	private const double TickSeconds = 1.0 / 20.0;
 	private const ulong DefaultMatchSeed = 12345UL;
-	private const float CameraPanPixelsPerSecond = 420.0f;
-	private const float EdgePanMarginPx = 32.0f;
-	private const float EdgePanSpeedPixelsPerSecond = 380.0f;
 	private const int VillagerUnitTypeId = 1;
 	private const int InfantryUnitTypeId = 3;
 	private const int TradeCartUnitTypeId = 5;
@@ -24,6 +21,7 @@ public partial class RtsClientRoot : Node2D
 	private readonly List<int> _selectedUnitIds = new List<int>();
 	private readonly GodotDebugEventLog _debugEventLog = new GodotDebugEventLog(10);
 	private Camera2D? _camera;
+	private readonly RtsCameraController _cameraController = new RtsCameraController();
 	private GodotClientFacade? _facade;
 	private GodotFrameDto? _frame;
 	private readonly Phase6SpriteRenderer _spriteRenderer = new Phase6SpriteRenderer();
@@ -46,11 +44,6 @@ public partial class RtsClientRoot : Node2D
 	private Vector2I _tcHoveredTile;
 	private TcPlacementPreviewResult _tcPreviewResult = TcPlacementPreviewResult.Unknown;
 
-	// Middle-mouse drag pan
-	private bool _middleMouseDragActive;
-	private Vector2 _middleMouseDragStartScreen = Vector2.Zero;
-	private Vector2 _middleMouseDragStartCamera = Vector2.Zero;
-
 	// Left-mouse drag selection in world/sim pixel coordinates.
 	private bool _selectionDragActive;
 	private Vector2 _selectionDragStart = Vector2.Zero;
@@ -68,12 +61,13 @@ public partial class RtsClientRoot : Node2D
 
 	public override void _Process(double delta)
 	{
-		if (_facade == null)
+		GodotClientFacade? facade = _facade;
+		if (facade == null)
 		{
 			return;
 		}
 
-		UpdateCamera(delta);
+		_cameraController.UpdateEdgeAndKeyPan(_camera, GetViewport(), delta);
 		RefreshHoveredTargetsFromMouse();
 		if (_commandMarkerTicksRemaining > 0)
 		{
@@ -92,16 +86,13 @@ public partial class RtsClientRoot : Node2D
 			}
 		}
 
-		// Middle-mouse drag camera pan.
-		if (_middleMouseDragActive && _camera != null)
+		if (_cameraController.IsMiddleDragActive)
 		{
-			Vector2 currentScreen = GetViewport().GetMousePosition();
-			Vector2 panDelta = currentScreen - _middleMouseDragStartScreen;
-			_camera.Position = _middleMouseDragStartCamera - panDelta;
+			_cameraController.ApplyMiddleDrag(_camera, GetViewport().GetMousePosition());
 			QueueRedraw();
 		}
 
-		ClampCameraToBounds();
+		_cameraController.ClampToMapBounds(_camera, GetViewportRect(), facade.MapWidthTiles, facade.MapHeightTiles, TilePixels);
 
 		if (_paused)
 		{
@@ -112,7 +103,7 @@ public partial class RtsClientRoot : Node2D
 		_tickAccumulator += delta;
 		while (_tickAccumulator >= TickSeconds)
 		{
-			_facade.AdvanceOneTick();
+			facade.AdvanceOneTick();
 			_tickAccumulator -= TickSeconds;
 		}
 
@@ -139,13 +130,11 @@ public partial class RtsClientRoot : Node2D
 			{
 				if (mouse.Pressed)
 				{
-					_middleMouseDragActive = true;
-					_middleMouseDragStartScreen = GetViewport().GetMousePosition();
-					_middleMouseDragStartCamera = _camera?.Position ?? Vector2.Zero;
+					_cameraController.BeginMiddleDrag(_camera, GetViewport().GetMousePosition());
 				}
 				else
 				{
-					_middleMouseDragActive = false;
+					_cameraController.EndMiddleDrag();
 				}
 				return;
 			}
@@ -368,7 +357,7 @@ public partial class RtsClientRoot : Node2D
 		_hoveredResourceNodeId = 0;
 		_tcPlacementMode = false;
 		_tcPreviewResult = TcPlacementPreviewResult.Unknown;
-		_middleMouseDragActive = false;
+		_cameraController.EndMiddleDrag();
 		_selectionDragActive = false;
 		_tickAccumulator = 0.0;
 		_paused = false;
@@ -471,125 +460,6 @@ public partial class RtsClientRoot : Node2D
 					f => f.QueueMoveUnits(LocalPlayerIndex, selectedUnitIds, tile.X, tile.Y));
 			}
 		}
-	}
-
-	private void ClampCameraToBounds()
-	{
-		if (_camera == null || _facade == null)
-		{
-			return;
-		}
-
-		// Use map dimensions as base playable area
-		float mapWidthPx = _facade.MapWidthTiles * TilePixels;
-		float mapHeightPx = _facade.MapHeightTiles * TilePixels;
-
-		// Account for viewport size so the edges of the view stay within map bounds
-		Rect2 viewportRect = GetViewportRect();
-		Vector2 zoom = _camera.Zoom;
-		float zoomX = Mathf.IsZeroApprox(zoom.X) ? 1.0f : zoom.X;
-		float zoomY = Mathf.IsZeroApprox(zoom.Y) ? 1.0f : zoom.Y;
-
-		// Visible world width/height = viewport pixels / zoom
-		float viewWidth = viewportRect.Size.X / zoomX;
-		float viewHeight = viewportRect.Size.Y / zoomY;
-
-		float halfViewWidth = viewWidth * 0.5f;
-		float halfViewHeight = viewHeight * 0.5f;
-
-		float minX, maxX, minY, maxY;
-
-		if (viewWidth < mapWidthPx)
-		{
-			minX = halfViewWidth;
-			maxX = mapWidthPx - halfViewWidth;
-		}
-		else
-		{
-			// Map is smaller than viewport, center it
-			minX = maxX = mapWidthPx * 0.5f;
-		}
-
-		if (viewHeight < mapHeightPx)
-		{
-			minY = halfViewHeight;
-			maxY = mapHeightPx - halfViewHeight;
-		}
-		else
-		{
-			// Map is smaller than viewport, center it
-			minY = maxY = mapHeightPx * 0.5f;
-		}
-
-		float clampedX = Mathf.Clamp(_camera.Position.X, minX, maxX);
-		float clampedY = Mathf.Clamp(_camera.Position.Y, minY, maxY);
-
-		_camera.Position = new Vector2(clampedX, clampedY);
-	}
-
-	private void UpdateCamera(double delta)
-	{
-		if (_camera == null)
-		{
-			return;
-		}
-
-		// Skip edge pan while middle-mouse drag is active (drag handles camera directly).
-		if (_middleMouseDragActive)
-		{
-			return;
-		}
-
-		Vector2 direction = Vector2.Zero;
-
-		// Arrow-key pan (preserved).
-		if (Input.IsKeyPressed(Key.Left))
-		{
-			direction.X -= 1.0f;
-		}
-
-		if (Input.IsKeyPressed(Key.Right))
-		{
-			direction.X += 1.0f;
-		}
-
-		if (Input.IsKeyPressed(Key.Up))
-		{
-			direction.Y -= 1.0f;
-		}
-
-		if (Input.IsKeyPressed(Key.Down))
-		{
-			direction.Y += 1.0f;
-		}
-
-		// Mouse edge pan.
-		Vector2 mousePos = GetViewport().GetMousePosition();
-		Rect2 viewport = GetViewportRect();
-		if (mousePos.X <= EdgePanMarginPx)
-		{
-			direction.X -= 1.0f;
-		}
-		else if (mousePos.X >= viewport.Size.X - EdgePanMarginPx)
-		{
-			direction.X += 1.0f;
-		}
-
-		if (mousePos.Y <= EdgePanMarginPx)
-		{
-			direction.Y -= 1.0f;
-		}
-		else if (mousePos.Y >= viewport.Size.Y - EdgePanMarginPx)
-		{
-			direction.Y += 1.0f;
-		}
-
-		if (direction == Vector2.Zero)
-		{
-			return;
-		}
-
-		_camera.Position += direction.Normalized() * EdgePanSpeedPixelsPerSecond * (float)delta;
 	}
 
 	private void TrainFromSelectedBuilding(int unitTypeId)

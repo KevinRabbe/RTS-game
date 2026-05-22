@@ -1,26 +1,45 @@
 using Godot;
 
-public sealed class RtsCameraController
+internal sealed class RtsCameraController
 {
-	private const float CameraPanPixelsPerSecond = 420.0f;
+	private const float EdgePanMarginPx = 32.0f;
+	private const float EdgePanSpeedPixelsPerSecond = 380.0f;
 
-	private Camera2D? _camera;
+	private bool _middleDragActive;
+	private Vector2 _middleDragStartScreen = Vector2.Zero;
+	private Vector2 _middleDragStartCamera = Vector2.Zero;
 
-	public Camera2D? Camera
+	public bool IsMiddleDragActive
 	{
-		get { return _camera; }
+		get { return _middleDragActive; }
 	}
 
-	public void Initialize(Node owner)
+	public void BeginMiddleDrag(Camera2D? camera, Vector2 pointerScreen)
 	{
-		_camera = new Camera2D();
-		owner.AddChild(_camera);
-		_camera.MakeCurrent();
+		_middleDragActive = true;
+		_middleDragStartScreen = pointerScreen;
+		_middleDragStartCamera = camera?.Position ?? Vector2.Zero;
 	}
 
-	public void Update(double delta)
+	public void EndMiddleDrag()
 	{
-		if (_camera == null)
+		_middleDragActive = false;
+	}
+
+	public void ApplyMiddleDrag(Camera2D? camera, Vector2 pointerScreen)
+	{
+		if (!_middleDragActive || camera == null)
+		{
+			return;
+		}
+
+		Vector2 panDelta = pointerScreen - _middleDragStartScreen;
+		camera.Position = _middleDragStartCamera - panDelta;
+	}
+
+	public void UpdateEdgeAndKeyPan(Camera2D? camera, Viewport viewport, double delta)
+	{
+		if (camera == null || _middleDragActive)
 		{
 			return;
 		}
@@ -46,39 +65,77 @@ public sealed class RtsCameraController
 			direction.Y += 1.0f;
 		}
 
+		Vector2 mousePos = viewport.GetMousePosition();
+		Rect2 viewportRect = viewport.GetVisibleRect();
+		if (mousePos.X <= EdgePanMarginPx)
+		{
+			direction.X -= 1.0f;
+		}
+		else if (mousePos.X >= viewportRect.Size.X - EdgePanMarginPx)
+		{
+			direction.X += 1.0f;
+		}
+
+		if (mousePos.Y <= EdgePanMarginPx)
+		{
+			direction.Y -= 1.0f;
+		}
+		else if (mousePos.Y >= viewportRect.Size.Y - EdgePanMarginPx)
+		{
+			direction.Y += 1.0f;
+		}
+
 		if (direction == Vector2.Zero)
 		{
 			return;
 		}
 
-		_camera.Position += direction.Normalized() * CameraPanPixelsPerSecond * (float)delta;
+		camera.Position += direction.Normalized() * EdgePanSpeedPixelsPerSecond * (float)delta;
 	}
 
-	public Vector2 GetUiOrigin(Rect2 viewportRect)
+	public void ClampToMapBounds(Camera2D? camera, Rect2 viewportRect, int mapWidthTiles, int mapHeightTiles, float tilePixels)
 	{
-		if (_camera == null)
+		if (camera == null)
 		{
-			return Vector2.Zero;
+			return;
 		}
 
-		Vector2 zoom = _camera.Zoom;
+		float mapWidthPx = mapWidthTiles * tilePixels;
+		float mapHeightPx = mapHeightTiles * tilePixels;
+		Vector2 zoom = camera.Zoom;
 		float zoomX = Mathf.IsZeroApprox(zoom.X) ? 1.0f : zoom.X;
 		float zoomY = Mathf.IsZeroApprox(zoom.Y) ? 1.0f : zoom.Y;
-		float halfWidth = viewportRect.Size.X * 0.5f * zoomX;
-		float halfHeight = viewportRect.Size.Y * 0.5f * zoomY;
-		return new Vector2(_camera.Position.X - halfWidth + 12.0f, _camera.Position.Y - halfHeight + 12.0f);
-	}
+		float viewWidth = viewportRect.Size.X / zoomX;
+		float viewHeight = viewportRect.Size.Y / zoomY;
+		float halfViewWidth = viewWidth * 0.5f;
+		float halfViewHeight = viewHeight * 0.5f;
 
-	public Vector2 GetUiSize(Rect2 viewportRect)
-	{
-		if (_camera == null)
+		float minX;
+		float maxX;
+		float minY;
+		float maxY;
+		if (viewWidth < mapWidthPx)
 		{
-			return viewportRect.Size;
+			minX = halfViewWidth;
+			maxX = mapWidthPx - halfViewWidth;
+		}
+		else
+		{
+			minX = maxX = mapWidthPx * 0.5f;
 		}
 
-		Vector2 zoom = _camera.Zoom;
-		float zoomX = Mathf.IsZeroApprox(zoom.X) ? 1.0f : zoom.X;
-		float zoomY = Mathf.IsZeroApprox(zoom.Y) ? 1.0f : zoom.Y;
-		return new Vector2(viewportRect.Size.X * zoomX, viewportRect.Size.Y * zoomY);
+		if (viewHeight < mapHeightPx)
+		{
+			minY = halfViewHeight;
+			maxY = mapHeightPx - halfViewHeight;
+		}
+		else
+		{
+			minY = maxY = mapHeightPx * 0.5f;
+		}
+
+		float clampedX = Mathf.Clamp(camera.Position.X, minX, maxX);
+		float clampedY = Mathf.Clamp(camera.Position.Y, minY, maxY);
+		camera.Position = new Vector2(clampedX, clampedY);
 	}
 }
