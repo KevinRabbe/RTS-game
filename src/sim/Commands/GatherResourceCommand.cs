@@ -60,6 +60,7 @@ namespace RtsGame.Sim.Commands
             }
 
             var seen = new HashSet<int>();
+            bool hasEligibleUnit = false;
             for (int i = 0; i < UnitIds.Count; i++)
             {
                 int unitId = UnitIds[i];
@@ -75,11 +76,15 @@ namespace RtsGame.Sim.Commands
 
                 if (unit.CarriedResourceType != ResourceType.None && unit.CarriedResourceType != node.ResourceType)
                 {
-                    return CommandValidationReason.UnitCannotPerformAction;
+                    continue;
                 }
+
+                hasEligibleUnit = true;
             }
 
-            return CommandValidationReason.Accepted;
+            return hasEligibleUnit
+                ? CommandValidationReason.Accepted
+                : CommandValidationReason.UnitCannotPerformAction;
         }
 
         public void Execute(GameState state, GameRules rules, CommandHeader header)
@@ -91,6 +96,11 @@ namespace RtsGame.Sim.Commands
             for (int i = 0; i < sortedUnitIds.Count; i++)
             {
                 Unit unit = GetUnit(state, sortedUnitIds[i]);
+                if (unit.CarriedResourceType != ResourceType.None && unit.CarriedResourceType != clickedNode.ResourceType)
+                {
+                    continue;
+                }
+
                 ClearBuildAssignment(state, unit);
                 SpatialRules.ClearInteractionReservation(state, unit);
                 unit.CurrentResourceAreaId = clickedNode.ResourceAreaId;

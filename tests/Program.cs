@@ -76,6 +76,7 @@ namespace RtsGame.Tests
                 new TestCase("gather waits for completed town center", GatherWaitsForCompletedTownCenter),
                 new TestCase("villagers gather and deposit food", VillagersGatherAndDepositFood),
                 new TestCase("gather rejects carried different resource", GatherRejectsCarriedDifferentResource),
+                new TestCase("gather accepts mixed selection with incompatible carry", GatherAcceptsMixedSelectionWithIncompatibleCarry),
                 new TestCase("gather reject reason for depleted resource is target complete", GatherRejectReasonForDepletedResourceIsTargetComplete),
                 new TestCase("depleted resource clears gather assignment", DepletedResourceClearsGatherAssignment),
                 new TestCase("tree depletion reduces amount and unblocks footprint", TreeDepletionReducesAmountAndUnblocksFootprint),
@@ -1399,6 +1400,22 @@ namespace RtsGame.Tests
 
             AssertEqual(0, state.EntityState.Units[0].CurrentResourceNodeId, "villager should not accept incompatible gather order");
             AssertEqual(1, state.DebugCounters.RejectedCommandCount, "incompatible gather order should count as rejected");
+        }
+
+        private static void GatherAcceptsMixedSelectionWithIncompatibleCarry()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(1);
+            var state = GameInitializer.CreateNomadStart(201, 1);
+            int woodNodeId = FindFirstResourceNodeIdByType(state, ResourceType.Wood);
+            state.EntityState.Units[0].CarriedResourceType = ResourceType.Gold;
+            state.EntityState.Units[0].CarriedAmount = 2;
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 0, CommandType.GatherResource), new GatherResourceCommand(woodNodeId, new[] { 1, 2 })));
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(0, state.DebugCounters.RejectedCommandCount, "mixed gather selection should accept when at least one villager is eligible");
+            AssertEqual(0, state.EntityState.Units[0].CurrentResourceNodeId, "incompatible carrier should keep current assignment");
+            AssertEqual(woodNodeId, state.EntityState.Units[1].CurrentResourceNodeId, "eligible villager should receive wood gather assignment");
         }
 
         private static void GatherRejectReasonForDepletedResourceIsTargetComplete()
