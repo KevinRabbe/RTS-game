@@ -700,46 +700,20 @@ public partial class RtsClientRoot : Node2D
 
 	private void ConfirmTcPlacement(Vector2I tile)
 	{
-		if (_facade == null || _frame == null)
-		{
-			return;
-		}
-
-		_tcPlacementState.Cancel();
-		GodotFrameDto frameBefore = _frame;
-		TcPlacementPreviewResult previewBefore = _tcPlacementState.PreviewResult;
-
-		if (_tcPlacementState.PreviewResult != TcPlacementPreviewResult.Valid)
-		{
-			_debugEventLog.Add("TC placement rejected by preview: " + _tcPlacementState.PreviewResult);
-			QueueRedraw();
-			return;
-		}
-
-		_commandMarker.Set("TC", ToScreen(TileToRaw(tile.X), TileToRaw(tile.Y)), Colors.LightBlue);
-		int beforeExecuted = frameBefore.Match.ExecutedCommandCount;
-		int beforeRejected = frameBefore.Match.RejectedCommandCount;
-		QueueCommandAndConfirm(
-			"place town center p=" + LocalPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ")",
-			facade => facade.QueuePlaceTownCenter(LocalPlayerIndex, tile.X, tile.Y));
-
-		int afterExecuted = _frame?.Match.ExecutedCommandCount ?? _facade.ExecutedCommandCount;
-		int afterRejected = _frame?.Match.RejectedCommandCount ?? _facade.RejectedCommandCount;
-		GodotCommandResultKind result = GodotCommandResultClassifier.Classify(beforeExecuted, beforeRejected, afterExecuted, afterRejected);
-		if (previewBefore == TcPlacementPreviewResult.Valid && result == GodotCommandResultKind.Rejected)
-		{
-			LogTcPreviewCommandMismatch(tile, previewBefore, frameBefore);
-		}
-	}
-
-	private void LogTcPreviewCommandMismatch(Vector2I tile, TcPlacementPreviewResult previewResult, GodotFrameDto frameBefore)
-	{
-		_debugEventLog.Add(
-			RtsTownCenterPlacementDiagnostics.BuildPreviewCommandMismatchMessage(
-				tile,
-				previewResult,
-				frameBefore.LocalPlayer,
-				LocalPlayerIndex));
+		RtsTownCenterPlacementActionService.ConfirmPlacement(
+			_facade,
+			_frame,
+			_tcPlacementState,
+			LocalPlayerIndex,
+			tile,
+			TileToRaw,
+			ToScreen,
+			_debugEventLog.Add,
+			QueueRedraw,
+			QueueCommandAndConfirm,
+			_commandMarker,
+			() => _frame?.Match.ExecutedCommandCount ?? _facade?.ExecutedCommandCount ?? 0,
+			() => _frame?.Match.RejectedCommandCount ?? _facade?.RejectedCommandCount ?? 0);
 	}
 
 }
