@@ -12,6 +12,11 @@ namespace RtsGame.Sim.Core
         public void Reserve(GameState state, Unit unit, InteractionReservationKind kind, int targetId, SpatialRules.TileCoord tile)
         {
             bool hadReservation = unit.ReservedInteractionKind != InteractionReservationKind.None;
+            bool reservationChanged = !hadReservation
+                || unit.ReservedInteractionKind != kind
+                || unit.ReservedInteractionTargetId != targetId
+                || unit.ReservedInteractionTileX != tile.X
+                || unit.ReservedInteractionTileY != tile.Y;
             int previousTileKey = SpatialRules.EncodeTileKey(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
             unit.ReservedInteractionKind = kind;
             unit.ReservedInteractionTargetId = targetId;
@@ -20,6 +25,10 @@ namespace RtsGame.Sim.Core
             unit.LastReservationRetargetTick = state.Tick;
             unit.LastReservationFailureReason = ReservationAttemptFailureReason.None;
             unit.LastReservationFailureTick = -1;
+            if (reservationChanged)
+            {
+                IncrementReservationChurnWindow(state, unit);
+            }
             int nextTileKey = SpatialRules.EncodeTileKey(tile.X, tile.Y);
             state.SpatialTileIndex.ApplyReservationChange(previousTileKey, hadReservation, nextTileKey, true);
         }
@@ -122,6 +131,18 @@ namespace RtsGame.Sim.Core
         {
             unit.LastReservationFailureReason = reason;
             unit.LastReservationFailureTick = tick;
+        }
+
+        private static void IncrementReservationChurnWindow(GameState state, Unit unit)
+        {
+            if (unit.ReservationChurnWindowStartTick < 0
+                || state.Tick - unit.ReservationChurnWindowStartTick > GameData.GatherReservationChurnWindowTicks)
+            {
+                unit.ReservationChurnWindowStartTick = state.Tick;
+                unit.ReservationChurnCountWindow = 0;
+            }
+
+            unit.ReservationChurnCountWindow++;
         }
 
         private IReadOnlyList<SpatialRules.TileCoord> BuildScopedCandidates(

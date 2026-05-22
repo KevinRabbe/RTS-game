@@ -83,6 +83,7 @@ namespace RtsGame.Sim.Commands
                 SpatialRules.ClearInteractionReservation(state, unit);
                 unit.CurrentResourceAreaId = 0;
                 unit.CurrentResourceNodeId = 0;
+                unit.AssignedResourceNodeId = 0;
                 unit.TaskPhase = WorkerTaskPhase.Idle;
                 unit.HasMoveTarget = false;
                 unit.AttackTargetId = TargetEntityId;

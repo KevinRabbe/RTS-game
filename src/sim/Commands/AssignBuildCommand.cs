@@ -134,6 +134,7 @@ namespace RtsGame.Sim.Commands
 
                 unit.CurrentResourceAreaId = 0;
                 unit.CurrentResourceNodeId = 0;
+                unit.AssignedResourceNodeId = 0;
                 unit.AttackTargetId = 0;
                 unit.IsSiegeDeployed = false;
                 unit.SiegeSetupTicksRemaining = 0;

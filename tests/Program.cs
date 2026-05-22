@@ -244,7 +244,10 @@ namespace RtsGame.Tests
                 new TestCase("simulation source routes reservation writes through traffic service", SimulationSourceRoutesReservationWritesThroughTrafficService),
                 new TestCase("deterministic reservation conflicts avoid unordered iteration", DeterministicReservationConflictsAvoidUnorderedIteration),
                 new TestCase("movement solver v2 villager flag defaults off", MovementSolverV2VillagerFlagDefaultsOff),
+                new TestCase("movement engine v2 flag defaults off", MovementEngineV2FlagDefaultsOff),
+                new TestCase("gather engine v2 flag defaults off", GatherEngineV2FlagDefaultsOff),
                 new TestCase("movement checksum includes v2 unit state", MovementChecksumIncludesV2UnitState),
+                new TestCase("rules checksum includes movement and gather v2 flags", RulesChecksumIncludesMovementAndGatherV2Flags),
                 new TestCase("movement solver v2 villager mode remains deterministic", MovementSolverV2VillagerModeRemainsDeterministic),
                 new TestCase("movement solver v2 updates corridor memory fields", MovementSolverV2UpdatesCorridorMemoryFields),
                 new TestCase("godot bridge does not reference godot api", GodotBridgeDoesNotReferenceGodotApi),
@@ -5048,6 +5051,18 @@ namespace RtsGame.Tests
             AssertFalse(GameData.EnableMovementSolverV2ForVillagers, "movement v2 should stay disabled by default during scaffold milestone");
         }
 
+        private static void MovementEngineV2FlagDefaultsOff()
+        {
+            GameRules rules = GameRules.CreatePhaseZeroDefaults(1);
+            AssertFalse(rules.EnableMovementEngineV2, "movement engine v2 should default off during staged rollout");
+        }
+
+        private static void GatherEngineV2FlagDefaultsOff()
+        {
+            GameRules rules = GameRules.CreatePhaseZeroDefaults(1);
+            AssertFalse(rules.EnableGatherEngineV2, "gather engine v2 should default off during staged rollout");
+        }
+
         private static void MovementChecksumIncludesV2UnitState()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(1);
@@ -5076,6 +5091,20 @@ namespace RtsGame.Tests
             ulong changed = StateChecksum.Compute(changedState, rules);
 
             AssertEqual(false, withState == changed, "movement v2 state must be checksum-covered");
+        }
+
+        private static void RulesChecksumIncludesMovementAndGatherV2Flags()
+        {
+            GameState state = GameInitializer.CreateNomadStart(2011, 1);
+            GameRules baseRules = GameRules.CreatePhaseZeroDefaults(1);
+            GameRules movementV2Rules = baseRules.WithMovementEngineV2(true);
+            GameRules gatherV2Rules = baseRules.WithGatherEngineV2(true);
+            ulong baseChecksum = StateChecksum.Compute(state, baseRules);
+            ulong movementChecksum = StateChecksum.Compute(state, movementV2Rules);
+            ulong gatherChecksum = StateChecksum.Compute(state, gatherV2Rules);
+
+            AssertEqual(false, baseChecksum == movementChecksum, "movement engine v2 flag must be checksum-covered");
+            AssertEqual(false, baseChecksum == gatherChecksum, "gather engine v2 flag must be checksum-covered");
         }
 
         private static void MovementSolverV2VillagerModeRemainsDeterministic()

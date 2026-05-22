@@ -10,8 +10,20 @@ namespace RtsGame.Sim.Systems
         private static readonly int[] AlternateOffsetX = new[] { 1, 0, -1, 0, 1, 1, -1, -1 };
         private static readonly int[] AlternateOffsetY = new[] { 0, 1, 0, -1, 1, -1, 1, -1 };
         private readonly MovementSolverV2 movementSolverV2 = new MovementSolverV2();
+        private readonly MovementEngineV2 movementEngineV2 = new MovementEngineV2();
 
         public void Run(GameState state, GameRules rules, TickCommandContext commandContext)
+        {
+            if (rules.EnableMovementEngineV2)
+            {
+                movementEngineV2.Run(state, rules, commandContext, () => RunLegacyPipeline(state, rules));
+                return;
+            }
+
+            RunLegacyPipeline(state, rules);
+        }
+
+        private void RunLegacyPipeline(GameState state, GameRules rules)
         {
             MovementContext context = MovementContext.Create(state);
             MovementPlan[] plans = BuildPlans(state, rules, context, movementSolverV2);
@@ -795,6 +807,7 @@ namespace RtsGame.Sim.Systems
             {
                 unit.MoveTarget = FixedVector2.FromInts(replacement.X, replacement.Y);
                 unit.LastMovedTick = state.Tick;
+                unit.LastMovementRetargetReason = MovementRetargetReason.NoProgressTimeout;
                 return;
             }
 
@@ -805,6 +818,7 @@ namespace RtsGame.Sim.Systems
                 EncodeTileKey(commandTargetX, commandTargetY),
                 excludedTile);
             unit.MoveTarget = FixedVector2.FromInts(excludedTile.X, excludedTile.Y);
+            unit.LastMovementRetargetReason = MovementRetargetReason.PathUnreachable;
         }
 
         private static WorkerTaskPhase GetPhaseAfterClearedMove(WorkerTaskPhase phase)

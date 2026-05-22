@@ -98,7 +98,9 @@ namespace RtsGame.Sim.Commands
                 unit.IsSiegeDeployed = false;
                 unit.SiegeSetupTicksRemaining = 0;
                 unit.SiegeReloadTicksRemaining = 0;
+                unit.LastGatherFallbackReason = GatherFallbackReason.ExplicitRetarget;
                 unit.CurrentResourceNodeId = clickedNode.Id;
+                unit.AssignedResourceNodeId = clickedNode.Id;
                 if (ResourceGatherTargeting.TryChooseResourceNodeAndReserveSlot(
                     state,
                     unit,

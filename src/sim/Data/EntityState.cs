@@ -28,18 +28,24 @@ namespace RtsGame.Sim.Data
         public int BlockedSinceTick { get; set; }
         public int LastMeaningfulProgressTick { get; set; }
         public int LastMovedTick { get; set; }
+        public int LastNoProgressTicksWindow { get; set; }
         public int HitPoints { get; set; }
         public int CurrentBuildTargetId { get; set; }
         public int CurrentResourceAreaId { get; set; }
         public int CurrentResourceNodeId { get; set; }
+        public int AssignedResourceNodeId { get; set; }
         public WorkerTaskPhase TaskPhase { get; set; }
         public InteractionReservationKind ReservedInteractionKind { get; set; }
         public int ReservedInteractionTargetId { get; set; }
         public int ReservedInteractionTileX { get; set; }
         public int ReservedInteractionTileY { get; set; }
         public int LastReservationRetargetTick { get; set; }
+        public int ReservationChurnCountWindow { get; set; }
+        public int ReservationChurnWindowStartTick { get; set; }
         public ReservationAttemptFailureReason LastReservationFailureReason { get; set; }
         public int LastReservationFailureTick { get; set; }
+        public GatherFallbackReason LastGatherFallbackReason { get; set; }
+        public MovementRetargetReason LastMovementRetargetReason { get; set; }
         public ResourceType CarriedResourceType { get; set; }
         public int CarriedAmount { get; set; }
         public int AttackTargetId { get; set; }
@@ -83,6 +89,25 @@ namespace RtsGame.Sim.Data
         NoCandidates = 1,
         SlotUnavailable = 2,
         NoReachablePath = 3
+    }
+
+    public enum GatherFallbackReason
+    {
+        None = 0,
+        ExplicitRetarget = 1,
+        NodeDepleted = 2,
+        NodeInvalid = 3,
+        StaleTimeout = 4,
+        Unreachable = 5
+    }
+
+    public enum MovementRetargetReason
+    {
+        None = 0,
+        NoProgressTimeout = 1,
+        SharedDestinationConflict = 2,
+        PathUnreachable = 3,
+        StaticBlocked = 4
     }
 
     public enum MovementBlockReason

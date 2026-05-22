@@ -7,7 +7,20 @@ namespace RtsGame.Sim.Systems
 {
     public sealed class ResourceGatherSystem : ISimSystem
     {
+        private readonly GatherEngineV2 gatherEngineV2 = new GatherEngineV2();
+
         public void Run(GameState state, GameRules rules, TickCommandContext commandContext)
+        {
+            if (rules.EnableGatherEngineV2)
+            {
+                gatherEngineV2.Run(state, rules, commandContext, () => RunLegacyPipeline(state, rules));
+                return;
+            }
+
+            RunLegacyPipeline(state, rules);
+        }
+
+        private void RunLegacyPipeline(GameState state, GameRules rules)
         {
             for (int i = 0; i < state.EntityState.Units.Count; i++)
             {
@@ -18,8 +31,21 @@ namespace RtsGame.Sim.Systems
                 }
 
                 ResourceNode? node = ResolveCurrentNode(state, unit);
+                if (rules.EnableGatherEngineV2
+                    && unit.AssignedResourceNodeId != 0
+                    && (node == null || node.Id != unit.AssignedResourceNodeId))
+                {
+                    ResourceNode? assignedNode = FindNode(state, unit.AssignedResourceNodeId);
+                    if (assignedNode != null && !assignedNode.IsDepleted)
+                    {
+                        unit.CurrentResourceAreaId = assignedNode.ResourceAreaId;
+                        unit.CurrentResourceNodeId = assignedNode.Id;
+                        node = assignedNode;
+                    }
+                }
                 if (node == null)
                 {
+                    unit.LastGatherFallbackReason = GatherFallbackReason.NodeInvalid;
                     ClearExhaustedGatherIntent(state, unit);
                     continue;
                 }
@@ -49,6 +75,7 @@ namespace RtsGame.Sim.Systems
                         SpatialRules.ClearInteractionReservation(state, unit, ReservationReleaseReason.Timeout);
                         unit.LastReservationFailureTick = state.Tick;
                         unit.LastReservationFailureReason = ReservationAttemptFailureReason.NoReachablePath;
+                        unit.LastGatherFallbackReason = GatherFallbackReason.Unreachable;
                         unit.TaskPhase = WorkerTaskPhase.BlockedWaiting;
                         unit.HasMoveTarget = false;
                         continue;
@@ -74,6 +101,7 @@ namespace RtsGame.Sim.Systems
                         && unit.ReservedInteractionKind == InteractionReservationKind.ResourceNode
                         && unit.ReservedInteractionTargetId == node.Id)
                     {
+                        unit.LastGatherFallbackReason = GatherFallbackReason.StaleTimeout;
                         bool hadRecentReservationFailure = unit.LastReservationFailureTick >= 0
                             && state.Tick - unit.LastReservationFailureTick <= GameData.ReservationRetargetCadenceTicks
                             && (unit.LastReservationFailureReason == ReservationAttemptFailureReason.SlotUnavailable
@@ -158,6 +186,7 @@ namespace RtsGame.Sim.Systems
                 node.RemainingAmount -= gathered;
                 if (node.IsDepleted)
                 {
+                    unit.LastGatherFallbackReason = GatherFallbackReason.NodeDepleted;
                     SpatialRules.ClearInteractionReservation(state, unit);
                     if (unit.CarriedAmount >= GameData.VillagerCarryCapacity)
                     {
@@ -234,6 +263,7 @@ namespace RtsGame.Sim.Systems
         {
             unit.CurrentResourceAreaId = 0;
             unit.CurrentResourceNodeId = 0;
+            unit.AssignedResourceNodeId = 0;
             unit.HasMoveTarget = false;
             SpatialRules.ClearInteractionReservation(state, unit);
             unit.TaskPhase = WorkerTaskPhase.Idle;
