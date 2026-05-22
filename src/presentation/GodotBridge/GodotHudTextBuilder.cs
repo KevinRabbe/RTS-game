@@ -16,6 +16,7 @@ namespace RtsGame.Presentation.GodotBridge
             string selected = selectedUnitIds.Length == 0 ? "none" : string.Join(",", selectedUnitIds);
             string selectedBuilding = selectedBuildingId == 0 ? "none" : selectedBuildingId.ToString();
             string hoveredResource = hoveredResourceNodeId == 0 ? "none" : hoveredResourceNodeId.ToString();
+            string selectedCount = selectedUnitIds.Length.ToString();
 
             string lineA = "Tick " + frame.Tick
                 + "  Map " + frame.MapName
@@ -29,6 +30,7 @@ namespace RtsGame.Presentation.GodotBridge
                 + GetLastCommandStatusText(frame.Match);
 
             string lineB = "Selected " + selected
+                + " (" + selectedCount + ")"
                 + GetSelectedUnitStatusText(frame, selectedUnitIds)
                 + "  Building " + selectedBuilding
                 + GetSelectedBuildingStatusText(frame, selectedBuildingId)
@@ -64,32 +66,36 @@ namespace RtsGame.Presentation.GodotBridge
                 return "";
             }
 
+            string prefix = "  U" + status.UnitId
+                + ":" + ResolveUnitTypeLabel(status.UnitTypeId)
+                + " Phase " + ResolveWorkerTaskPhaseLabel(status.TaskPhaseId);
+
             if (status.CurrentResourceNodeId != 0)
             {
-                return "  Gather " + status.CurrentResourceNodeId + " Carry " + status.CarriedAmount;
+                return prefix + " Gather " + status.CurrentResourceNodeId + " Carry " + status.CarriedAmount;
             }
 
             if (status.CurrentBuildTargetId != 0)
             {
-                return "  BuildTarget " + status.CurrentBuildTargetId;
+                return prefix + " BuildTarget " + status.CurrentBuildTargetId;
             }
 
             if (status.AttackTargetId != 0)
             {
-                return "  Attack " + status.AttackTargetId + " CD " + status.AttackCooldownTicksRemaining;
+                return prefix + " Attack " + status.AttackTargetId + " CD " + status.AttackCooldownTicksRemaining;
             }
 
             if (status.HasMoveTarget)
             {
-                return "  Moving";
+                return prefix + " Moving";
             }
 
             if (status.CarriedAmount > 0)
             {
-                return "  Carry " + status.CarriedAmount;
+                return prefix + " Carry " + status.CarriedAmount;
             }
 
-            return "";
+            return prefix;
         }
 
         public static string GetSelectedBuildingStatusText(GodotFrameDto frame, int selectedBuildingId)
@@ -107,15 +113,18 @@ namespace RtsGame.Presentation.GodotBridge
 
             if (status.IsUnderConstruction)
             {
-                return "  Build " + status.BuildProgressTicks + "/" + status.RequiredBuildTicks;
+                return "  " + ResolveBuildingTypeLabel(status.BuildingTypeId)
+                    + " Build " + status.BuildProgressTicks + "/" + status.RequiredBuildTicks;
             }
 
             if (status.TrainingQueueCount > 0)
             {
-                return "  Train " + status.TrainingUnitTypeId + " " + status.TrainingProgressTicks + "/" + status.TrainingRequiredTicks;
+                return "  " + ResolveBuildingTypeLabel(status.BuildingTypeId)
+                    + " Train " + ResolveUnitTypeLabel(status.TrainingUnitTypeId)
+                    + " " + status.TrainingProgressTicks + "/" + status.TrainingRequiredTicks;
             }
 
-            return "";
+            return "  " + ResolveBuildingTypeLabel(status.BuildingTypeId) + " Ready";
         }
 
         public static string GetSelectedBuildingResearchActionText(GodotFrameDto frame, int selectedBuildingId)
@@ -219,7 +228,9 @@ namespace RtsGame.Presentation.GodotBridge
 
             string command = ResolveCommandTypeLabel(match.LastCommandTypeId);
             string result = match.LastCommandAccepted ? "ok" : "rej";
-            return "  Cmd " + command + " " + result + " r" + match.LastCommandReasonId;
+            return "  Cmd " + command + " " + result
+                + " r" + match.LastCommandReasonId
+                + "(" + ResolveCommandReasonLabel(match.LastCommandReasonId) + ")";
         }
 
         private static string ResolveCommandTypeLabel(int commandTypeId)
@@ -253,6 +264,108 @@ namespace RtsGame.Presentation.GodotBridge
             }
 
             return "#" + commandTypeId;
+        }
+
+        private static string ResolveCommandReasonLabel(int reasonId)
+        {
+            switch (reasonId)
+            {
+                case (int)CommandValidationReason.Accepted:
+                    return "Accepted";
+                case (int)CommandValidationReason.TemporaryCongestionAcceptedIntent:
+                    return "TemporaryCongestionAcceptedIntent";
+                case (int)CommandValidationReason.InvalidHeader:
+                    return "InvalidHeader";
+                case (int)CommandValidationReason.TargetMissing:
+                    return "TargetMissing";
+                case (int)CommandValidationReason.WrongOwner:
+                    return "WrongOwner";
+                case (int)CommandValidationReason.TargetComplete:
+                    return "TargetComplete";
+                case (int)CommandValidationReason.InvalidTargetType:
+                    return "InvalidTargetType";
+                case (int)CommandValidationReason.UnitCannotPerformAction:
+                    return "UnitCannotPerformAction";
+                case (int)CommandValidationReason.NoStaticPath:
+                    return "NoStaticPath";
+                case (int)CommandValidationReason.TargetBlockedByStaticGeometry:
+                    return "TargetBlockedByStaticGeometry";
+                case (int)CommandValidationReason.MissingResources:
+                    return "MissingResources";
+                case (int)CommandValidationReason.PopulationBlocked:
+                    return "PopulationBlocked";
+                case (int)CommandValidationReason.DuplicateUnitSelection:
+                    return "DuplicateUnitSelection";
+                case (int)CommandValidationReason.PlayerStateBlocked:
+                    return "PlayerStateBlocked";
+                case (int)CommandValidationReason.Unknown:
+                    return "Unknown";
+            }
+
+            return "#" + reasonId;
+        }
+
+        private static string ResolveUnitTypeLabel(int unitTypeId)
+        {
+            switch (unitTypeId)
+            {
+                case (int)UnitTypeId.Villager:
+                    return "Villager";
+                case (int)UnitTypeId.Scout:
+                    return "Scout";
+                case (int)UnitTypeId.Infantry:
+                    return "Infantry";
+                case (int)UnitTypeId.Cavalry:
+                    return "Cavalry";
+                case (int)UnitTypeId.SiegeCannon:
+                    return "SiegeCannon";
+                case (int)UnitTypeId.TradeCart:
+                    return "TradeCart";
+                case (int)UnitTypeId.Mangonel:
+                    return "Mangonel";
+            }
+
+            return "U#" + unitTypeId;
+        }
+
+        private static string ResolveBuildingTypeLabel(int buildingTypeId)
+        {
+            switch (buildingTypeId)
+            {
+                case (int)BuildingTypeId.TownCenter:
+                    return "TownCenter";
+                case (int)BuildingTypeId.Wall:
+                    return "Wall";
+                case (int)BuildingTypeId.TradePost:
+                    return "TradePost";
+            }
+
+            return "B#" + buildingTypeId;
+        }
+
+        private static string ResolveWorkerTaskPhaseLabel(int taskPhaseId)
+        {
+            switch (taskPhaseId)
+            {
+                case (int)WorkerTaskPhase.Idle:
+                    return "Idle";
+                case (int)WorkerTaskPhase.MovingToResourceSlot:
+                    return "MovingToResourceSlot";
+                case (int)WorkerTaskPhase.Gathering:
+                    return "Gathering";
+                case (int)WorkerTaskPhase.MovingToDropoffSlot:
+                    return "MovingToDropoffSlot";
+                case (int)WorkerTaskPhase.Depositing:
+                    return "Depositing";
+                case (int)WorkerTaskPhase.MovingToBuildSlot:
+                    return "MovingToBuildSlot";
+                case (int)WorkerTaskPhase.Building:
+                    return "Building";
+                case (int)WorkerTaskPhase.BlockedWaiting:
+                    return "BlockedWaiting";
+            }
+
+            return "Phase#" + taskPhaseId;
         }
 
         private static string ToTrainActionLabel(GodotTrainActionState state)

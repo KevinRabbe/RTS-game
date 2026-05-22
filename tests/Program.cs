@@ -311,7 +311,9 @@ namespace RtsGame.Tests
                 new TestCase("godot hud text includes economy and selection", GodotHudTextIncludesEconomyAndSelection),
                 new TestCase("godot hud text build lines returns two lines", GodotHudTextBuildLinesReturnsTwoLines),
                 new TestCase("godot hud text includes unit gather status", GodotHudTextIncludesUnitGatherStatus),
+                new TestCase("godot hud text includes selected unit type and phase", GodotHudTextIncludesSelectedUnitTypeAndPhase),
                 new TestCase("godot hud text includes building training status", GodotHudTextIncludesBuildingTrainingStatus),
+                new TestCase("godot hud text includes building type label", GodotHudTextIncludesBuildingTypeLabel),
                 new TestCase("godot hud text includes research action ready", GodotHudTextIncludesResearchActionReady),
                 new TestCase("godot hud text includes research action queued", GodotHudTextIncludesResearchActionQueued),
                 new TestCase("godot hud text includes research action done", GodotHudTextIncludesResearchActionDone),
@@ -327,6 +329,7 @@ namespace RtsGame.Tests
                 new TestCase("godot hud text includes completed tech count", GodotHudTextIncludesCompletedTechCount),
                 new TestCase("godot hud text includes rejected command count", GodotHudTextIncludesRejectedCommandCount),
                 new TestCase("godot hud text includes last command status", GodotHudTextIncludesLastCommandStatus),
+                new TestCase("godot hud text includes last command reason label", GodotHudTextIncludesLastCommandReasonLabel),
                 new TestCase("godot hud text handles missing status", GodotHudTextHandlesMissingStatus),
                 new TestCase("godot selected status hides idle no progress ticks", GodotSelectedStatusHidesIdleNoProgressTicks),
                 new TestCase("godot selected status shows blocked waiting no progress ticks", GodotSelectedStatusShowsBlockedWaitingNoProgressTicks),
@@ -6322,6 +6325,47 @@ namespace RtsGame.Tests
             AssertEqual(true, text.Contains("Gather 9 Carry 10"), "hud should include selected unit gather status");
         }
 
+        private static void GodotHudTextIncludesSelectedUnitTypeAndPhase()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new[]
+                {
+                    new GodotUnitStatusDto(
+                        7,
+                        (int)UnitTypeId.Villager,
+                        false,
+                        0,
+                        0,
+                        0,
+                        0,
+                        10,
+                        10,
+                        Fixed.FromInt(10).Raw,
+                        Fixed.FromInt(10).Raw,
+                        (int)WorkerTaskPhase.Gathering,
+                        0,
+                        0,
+                        0,
+                        0,
+                        true,
+                        false,
+                        false,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0)
+                },
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new[] { 7 }, 0, 0, false);
+
+            AssertEqual(true, text.Contains("U7:Villager"), "hud should include selected primary unit id/type");
+            AssertEqual(true, text.Contains("Phase Gathering"), "hud should include selected primary unit task phase");
+        }
+
         private static void GodotHudTextIncludesBuildingTrainingStatus()
         {
             GodotFrameDto frame = CreateGodotHudFrame(
@@ -6335,7 +6379,23 @@ namespace RtsGame.Tests
 
             string text = GodotHudTextBuilder.Build(frame, new int[0], 11, 0, false);
 
-            AssertEqual(true, text.Contains("Train 1 4/" + GameData.VillagerTrainTicks), "hud should include selected building training status");
+            AssertEqual(true, text.Contains("Train Villager 4/" + GameData.VillagerTrainTicks), "hud should include selected building training status");
+        }
+
+        private static void GodotHudTextIncludesBuildingTypeLabel()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotUnitStatusDto[0],
+                new[]
+                {
+                    new GodotBuildingStatusDto(19, (int)BuildingTypeId.TradePost, false, 0, 0, 0, 0, 0, 0)
+                });
+
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 19, 0, false);
+
+            AssertEqual(true, text.Contains("TradePost Ready"), "hud should include selected building type label/state");
         }
 
         private static void GodotHudTextIncludesResearchActionReady()
@@ -6651,6 +6711,36 @@ namespace RtsGame.Tests
 
             AssertEqual(true, text.Contains("Cmd GatherResource rej"), "hud should include last command type and result");
             AssertEqual(true, text.Contains("r" + (int)CommandValidationReason.TargetComplete), "hud should include last command reason id");
+        }
+
+        private static void GodotHudTextIncludesLastCommandReasonLabel()
+        {
+            GodotFrameDto frame = new GodotFrameDto(
+                1,
+                "DryArabiaTest01",
+                0,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotMatchDto(
+                    false,
+                    -1,
+                    -1,
+                    1,
+                    1,
+                    (int)CommandType.GatherResource,
+                    (int)CommandValidationReason.UnitCannotPerformAction,
+                    false,
+                    0,
+                    4,
+                    19,
+                    57,
+                    1,
+                    3),
+                new GodotPrimitiveDto[0],
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 0, 0, false);
+            AssertEqual(true, text.Contains("r7(UnitCannotPerformAction)"), "hud should include reason label for last command");
         }
 
         private static void GodotHudTextHandlesMissingStatus()
