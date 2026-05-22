@@ -989,22 +989,14 @@ public partial class RtsClientRoot : Node2D
 		int afterExecuted = _frame?.Match.ExecutedCommandCount ?? facade.ExecutedCommandCount;
 		int afterRejected = _frame?.Match.RejectedCommandCount ?? facade.RejectedCommandCount;
 		GodotCommandResultKind result = GodotCommandResultClassifier.Classify(beforeExecuted, beforeRejected, afterExecuted, afterRejected);
-		string rejectionDetail = "";
-		if (_frame != null)
-		{
-			GodotMatchDto match = _frame.Match;
-			rejectionDetail =
-				" cmd=" + match.LastCommandTypeId
-				+ " reason=" + match.LastCommandReasonId
-				+ " accepted=" + (match.LastCommandAccepted ? "Y" : "N")
-				+ " player=" + match.LastCommandPlayerIndex
-				+ " targetEntity=" + match.LastCommandTargetEntityId
-				+ " targetTile=(" + match.LastCommandTargetTileX + "," + match.LastCommandTargetTileY + ")"
-				+ " unitCount=" + match.LastCommandUnitCount
-				+ " firstUnit=" + match.LastCommandFirstUnitId;
-		}
-
-		_debugEventLog.Add("result " + result + " ex " + beforeExecuted + "->" + afterExecuted + " rej " + beforeRejected + "->" + afterRejected + rejectionDetail);
+		_debugEventLog.Add(
+			RtsCommandResultLogFormatter.BuildResultLogLine(
+				result,
+				beforeExecuted,
+				afterExecuted,
+				beforeRejected,
+				afterRejected,
+				_frame));
 	}
 
 	private static GodotPrimitiveDto? FindPrimitiveByEntityId(GodotFrameDto frame, int entityId)
