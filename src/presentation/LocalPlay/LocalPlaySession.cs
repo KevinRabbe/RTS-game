@@ -133,6 +133,14 @@ namespace RtsGame.Presentation.LocalPlay
                 DryArabiaTest01MapDefinition.MapName);
         }
 
+        public static LocalPlaySession CreateCombatTest01(ulong matchSeed)
+        {
+            return new LocalPlaySession(
+                GameRules.CreatePhaseZeroDefaults(2),
+                GameInitializer.CreateCombatTest01(matchSeed),
+                CombatTest01MapDefinition.MapName);
+        }
+
         public static LocalPlaySession Create6PlayerFfa(ulong matchSeed)
         {
             return Create(matchSeed, 6);

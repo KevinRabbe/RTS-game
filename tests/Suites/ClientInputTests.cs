@@ -235,6 +235,45 @@ namespace RtsGame.Tests
             AssertEqual(true, hud.Contains("Map " + DryArabiaTest01MapDefinition.MapName), "hud should include dry arabia map name");
         }
 
+        private static void LocalPlaySessionCreatesCombatTestMap()
+        {
+            LocalPlaySession session = LocalPlaySession.CreateCombatTest01(98);
+            GameState setup = GameInitializer.CreateCombatTest01(98);
+
+            session.AdvanceOneTick();
+            GameSnapshot localSnapshot = session.GetSnapshot(0);
+
+            AssertEqual(2, session.PlayerCount, "combat test local session should be a 1v1 map");
+            AssertEqual(CombatTest01MapDefinition.MapName, session.MapName, "combat test local session should expose map name");
+            AssertEqual(true, CountOwnedUnitType(setup, 0, UnitTypeId.Infantry) >= 8, "combat test setup should include local infantry group");
+            AssertEqual(true, CountOwnedUnitType(setup, 1, UnitTypeId.Infantry) >= 8, "combat test setup should include enemy infantry group");
+            AssertEqual(true, HasUnitType(localSnapshot, UnitTypeId.Infantry), "combat test local player should have infantry units");
+            AssertEqual(true, HasUnitType(localSnapshot, UnitTypeId.Scout), "combat test local player should have scout unit");
+
+            GodotClientFacade facade = GodotClientFacade.CreateCombatTest01(98);
+            facade.AdvanceOneTick();
+            GodotFrameDto frame = facade.GetFrame(0);
+            string hud = GodotHudTextBuilder.Build(frame, new int[0], 0, 0, false);
+
+            AssertEqual(CombatTest01MapDefinition.MapName, facade.MapName, "godot facade should expose combat test map name");
+            AssertEqual(CombatTest01MapDefinition.MapName, frame.MapName, "godot frame should expose combat test map name");
+            AssertEqual(true, hud.Contains("Map " + CombatTest01MapDefinition.MapName), "hud should include combat test map name");
+        }
+
+        private static void CombatTestScenarioSupportsAttackIntentThroughFacade()
+        {
+            GodotClientFacade facade = GodotClientFacade.CreateCombatTest01(99);
+            int attackerId = 5;
+            int targetId = 6;
+
+            facade.QueueAttack(0, new[] { attackerId }, targetId);
+            facade.AdvanceOneTick();
+            GodotFrameDto after = facade.GetFrame(0);
+            AssertEqual(true, after.Match.LastCommandAccepted, "combat test scenario attack command should be accepted through normal facade path");
+            AssertEqual((int)CommandType.Attack, after.Match.LastCommandTypeId, "combat test scenario should execute attack command type");
+            AssertEqual((int)CommandValidationReason.Accepted, after.Match.LastCommandReasonId, "combat test scenario attack should report accepted reason");
+        }
+
         private static void GodotInteractionRouterPrioritizesAttack()
         {
             GodotFrameDto frame = CreateGodotInteractionFrame(new[]
@@ -248,6 +287,35 @@ namespace RtsGame.Tests
             AssertEqual(GodotInteractionIntentKind.Attack, intent.Kind, "enemy target should take priority over gather when primitives overlap");
             AssertEqual(20, intent.TargetEntityId, "attack intent should expose target entity id");
             AssertEqual(0, intent.ResourceNodeId, "attack intent should not expose a resource id");
+        }
+
+        private static bool HasUnitType(GameSnapshot snapshot, UnitTypeId unitTypeId)
+        {
+            for (int i = 0; i < snapshot.Units.Count; i++)
+            {
+                if (snapshot.Units[i].OwnerPlayerIndex == snapshot.LocalPlayerIndex
+                    && snapshot.Units[i].UnitTypeId == unitTypeId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static int CountOwnedUnitType(GameState state, int ownerPlayerIndex, UnitTypeId unitTypeId)
+        {
+            int count = 0;
+            for (int i = 0; i < state.EntityState.Units.Count; i++)
+            {
+                Unit unit = state.EntityState.Units[i];
+                if (!unit.IsDead && unit.OwnerPlayerIndex == ownerPlayerIndex && unit.UnitTypeId == unitTypeId)
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         private static void GodotInteractionRouterRoutesBuildAssignment()

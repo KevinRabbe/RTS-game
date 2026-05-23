@@ -20,6 +20,7 @@ namespace RtsGame.Presentation.GodotBridge
             {
                 new GodotHotkeyHelpEntry("Session:", ""),
                 new GodotHotkeyHelpEntry("F1", "Start DryArabiaTest01 local 1v1"),
+                new GodotHotkeyHelpEntry("F2", "Start CombatTest01 local 1v1"),
                 new GodotHotkeyHelpEntry("F6", "Start local 6-player FFA"),
                 new GodotHotkeyHelpEntry("", ""),
 

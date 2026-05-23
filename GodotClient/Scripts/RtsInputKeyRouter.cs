@@ -16,6 +16,7 @@ internal static class RtsInputKeyRouter
 		Phase6SpriteRenderer spriteRenderer,
 		RtsTownCenterPlacementState tcPlacementState,
 		Action startDryArabiaTest01,
+		Action startCombatTest01,
 		Action<int> startLocalMatch,
 		Action<Vector2> tryCreateTradeRoute,
 		Action<int> trainFromSelectedBuilding,
@@ -39,6 +40,13 @@ internal static class RtsInputKeyRouter
 		{
 			startDryArabiaTest01();
 			addDebugEvent("restart " + dryArabiaMapName + " 1v1 (F1)");
+			return;
+		}
+
+		if (key.Keycode == Key.F2)
+		{
+			startCombatTest01();
+			addDebugEvent("restart CombatTest01 1v1 (F2)");
 			return;
 		}
 

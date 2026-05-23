@@ -64,6 +64,11 @@ namespace RtsGame.Presentation.GodotBridge
             return new GodotClientFacade(LocalPlaySession.CreateDryArabiaTest01(matchSeed));
         }
 
+        public static GodotClientFacade CreateCombatTest01(ulong matchSeed)
+        {
+            return new GodotClientFacade(LocalPlaySession.CreateCombatTest01(matchSeed));
+        }
+
         public static GodotClientFacade CreateLocal6PlayerFfa(ulong matchSeed)
         {
             return new GodotClientFacade(LocalPlaySession.Create6PlayerFfa(matchSeed));

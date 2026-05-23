@@ -13,6 +13,11 @@ internal static class RtsSessionBootstrap
 		return GodotClientFacade.CreateDryArabiaTest01(seed);
 	}
 
+	internal static GodotClientFacade StartCombatTest01(ulong seed)
+	{
+		return GodotClientFacade.CreateCombatTest01(seed);
+	}
+
 	internal static void ResetRuntimeState(
 		GodotClientFacade facade,
 		RtsSelectionController selectionController,

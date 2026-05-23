@@ -198,6 +198,7 @@ public partial class RtsClientRoot : Node2D
 			_spriteRenderer,
 			_tcPlacementState,
 			StartDryArabiaTest01,
+			StartCombatTest01,
 			StartLocalMatch,
 			TryCreateTradeRoute,
 			TrainFromSelectedBuilding,
@@ -229,6 +230,12 @@ public partial class RtsClientRoot : Node2D
 	private void StartDryArabiaTest01()
 	{
 		_facade = RtsSessionBootstrap.StartDryArabiaTest01(DefaultMatchSeed);
+		ResetLocalRuntimeState();
+	}
+
+	private void StartCombatTest01()
+	{
+		_facade = RtsSessionBootstrap.StartCombatTest01(DefaultMatchSeed);
 		ResetLocalRuntimeState();
 	}
 

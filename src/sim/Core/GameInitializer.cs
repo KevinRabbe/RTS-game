@@ -47,6 +47,25 @@ namespace RtsGame.Sim.Core
             return state;
         }
 
+        public static GameState CreateCombatTest01(ulong matchSeed)
+        {
+            var state = new GameState(matchSeed, 2);
+
+            CreateCompletedTownCenter(state, 0, CombatTest01MapDefinition.Player0TownCenter, true);
+            CreateCompletedTownCenter(state, 1, CombatTest01MapDefinition.Player1TownCenter, true);
+
+            EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(56, 48));
+            EntityFactory.CreateUnit(state, 1, UnitTypeId.Scout, FixedVector2.FromInts(72, 48));
+
+            for (int i = 0; i < 8; i++)
+            {
+                EntityFactory.CreateUnit(state, 0, UnitTypeId.Infantry, FixedVector2.FromInts(56 + i, 44));
+                EntityFactory.CreateUnit(state, 1, UnitTypeId.Infantry, FixedVector2.FromInts(64 + i, 52));
+            }
+
+            return state;
+        }
+
         private static void CreateDryArabiaStartingResources(GameState state, int playerIndex)
         {
             CreateResourceAreaWithNodes(state, ResourceAreaType.BerryPatch, GatherProfileId.BerryBush, DryArabiaTest01MapDefinition.GetNearbyResourcePositions(playerIndex, ResourceType.Food), GameData.StartingFoodAmount);
@@ -133,6 +152,24 @@ namespace RtsGame.Sim.Core
             int x = (playerIndex % 3) * 40;
             int y = (playerIndex / 3) * 40;
             return FixedVector2.FromInts(x, y);
+        }
+
+        private static void CreateCompletedTownCenter(GameState state, int ownerPlayerIndex, FixedVector2 position, bool capitalBonusActive)
+        {
+            int tcId = EntityFactory.CreateTownCenter(state, ownerPlayerIndex, position);
+            EntityRef entityRef = state.EntityState.EntityLookup[tcId];
+            Building tc = state.EntityState.Buildings[entityRef.Index];
+            tc.IsUnderConstruction = false;
+            tc.BuildProgressTicks = GameData.TownCenterBuildTicks;
+            tc.HitPoints = GameData.GetBuildingCompletedHitPoints(BuildingTypeId.TownCenter, tc.IsCapital);
+
+            PlayerState player = state.PlayerStates.Players[ownerPlayerIndex];
+            player.CapitalStatus.IsCapitalAlive = true;
+            player.CapitalStatus.CapitalBonusActive = capitalBonusActive;
+            if (capitalBonusActive)
+            {
+                player.PopulationCap += GameData.CapitalPopulationBonus;
+            }
         }
     }
 }

@@ -367,6 +367,7 @@ namespace RtsGame.Tests
         {
             GodotHotkeyHelpEntry[] entries = GodotHotkeyHelpBuilder.Build(researchIsWired: true);
             AssertEqual(true, ContainsHotkey(entries, "F1", "Start DryArabiaTest01 local 1v1"), "hotkey help should include F1 binding");
+            AssertEqual(true, ContainsHotkey(entries, "F2", "Start CombatTest01 local 1v1"), "hotkey help should include F2 binding");
             AssertEqual(true, ContainsHotkey(entries, "F6", "Start local 6-player FFA"), "hotkey help should include F6 binding");
             AssertEqual(true, ContainsHotkey(entries, "F9", "Toggle sprites/primitives"), "hotkey help should include F9 binding");
             AssertEqual(true, ContainsHotkey(entries, "F10", "Toggle debug overlay"), "hotkey help should include F10 debug overlay binding");
