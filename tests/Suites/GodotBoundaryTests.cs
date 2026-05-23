@@ -366,8 +366,8 @@ namespace RtsGame.Tests
         private static void GodotHotkeyHelpContainsKnownBindings()
         {
             GodotHotkeyHelpEntry[] entries = GodotHotkeyHelpBuilder.Build(researchIsWired: true);
-            AssertEqual(true, ContainsHotkey(entries, "F1", "Start DryArabiaTest01 local 1v1"), "hotkey help should include F1 binding");
-            AssertEqual(true, ContainsHotkey(entries, "F2", "Start CombatTest01 local 1v1"), "hotkey help should include F2 binding");
+            AssertEqual(true, ContainsHotkey(entries, "F1", "Start DryArabiaTest01 economy test"), "hotkey help should include F1 binding");
+            AssertEqual(true, ContainsHotkey(entries, "F2", "Start CombatTest01 combat test"), "hotkey help should include F2 binding");
             AssertEqual(true, ContainsHotkey(entries, "F6", "Start local 6-player FFA"), "hotkey help should include F6 binding");
             AssertEqual(true, ContainsHotkey(entries, "F9", "Toggle sprites/primitives"), "hotkey help should include F9 binding");
             AssertEqual(true, ContainsHotkey(entries, "F10", "Toggle debug overlay"), "hotkey help should include F10 debug overlay binding");
@@ -384,6 +384,21 @@ namespace RtsGame.Tests
             AssertEqual(true, ContainsHotkey(entries, "I", "Train Infantry"), "hotkey help should include I train infantry binding");
             AssertEqual(true, ContainsHotkey(entries, "K", "Train Trade Cart"), "hotkey help should include K train trade cart binding");
             AssertEqual(true, ContainsHotkey(entries, "Y", "Research Infantry Attack I"), "hotkey help should include Y research binding");
+        }
+
+        private static void GodotScenarioViewHintsProvidesCombatCameraStart()
+        {
+            bool hasHint = GodotScenarioViewHints.TryGetInitialCameraTile("CombatTest01", out int tileX, out int tileY);
+
+            AssertEqual(true, hasHint, "combat scenario should provide initial camera hint");
+            AssertEqual(64, tileX, "combat scenario camera hint should center near combat cluster x");
+            AssertEqual(48, tileY, "combat scenario camera hint should center near combat cluster y");
+        }
+
+        private static void GodotScenarioViewHintsIgnoresUnknownMap()
+        {
+            bool hasHint = GodotScenarioViewHints.TryGetInitialCameraTile("DryArabiaTest01", out _, out _);
+            AssertEqual(false, hasHint, "dry arabia should keep default camera behavior without forced hint");
         }
 
         private static void TcPlacementPreviewValidAtPlayer0TcZone()

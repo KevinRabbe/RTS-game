@@ -257,6 +257,23 @@ public partial class RtsClientRoot : Node2D
 			ref _hoveredResourceNodeId,
 			ref _tickAccumulator,
 			ref _paused);
+
+		ApplyScenarioCameraStartIfDefined();
+	}
+
+	private void ApplyScenarioCameraStartIfDefined()
+	{
+		if (_camera == null || _frame == null)
+		{
+			return;
+		}
+
+		if (!GodotScenarioViewHints.TryGetInitialCameraTile(_frame.MapName, out int tileX, out int tileY))
+		{
+			return;
+		}
+
+		_camera.Position = ToScreen(TileToRaw(tileX), TileToRaw(tileY));
 	}
 
 	private void HandleMouse(InputEventMouseButton mouse)
