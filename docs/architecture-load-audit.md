@@ -243,3 +243,43 @@ Combat planning is now explicitly documented in [combat-architecture.md](combat-
 - deterministic attack-slot/ring model
 - bounded hotspot scale rules
 - required combat scenario pack before declaring hotspot readiness
+
+## Phase 9B Addendum
+
+Combat baseline implementation and manual lab support are now in place:
+
+- explicit target combat + move-into-range attack slots
+- hotspot pressure scenario coverage (`10v1`, `50v50`, `150v150`, 3-attacker hotspot)
+- combat HUD/debug status visibility
+- deterministic manual combat lab (`CombatTest01`, `F2`) including enemy building target
+- combat scenario UX polish (camera-start hint + clearer scenario hotkey labels)
+
+Gate at this checkpoint:
+
+- tests `489/489 PASS`
+- chaos-v4 `5000 ticks`, `desync=False`, `invariant_failures=0`
+
+## Phase 9C.0 Addendum (Attack-Move Architecture Risk Framing)
+
+Attack-move is classified as a **scale-sensitive system** because naive targeting loops can collapse hotspot performance.
+
+### New risk classification
+
+- **Auto-target acquisition implementation:** **High risk if unbounded**, **Medium risk with bounded indexed cadence**
+
+### Mandatory contracts before implementation
+
+1. spatial-index-based candidate queries only
+2. bounded acquisition cadence (not every tick for every unit)
+3. deterministic tie-break ordering
+4. explicit target-retention/release policy to prevent retarget thrash
+5. attack-move destination resume behavior after target invalidation
+
+### Acceptance criterion for 9C implementation
+
+Attack-move is acceptable only if:
+
+- replay/lockstep stay green
+- acquisition budgets remain bounded under `50v50` and `150v150`
+- hotspot scenario does not produce reservation/path-query runaway
+- no stack/desync collapse under 3-attacker hotspot pressure

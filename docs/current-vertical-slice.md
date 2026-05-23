@@ -1,6 +1,6 @@
 # Current Vertical Slice
 
-## Accepted State (Phase 9A.0 Entry)
+## Accepted State (Phase 9C.0 Entry)
 
 - Branch: `phase-6-visual-placeholder-pipeline`
 - `MovementEngineV2` and `GatherEngineV2` are default-on and accepted as prototype-ready.
@@ -10,8 +10,11 @@
 - Prototype HUD UX polish is implemented (clearer hints + command status readability).
 - Test project cleanup is complete: suites + harness split, `Program.cs` is runner/registration-focused.
 - Scalable combat hotspot architecture plan is documented before new combat implementation.
+- Combat baseline + hotspot pressure slices are implemented and validated (9A.1-9A.4).
+- Combat test lab scenarios are implemented (`F2 CombatTest01` + enemy building target).
+- Combat scenario UX polish is complete (scenario camera hint + clearer hotkey labels).
 - Full gate remains green:
-  - tests: `472/472 PASS`
+  - tests: `489/489 PASS`
   - `chaos-v4` (`5000` ticks): `desync=False`, `invariant_failures=0`
 
 ## Vertical Slice Scope
@@ -58,13 +61,14 @@ Only touch it when:
 
 ## Next Phase Intent
 
-Phase 9A.0 is complete (combat architecture planning only).
+Phase 9C.0 is complete (attack-move/auto-target architecture planning only).
 
 Next implementation steps:
 
-1. 9A.1 Explicit attack target slice
-2. 9A.2 Attack slot/ring integration
-3. 9A.3 Hotspot pressure scenario pack
-4. 9A.4 Combat HUD/debug status
+1. 9C.1 `AttackMoveCommand` + state only
+2. 9C.2 bounded indexed auto-target acquisition
+3. 9C.3 resume-after-kill/invalidation behavior
+4. 9C.4 attack-move pressure scenarios
+5. 9C.5 attack-move HUD/command feedback
 
-No combat depth expansion beyond these slices until hotspot scenario gates are green.
+No attack-move depth expansion beyond these slices until scale scenario gates are green.

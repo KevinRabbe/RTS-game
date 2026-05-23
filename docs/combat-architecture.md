@@ -156,3 +156,113 @@ Gate required after each slice:
 2. `dotnet build tests\RtsGame.Tests.csproj --no-restore`
 3. `dotnet run --project tests\RtsGame.Tests.csproj --no-build -- --fail-fast`
 4. `dotnet run --project src\tools\Headless\RtsGame.Headless.csproj --no-build -- run-stress --scenario chaos-v4 --ticks 5000 --seed 77`
+
+---
+
+# Scalable Attack-Move and Auto-Target Architecture (Phase 9C.0)
+
+## Purpose
+
+Extend the combat foundation with attack-move and auto-targeting without introducing hotspot CPU blowups or deterministic drift.
+
+This section is planning-only. No gameplay behavior is changed by this document.
+
+Target envelopes remain:
+
+- 20 vs 20 normal engagements
+- 150 vs 150 large engagements
+- hotspot objective fights with 300+ knights / 600+ mixed units
+- 6 players / ~1200 active units
+
+## 1) Attack-Move Command Model
+
+### New command type
+
+- Add `AttackMoveCommand` with ground destination tile/vector payload.
+- Command stores long-term intent distinct from explicit `AttackCommand`.
+- Explicit attack remains target-id authoritative and separate.
+
+### Intent behavior
+
+- Unit advances toward attack-move destination through movement-owned pathing.
+- If a valid hostile enters acquisition envelope, unit may pause destination progress and enter combat positioning.
+- After target death/invalid release, unit resumes attack-move destination if command intent is still active.
+- Attack-move clears only by deterministic command replacement/cancel rules.
+
+## 2) Auto-Target Query Model
+
+### Query source
+
+- Auto-target acquisition must use spatial index/query service only.
+- No global enemy scans and no per-unit full-enemy loops.
+
+### Bounded cadence
+
+- Acquisition runs on bounded cadence (`N` tick window), not every tick for every unit.
+- Re-acquisition cadence is deterministic and unit-state-driven.
+- Optional per-player/per-region budget may cap acquisitions per tick.
+
+### Stable ordering contract
+
+When multiple candidates exist, resolve with deterministic ordering:
+
+1. shortest deterministic distance metric
+2. optional deterministic category/threat tier (future-safe, not required in v1)
+3. lowest target entity id
+
+No unordered set iteration is permitted in candidate selection.
+
+## 3) Target Retention and Release Model
+
+- Retain current auto-target while target is alive, valid hostile, and within leash/range policy.
+- Release if dead, invalid ownership, or outside deterministic leash policy.
+- Reacquire only on bounded cadence to prevent retarget thrash.
+- Preserve cooldown/attack-slot state contracts from 9A/9B.
+
+## 4) Movement Integration Contracts
+
+- Movement continues to own all pathing and congestion behavior.
+- Combat/attack-move requests desired positioning only (destination path or attack slot/ring).
+- When auto-target is active, unit transitions to attack-slot positioning flow.
+- On release, unit deterministically returns to attack-move destination progression.
+- No combat-side pathfinder or direct position mutation.
+
+## 5) Hotspot Scale Rules
+
+Hard constraints for implementation:
+
+- No O(units x enemies) targeting loops.
+- Bounded acquisitions per tick (global or scoped budget).
+- Bounded reservation churn under death/retarget storms.
+- Deterministic overflow behavior when budget is exhausted (defer, do not thrash).
+- In dense hotspots, visual imperfection is acceptable; desync/CPU runaway is not.
+
+## 6) Required Scenario Pack for 9C
+
+1. one unit attack-moves past enemy and acquires target
+2. unit resumes attack-move destination after target death
+3. 10 units attack-move through enemy cluster
+4. 50 vs 50 attack-move pressure
+5. 150 vs 150 attack-move pressure
+6. 3-player hotspot attack-move pressure
+7. acquisition-budget saturation test (bounded fallback, no thrash)
+8. replay determinism for attack-move scenarios
+9. lockstep determinism for attack-move scenarios
+
+## 7) Non-Goals for First Attack-Move Implementation
+
+- no formations
+- no smart focus-fire heuristics
+- no advanced threat scoring
+- no kiting/patrol/hold-position systems
+- no projectile rewrite
+- no balance tuning
+- no bot/networking feature expansion
+
+## Planned 9C Implementation Sequence
+
+1. **9C.1** `AttackMoveCommand` + persistent state only (no auto-target yet)
+2. **9C.2** bounded indexed auto-target acquisition
+3. **9C.3** resume-after-kill/invalidation behavior
+4. **9C.4** attack-move pressure scenario pack
+5. **9C.5** HUD/command feedback for attack-move

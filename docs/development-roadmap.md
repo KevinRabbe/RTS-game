@@ -12,32 +12,43 @@ Completed tracks:
 - Test-suite/harness structural cleanup
 - Architecture/load audit and contracts (8C)
 - Scalable combat hotspot architecture plan (9A.0)
+- Combat implementation baseline complete:
+  - 9A.1 explicit target attack
+  - 9A.2 move-into-range attack-slot foundation
+  - 9A.3 hotspot pressure scenarios
+  - 9A.4 combat HUD/debug status
+- Combat lab scenarios complete:
+  - 9B.1 deterministic CombatTest01 (F2)
+  - 9B.2 enemy building target in CombatTest01
+  - 9B.3 combat scenario UX polish
 
 Current gate status:
 
-- `tests=472/472 PASS`
+- `tests=489/489 PASS`
 - `chaos-v4` 5000-tick stress: pass
 
 ## Active Stage
 
-Phase 9A.0 complete: scalable combat hotspot architecture documented.
+Phase 9C.0 complete: attack-move/auto-target architecture documented.
 
 Next active implementation stage:
 
-- **9A.1 Explicit Attack Target Slice**
+- **9C.1 AttackMoveCommand + state only (no auto-target yet)**
 
-## Near-Term Combat Sequence (9A)
+## Near-Term Combat Sequence (9C)
 
-1. **9A.1** Explicit attack target slice
-2. **9A.2** Attack slot / attack ring system
-3. **9A.3** Combat hotspot pressure scenarios
-4. **9A.4** Combat HUD debug/status
+1. **9C.1** AttackMoveCommand + state only
+2. **9C.2** bounded indexed target acquisition
+3. **9C.3** resume-after-kill/invalidation behavior
+4. **9C.4** attack-move pressure scenarios
+5. **9C.5** attack-move HUD/command feedback
 
 Guardrails:
 
-- Keep attack-move and auto-acquire out of first combat slice.
+- Keep explicit `AttackCommand` and `AttackMoveCommand` semantics separate.
 - Keep combat pathing owned by movement (no combat pathfinding bypass).
 - No O(units x enemies) per tick loops.
+- No unbounded acquisition/retarget churn in hotspot fights.
 
 ## Full-Game Target Envelope
 
