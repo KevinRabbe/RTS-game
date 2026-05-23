@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using RtsGame.Net.Lockstep;
 using RtsGame.Presentation.ClientInput;
@@ -225,6 +226,182 @@ namespace RtsGame.Tests
             AssertEqual(true, waitingCount > 0, "overflow attackers should wait instead of forcing stacks");
         }
 
+        private static void CombatPressureTenAttackersVsOneTarget()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            var state = GameInitializer.CreateNomadStart(2, 1);
+            int targetId = EntityFactory.CreateUnit(state, 1, UnitTypeId.Infantry, FixedVector2.FromInts(24, 24));
+            int[] attackers = CreateInfantryLine(state, 0, 10, 20, 22);
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            var traces = new Queue<string>();
+
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.Attack), new AttackCommand(attackers, targetId)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+
+            bool targetRemoved = false;
+            for (int tick = 0; tick < 420; tick++)
+            {
+                runner.AdvanceOneTick(state, rules, buffer);
+                CaptureCombatTraceTick(state, attackers, traces, 120);
+                AssertNoLiveUnitStacking(state, BuildTraceFailureMessage("10v1 stacking invariant", traces));
+                AssertNoDuplicateFinalPurposeReservations(state, BuildTraceFailureMessage("10v1 reservation invariant", traces));
+                AssertNoEndlessWorkerPhase(state, attackers, WorkerTaskPhase.MovingToAttackSlot, GameData.NoProgressTimeoutTicks * 2, BuildTraceFailureMessage("10v1 attack-slot no-progress invariant", traces));
+                if (!state.EntityState.EntityLookup.ContainsKey(targetId))
+                {
+                    targetRemoved = true;
+                    break;
+                }
+
+                AddNoOp(buffer, state.Tick, 0, (uint)state.Tick);
+                AddNoOp(buffer, state.Tick, 1, (uint)state.Tick);
+            }
+
+            AssertEqual(true, targetRemoved, BuildTraceFailureMessage("10v1 target should die under focused attack", traces));
+            AddNoOp(buffer, state.Tick, 0, (uint)state.Tick);
+            AddNoOp(buffer, state.Tick, 1, (uint)state.Tick);
+            runner.AdvanceOneTick(state, rules, buffer);
+            for (int i = 0; i < attackers.Length; i++)
+            {
+                Unit attacker = FindUnitById(state, attackers[i]);
+                AssertEqual(0, attacker.AttackTargetId, "attackers should clear target intent once target is gone");
+            }
+        }
+
+        private static void CombatPressureFiftyVsFiftyMeleeStaysStable()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            var state = GameInitializer.CreateNomadStart(2, 1);
+            int[] sideA = CreateInfantryLine(state, 0, 50, 8, 20);
+            int[] sideB = CreateInfantryLine(state, 1, 50, 80, 20);
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            var traces = new Queue<string>();
+
+            QueueNearestEnemyAttackCommands(state, buffer, 0, sideA, sideB, 0);
+            QueueNearestEnemyAttackCommands(state, buffer, 1, sideB, sideA, 0);
+
+            int startA = CountAliveUnitsForPlayer(state, 0);
+            int startB = CountAliveUnitsForPlayer(state, 1);
+            int maxPathCalls = 0;
+            int maxReservationRetarget = 0;
+            for (int tick = 0; tick < 700; tick++)
+            {
+                runner.AdvanceOneTick(state, rules, buffer);
+                int[] liveSideA = FilterAliveEntityIds(state, sideA);
+                int[] liveSideB = FilterAliveEntityIds(state, sideB);
+                CaptureCombatTraceTick(state, liveSideA, traces, 160);
+                CaptureCombatTraceTick(state, liveSideB, traces, 160);
+                AssertNoLiveUnitStacking(state, BuildTraceFailureMessage("50v50 stacking invariant", traces));
+                AssertNoDuplicateFinalPurposeReservations(state, BuildTraceFailureMessage("50v50 reservation invariant", traces));
+                AssertNoEndlessWorkerPhase(state, liveSideA, WorkerTaskPhase.MovingToAttackSlot, GameData.NoProgressTimeoutTicks * 2, BuildTraceFailureMessage("50v50 sideA attack-slot no-progress invariant", traces));
+                AssertNoEndlessWorkerPhase(state, liveSideB, WorkerTaskPhase.MovingToAttackSlot, GameData.NoProgressTimeoutTicks * 2, BuildTraceFailureMessage("50v50 sideB attack-slot no-progress invariant", traces));
+                maxPathCalls = Math.Max(maxPathCalls, state.DebugCounters.PathFindNextCalls + state.DebugCounters.PathFindCostCalls);
+                maxReservationRetarget = Math.Max(maxReservationRetarget, state.DebugCounters.ReservationRetargetCount);
+
+                AddNoOp(buffer, state.Tick, 0, (uint)state.Tick);
+                AddNoOp(buffer, state.Tick, 1, (uint)state.Tick);
+            }
+
+            int endA = CountAliveUnitsForPlayer(state, 0);
+            int endB = CountAliveUnitsForPlayer(state, 1);
+            AssertEqual(true, endA < startA || endB < startB, BuildTraceFailureMessage("50v50 should produce combat casualties", traces));
+            AssertEqual(true, maxPathCalls <= GameData.PathQueryBudgetPerTick * 2, "50v50 path query budget should stay bounded max=" + maxPathCalls);
+            AssertEqual(true, maxReservationRetarget <= GameData.ReservationRetargetBudgetPerTick * 2, "50v50 reservation retarget should stay bounded max=" + maxReservationRetarget);
+        }
+
+        private static void CombatPressureOneHundredFiftyVsOneHundredFiftyMeleeStaysStable()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            var state = GameInitializer.CreateNomadStart(2, 1);
+            int[] sideA = CreateInfantryGrid(state, 0, 150, 6, 10, 12);
+            int[] sideB = CreateInfantryGrid(state, 1, 150, 48, 10, 12);
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            var traces = new Queue<string>();
+
+            QueueNearestEnemyAttackCommands(state, buffer, 0, sideA, sideB, 0);
+            QueueNearestEnemyAttackCommands(state, buffer, 1, sideB, sideA, 0);
+
+            int maxPathCalls = 0;
+            int maxReservationRetarget = 0;
+            for (int tick = 0; tick < 240; tick++)
+            {
+                runner.AdvanceOneTick(state, rules, buffer);
+                int[] liveSideA = FilterAliveEntityIds(state, sideA);
+                int[] liveSideB = FilterAliveEntityIds(state, sideB);
+                if (tick % 6 == 0)
+                {
+                    CaptureCombatTraceTick(state, liveSideA, traces, 220);
+                    CaptureCombatTraceTick(state, liveSideB, traces, 220);
+                    AssertNoLiveUnitStacking(state, BuildTraceFailureMessage("150v150 stacking invariant", traces));
+                    AssertNoDuplicateFinalPurposeReservations(state, BuildTraceFailureMessage("150v150 reservation invariant", traces));
+                }
+
+                AssertNoEndlessWorkerPhase(state, liveSideA, WorkerTaskPhase.MovingToAttackSlot, GameData.NoProgressTimeoutTicks * 2, "150v150 sideA attack-slot no-progress invariant");
+                AssertNoEndlessWorkerPhase(state, liveSideB, WorkerTaskPhase.MovingToAttackSlot, GameData.NoProgressTimeoutTicks * 2, "150v150 sideB attack-slot no-progress invariant");
+                maxPathCalls = Math.Max(maxPathCalls, state.DebugCounters.PathFindNextCalls + state.DebugCounters.PathFindCostCalls);
+                maxReservationRetarget = Math.Max(maxReservationRetarget, state.DebugCounters.ReservationRetargetCount);
+
+                AddNoOp(buffer, state.Tick, 0, (uint)state.Tick);
+                AddNoOp(buffer, state.Tick, 1, (uint)state.Tick);
+            }
+
+            AssertEqual(true, maxPathCalls <= GameData.PathQueryBudgetPerTick * 3, "150v150 path query budget should stay bounded max=" + maxPathCalls);
+            AssertEqual(true, maxReservationRetarget <= GameData.ReservationRetargetBudgetPerTick * 3, "150v150 reservation retarget should stay bounded max=" + maxReservationRetarget);
+        }
+
+        private static void CombatPressureHotspotThreeAttackersVsDefenderObjectiveStaysStable()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(4);
+            var state = GameInitializer.CreateNomadStart(4, 1);
+            int objectiveId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(32, 28));
+            Building objective = FindBuildingById(state, objectiveId);
+            objective.IsUnderConstruction = false;
+            objective.HitPoints = GameData.TownCenterHitPoints + GameData.CapitalHitPointBonus;
+            int[] defenders = CreateInfantryGrid(state, 0, 40, 28, 24, 10);
+
+            int[] attacker1 = CreateInfantryGrid(state, 1, 40, 16, 14, 10);
+            int[] attacker2 = CreateInfantryGrid(state, 2, 40, 16, 36, 10);
+            int[] attacker3 = CreateInfantryGrid(state, 3, 40, 44, 24, 10);
+            var allAttackers = Concat(attacker1, attacker2, attacker3);
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            var traces = new Queue<string>();
+
+            QueueNearestEnemyAttackCommands(state, buffer, 1, attacker1, defenders, 0);
+            QueueNearestEnemyAttackCommands(state, buffer, 2, attacker2, defenders, 0);
+            QueueNearestEnemyAttackCommands(state, buffer, 3, attacker3, defenders, 0);
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.NoOp), new NoOpCommand()));
+
+            int maxPathCalls = 0;
+            int maxReservationRetarget = 0;
+            for (int tick = 0; tick < 500; tick++)
+            {
+                runner.AdvanceOneTick(state, rules, buffer);
+                int[] liveAttackers = FilterAliveEntityIds(state, allAttackers);
+                if (tick % 6 == 0)
+                {
+                    CaptureCombatTraceTick(state, liveAttackers, traces, 260);
+                    AssertNoLiveUnitStacking(state, BuildTraceFailureMessage("hotspot stacking invariant", traces));
+                    AssertNoDuplicateFinalPurposeReservations(state, BuildTraceFailureMessage("hotspot reservation invariant", traces));
+                }
+
+                AssertNoEndlessWorkerPhase(state, liveAttackers, WorkerTaskPhase.MovingToAttackSlot, GameData.NoProgressTimeoutTicks * 2, "hotspot attack-slot no-progress invariant");
+                maxPathCalls = Math.Max(maxPathCalls, state.DebugCounters.PathFindNextCalls + state.DebugCounters.PathFindCostCalls);
+                maxReservationRetarget = Math.Max(maxReservationRetarget, state.DebugCounters.ReservationRetargetCount);
+
+                AddNoOp(buffer, state.Tick, 0, (uint)state.Tick);
+                AddNoOp(buffer, state.Tick, 1, (uint)state.Tick);
+                AddNoOp(buffer, state.Tick, 2, (uint)state.Tick);
+                AddNoOp(buffer, state.Tick, 3, (uint)state.Tick);
+            }
+
+            AssertEqual(true, maxPathCalls <= GameData.PathQueryBudgetPerTick * 3, "hotspot path query budget should stay bounded max=" + maxPathCalls);
+            AssertEqual(true, maxReservationRetarget <= GameData.ReservationRetargetBudgetPerTick * 3, "hotspot reservation retarget should stay bounded max=" + maxReservationRetarget);
+            AssertEqual(true, CountDamagedUnitsForPlayer(state, 0) > 0, "hotspot defenders should take pressure damage");
+        }
+
         private static void MoveCommandClearsAttackTarget()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(2);
@@ -238,6 +415,178 @@ namespace RtsGame.Tests
 
             AssertEqual(0, state.EntityState.Units[10].AttackTargetId, "move should clear attack intent");
             AssertEqual(true, state.EntityState.Units[10].HasMoveTarget, "move target should remain active");
+        }
+
+        private static int[] CreateInfantryLine(GameState state, int ownerPlayerIndex, int count, int startX, int y)
+        {
+            var ids = new int[count];
+            for (int i = 0; i < count; i++)
+            {
+                ids[i] = EntityFactory.CreateUnit(state, ownerPlayerIndex, UnitTypeId.Infantry, FixedVector2.FromInts(startX + i, y));
+            }
+
+            return ids;
+        }
+
+        private static int[] CreateInfantryGrid(GameState state, int ownerPlayerIndex, int count, int startX, int startY, int width)
+        {
+            var ids = new int[count];
+            for (int i = 0; i < count; i++)
+            {
+                int x = startX + (i % width);
+                int y = startY + (i / width);
+                ids[i] = EntityFactory.CreateUnit(state, ownerPlayerIndex, UnitTypeId.Infantry, FixedVector2.FromInts(x, y));
+            }
+
+            return ids;
+        }
+
+        private static int[] Concat(int[] first, int[] second, int[] third)
+        {
+            var merged = new int[first.Length + second.Length + third.Length];
+            Array.Copy(first, 0, merged, 0, first.Length);
+            Array.Copy(second, 0, merged, first.Length, second.Length);
+            Array.Copy(third, 0, merged, first.Length + second.Length, third.Length);
+            return merged;
+        }
+
+        private static int[] FilterAliveEntityIds(GameState state, int[] ids)
+        {
+            var alive = new List<int>(ids.Length);
+            for (int i = 0; i < ids.Length; i++)
+            {
+                if (state.EntityState.EntityLookup.ContainsKey(ids[i]))
+                {
+                    alive.Add(ids[i]);
+                }
+            }
+
+            return alive.ToArray();
+        }
+
+        private static void QueueNearestEnemyAttackCommands(GameState state, CommandBuffer buffer, int playerIndex, int[] attackers, int[] enemyPool, int tick)
+        {
+            for (int i = 0; i < attackers.Length; i++)
+            {
+                Unit attacker = FindUnitById(state, attackers[i]);
+                int targetId = FindNearestAliveEnemy(state, attacker.Position, enemyPool);
+                if (targetId == 0)
+                {
+                    continue;
+                }
+
+                buffer.Add(new CommandEnvelope(
+                    new CommandHeader(tick, playerIndex, (uint)(i + 1), CommandType.Attack),
+                    new AttackCommand(new[] { attackers[i] }, targetId)));
+            }
+        }
+
+        private static int FindNearestAliveEnemy(GameState state, FixedVector2 from, int[] enemyPool)
+        {
+            int bestId = 0;
+            long bestDistanceSquared = long.MaxValue;
+            for (int i = 0; i < enemyPool.Length; i++)
+            {
+                int enemyId = enemyPool[i];
+                if (!state.EntityState.EntityLookup.TryGetValue(enemyId, out EntityRef entityRef) || entityRef.Kind != EntityKind.Unit)
+                {
+                    continue;
+                }
+
+                if (entityRef.Index < 0 || entityRef.Index >= state.EntityState.Units.Count)
+                {
+                    continue;
+                }
+
+                Unit enemy = state.EntityState.Units[entityRef.Index];
+                if (enemy.Id != enemyId || enemy.IsDead)
+                {
+                    continue;
+                }
+
+                long distanceSquared = (enemy.Position - from).LengthSquaredRaw();
+                if (distanceSquared < bestDistanceSquared || (distanceSquared == bestDistanceSquared && enemyId < bestId))
+                {
+                    bestDistanceSquared = distanceSquared;
+                    bestId = enemyId;
+                }
+            }
+
+            return bestId;
+        }
+
+        private static int CountAliveUnitsForPlayer(GameState state, int playerIndex)
+        {
+            int count = 0;
+            for (int i = 0; i < state.EntityState.Units.Count; i++)
+            {
+                Unit unit = state.EntityState.Units[i];
+                if (!unit.IsDead && unit.OwnerPlayerIndex == playerIndex)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static int CountDamagedUnitsForPlayer(GameState state, int playerIndex)
+        {
+            int count = 0;
+            for (int i = 0; i < state.EntityState.Units.Count; i++)
+            {
+                Unit unit = state.EntityState.Units[i];
+                if (!unit.IsDead && unit.OwnerPlayerIndex == playerIndex && unit.HitPoints < GameData.InfantryHitPoints)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static void CaptureCombatTraceTick(GameState state, int[] unitIds, Queue<string> traces, int maxEntries)
+        {
+            for (int i = 0; i < unitIds.Length; i++)
+            {
+                if (!state.EntityState.EntityLookup.TryGetValue(unitIds[i], out EntityRef entityRef) || entityRef.Kind != EntityKind.Unit)
+                {
+                    continue;
+                }
+
+                if (entityRef.Index < 0 || entityRef.Index >= state.EntityState.Units.Count)
+                {
+                    continue;
+                }
+
+                Unit unit = state.EntityState.Units[entityRef.Index];
+                if (unit.Id != unitIds[i] || unit.IsDead)
+                {
+                    continue;
+                }
+
+                int tileX = SpatialRules.GetTileX(unit.Position);
+                int tileY = SpatialRules.GetTileY(unit.Position);
+                int noProgressTicks = unit.LastMovedTick < 0 ? 0 : state.Tick - unit.LastMovedTick;
+                string line =
+                    "t=" + state.Tick
+                    + " u=" + unit.Id
+                    + " p=" + unit.OwnerPlayerIndex
+                    + " tile=(" + tileX + "," + tileY + ")"
+                    + " hp=" + unit.HitPoints
+                    + " atkTarget=" + unit.AttackTargetId
+                    + " phase=" + unit.TaskPhase
+                    + " reserve=" + unit.ReservedInteractionKind + ":" + unit.ReservedInteractionTargetId + "@(" + unit.ReservedInteractionTileX + "," + unit.ReservedInteractionTileY + ")"
+                    + " cooldown=" + unit.AttackCooldownTicksRemaining
+                    + " noProgress=" + noProgressTicks
+                    + " pathCalls=" + (state.DebugCounters.PathFindNextCalls + state.DebugCounters.PathFindCostCalls)
+                    + " retargets=" + state.DebugCounters.ReservationRetargetCount;
+                traces.Enqueue(line);
+                while (traces.Count > maxEntries)
+                {
+                    traces.Dequeue();
+                }
+            }
         }
 
         private static void MoveCommandPreservesAttackCooldown()
