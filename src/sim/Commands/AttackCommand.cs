@@ -87,6 +87,7 @@ namespace RtsGame.Sim.Commands
                 unit.TaskPhase = WorkerTaskPhase.Idle;
                 unit.HasMoveTarget = false;
                 unit.AttackTargetId = TargetEntityId;
+                unit.HasAttackMoveTarget = false;
                 if (!GameData.IsSiege(unit.UnitTypeId))
                 {
                     unit.IsSiegeDeployed = false;

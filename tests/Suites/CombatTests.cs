@@ -417,6 +417,134 @@ namespace RtsGame.Tests
             AssertEqual(true, state.EntityState.Units[10].HasMoveTarget, "move target should remain active");
         }
 
+        private static void AttackMoveAcceptsCombatUnit()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = CreateAdjacentCombatState();
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AttackMove), new AttackMoveCommand(new[] { 11 }, FixedVector2.FromInts(4, 0))));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            Unit attacker = state.EntityState.Units[10];
+            AssertEqual(0, state.DebugCounters.RejectedCommandCount, "combat unit attack-move should be accepted");
+            AssertEqual(true, attacker.HasAttackMoveTarget, "attack-move should set persistent attack-move intent");
+            AssertEqual(4, SpatialRules.GetTileX(attacker.AttackMoveTarget), "attack-move destination x should be stored");
+            AssertEqual(0, SpatialRules.GetTileY(attacker.AttackMoveTarget), "attack-move destination y should be stored");
+            AssertEqual(true, attacker.HasMoveTarget, "attack-move should issue movement toward destination in 9C.1");
+        }
+
+        private static void AttackMoveRejectsNonCombatUnit()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            var state = GameInitializer.CreateNomadStart(2, 1);
+            int tradeCartId = EntityFactory.CreateUnit(state, 0, UnitTypeId.TradeCart, FixedVector2.FromInts(0, 0));
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AttackMove), new AttackMoveCommand(new[] { tradeCartId }, FixedVector2.FromInts(6, 6))));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            Unit cart = FindUnitById(state, tradeCartId);
+            AssertEqual(1, state.DebugCounters.RejectedCommandCount, "non-combat attack-move should reject");
+            AssertEqual(false, cart.HasAttackMoveTarget, "rejected attack-move should not set intent state");
+        }
+
+        private static void AttackMoveClearsExplicitAttackIntent()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = CreateAdjacentCombatState();
+            state.EntityState.Units[10].AttackTargetId = 12;
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AttackMove), new AttackMoveCommand(new[] { 11 }, FixedVector2.FromInts(5, 0))));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            Unit attacker = state.EntityState.Units[10];
+            AssertEqual(0, attacker.AttackTargetId, "attack-move should clear explicit attack target intent");
+            AssertEqual(true, attacker.HasAttackMoveTarget, "attack-move intent should be active after command");
+        }
+
+        private static void MoveCommandClearsAttackMoveIntent()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = CreateAdjacentCombatState();
+            Unit attacker = state.EntityState.Units[10];
+            attacker.HasAttackMoveTarget = true;
+            attacker.AttackMoveTarget = FixedVector2.FromInts(9, 9);
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 11 }, FixedVector2.FromInts(2, 0))));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(false, state.EntityState.Units[10].HasAttackMoveTarget, "explicit move should clear attack-move intent");
+        }
+
+        private static void ExplicitAttackClearsAttackMoveIntent()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = CreateAdjacentCombatState();
+            Unit attacker = state.EntityState.Units[10];
+            attacker.HasAttackMoveTarget = true;
+            attacker.AttackMoveTarget = FixedVector2.FromInts(8, 8);
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.Attack), new AttackCommand(new[] { 11 }, 12)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(false, state.EntityState.Units[10].HasAttackMoveTarget, "explicit attack should clear attack-move intent");
+            AssertEqual(12, state.EntityState.Units[10].AttackTargetId, "explicit attack target should still be assigned");
+        }
+
+        private static void AttackMoveChecksumCoversIntentState()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = CreateAdjacentCombatState();
+            ulong before = StateChecksum.Compute(state, rules);
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AttackMove), new AttackMoveCommand(new[] { 11 }, FixedVector2.FromInts(6, 0))));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+            ulong after = StateChecksum.Compute(state, rules);
+
+            AssertEqual(true, before != after, "attack-move intent state should be checksum-covered");
+        }
+
+        private static void AttackMoveReplayDeterminism()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            var commands = new[]
+            {
+                new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AttackMove), new AttackMoveCommand(new[] { 11 }, FixedVector2.FromInts(7, 1))),
+                new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand())
+            };
+
+            ulong first = RunCommandsFromState(CreateAdjacentCombatState(), rules, commands, 1);
+            ulong second = RunCommandsFromState(CreateAdjacentCombatState(), rules, commands, 1);
+            AssertEqual(first, second, "attack-move command stream should replay deterministically");
+        }
+
+        private static void AttackMoveLockstep()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            var session = new LockstepSession(rules, 713, true);
+            EntityFactory.CreateUnit(session.Peers[0].LocalState, 0, UnitTypeId.Infantry, FixedVector2.FromInts(0, 0));
+            EntityFactory.CreateUnit(session.Peers[0].LocalState, 1, UnitTypeId.Infantry, FixedVector2.FromInts(1, 0));
+            EntityFactory.CreateUnit(session.Peers[1].LocalState, 0, UnitTypeId.Infantry, FixedVector2.FromInts(0, 0));
+            EntityFactory.CreateUnit(session.Peers[1].LocalState, 1, UnitTypeId.Infantry, FixedVector2.FromInts(1, 0));
+            session.Broadcast(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AttackMove), new AttackMoveCommand(new[] { 11 }, FixedVector2.FromInts(7, 1))));
+            session.Broadcast(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+
+            AssertEqual(true, session.TryAdvanceOneTick(), "attack-move lockstep tick should advance");
+            AssertEqual(0, session.DesyncReports.Count, "attack-move lockstep should not desync");
+            AssertEqual(session.Peers[0].LocalState.LastChecksum, session.Peers[1].LocalState.LastChecksum, "attack-move lockstep checksums should match");
+        }
+
         private static int[] CreateInfantryLine(GameState state, int ownerPlayerIndex, int count, int startX, int y)
         {
             var ids = new int[count];

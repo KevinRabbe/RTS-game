@@ -49,6 +49,8 @@ namespace RtsGame.Sim.Data
         public ResourceType CarriedResourceType { get; set; }
         public int CarriedAmount { get; set; }
         public int AttackTargetId { get; set; }
+        public bool HasAttackMoveTarget { get; set; }
+        public FixedVector2 AttackMoveTarget { get; set; }
         public int AttackCooldownTicksRemaining { get; set; }
         public bool IsSiegeDeployed { get; set; }
         public int SiegeSetupTicksRemaining { get; set; }

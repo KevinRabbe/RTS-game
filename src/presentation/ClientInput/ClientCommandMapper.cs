@@ -25,6 +25,8 @@ namespace RtsGame.Presentation.ClientInput
                     return Envelope(tick, playerIndex, sequence, CommandType.MoveUnits, new MoveUnitsCommand(intent.UnitIds, intent.Position));
                 case ClientIntentType.Attack:
                     return Envelope(tick, playerIndex, sequence, CommandType.Attack, new AttackCommand(intent.UnitIds, intent.TargetEntityId));
+                case ClientIntentType.AttackMove:
+                    return Envelope(tick, playerIndex, sequence, CommandType.AttackMove, new AttackMoveCommand(intent.UnitIds, intent.Position));
                 case ClientIntentType.Resign:
                     return Envelope(tick, playerIndex, sequence, CommandType.Resign, new ResignCommand());
                 case ClientIntentType.PlaceWall:

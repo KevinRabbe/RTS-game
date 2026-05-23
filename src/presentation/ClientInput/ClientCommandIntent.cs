@@ -84,6 +84,11 @@ namespace RtsGame.Presentation.ClientInput
             return new ClientCommandIntent(ClientIntentType.Attack, FixedVector2.FromInts(0, 0), SortedUnitIds(attackerUnitIds), targetEntityId, 0, 0, 0, 0, 0, 0, 0);
         }
 
+        public static ClientCommandIntent AttackMove(IReadOnlyList<int> unitIds, FixedVector2 target)
+        {
+            return new ClientCommandIntent(ClientIntentType.AttackMove, target, SortedUnitIds(unitIds), 0, 0, 0, 0, 0, 0, 0, 0);
+        }
+
         public static ClientCommandIntent Resign()
         {
             return new ClientCommandIntent(ClientIntentType.Resign, FixedVector2.FromInts(0, 0), new int[0], 0, 0, 0, 0, 0, 0, 0, 0);

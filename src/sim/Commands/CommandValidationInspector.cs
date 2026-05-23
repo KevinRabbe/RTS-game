@@ -90,6 +90,16 @@ namespace RtsGame.Sim.Commands
                     attack.AttackerUnitIds);
             }
 
+            if (command.Payload is AttackMoveCommand attackMove)
+            {
+                return CreateUnitCommandReport(
+                    attackMove.GetValidationReason(state, rules, command.Header),
+                    0,
+                    SpatialRules.GetTileX(attackMove.Target),
+                    SpatialRules.GetTileY(attackMove.Target),
+                    attackMove.UnitIds);
+            }
+
             bool accepted = command.Payload.IsValid(state, rules, command.Header);
             return new CommandValidationReport(
                 accepted,

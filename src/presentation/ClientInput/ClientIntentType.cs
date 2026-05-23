@@ -13,6 +13,7 @@ namespace RtsGame.Presentation.ClientInput
         PlaceWall = 8,
         CreateTradeRoute = 9,
         PlaceTradePost = 10,
-        ResearchTech = 11
+        ResearchTech = 11,
+        AttackMove = 12
     }
 }

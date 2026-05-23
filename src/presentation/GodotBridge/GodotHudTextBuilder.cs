@@ -338,6 +338,8 @@ namespace RtsGame.Presentation.GodotBridge
                     return "TrainUnit";
                 case (int)CommandType.Attack:
                     return "Attack";
+                case (int)CommandType.AttackMove:
+                    return "AttackMove";
                 case (int)CommandType.Resign:
                     return "Resign";
                 case (int)CommandType.PlaceTradePost:

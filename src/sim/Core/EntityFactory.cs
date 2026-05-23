@@ -44,6 +44,8 @@ namespace RtsGame.Sim.Core
                 CarriedResourceType = ResourceType.None,
                 CarriedAmount = 0,
                 AttackTargetId = 0,
+                HasAttackMoveTarget = false,
+                AttackMoveTarget = position,
                 AttackCooldownTicksRemaining = 0,
                 IsSiegeDeployed = false,
                 SiegeSetupTicksRemaining = 0,

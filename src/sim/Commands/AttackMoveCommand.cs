@@ -6,12 +6,12 @@ using RtsGame.Sim.Determinism;
 
 namespace RtsGame.Sim.Commands
 {
-    public sealed class MoveUnitsCommand : ICommand
+    public sealed class AttackMoveCommand : ICommand
     {
         public IReadOnlyList<int> UnitIds { get; }
         public FixedVector2 Target { get; }
 
-        public MoveUnitsCommand(IReadOnlyList<int> unitIds, FixedVector2 target)
+        public AttackMoveCommand(IReadOnlyList<int> unitIds, FixedVector2 target)
         {
             UnitIds = unitIds;
             Target = target;
@@ -19,7 +19,7 @@ namespace RtsGame.Sim.Commands
 
         public CommandType Type
         {
-            get { return CommandType.MoveUnits; }
+            get { return CommandType.AttackMove; }
         }
 
         public void WritePayload(CanonicalWriter writer)
@@ -59,6 +59,7 @@ namespace RtsGame.Sim.Commands
             }
 
             var seen = new HashSet<int>();
+            bool anyEligibleUnit = false;
             bool anyUnitReachable = false;
             for (int i = 0; i < UnitIds.Count; i++)
             {
@@ -68,17 +69,23 @@ namespace RtsGame.Sim.Commands
                     return CommandValidationReason.DuplicateUnitSelection;
                 }
 
-                if (unit.OwnerPlayerIndex != header.PlayerIndex || unit.IsDead)
+                if (unit.OwnerPlayerIndex != header.PlayerIndex || unit.IsDead || !CanAttack(unit.UnitTypeId))
                 {
-                    return CommandValidationReason.UnitCannotPerformAction;
+                    continue;
                 }
 
+                anyEligibleUnit = true;
                 int unitTileX = SpatialRules.GetTileX(unit.Position);
                 int unitTileY = SpatialRules.GetTileY(unit.Position);
                 if (state.PathQueries.TryNextStep(state, unit.Id, unitTileX, unitTileY, targetTileX, targetTileY, state.Tick, out _, out _))
                 {
                     anyUnitReachable = true;
                 }
+            }
+
+            if (!anyEligibleUnit)
+            {
+                return CommandValidationReason.UnitCannotPerformAction;
             }
 
             return anyUnitReachable
@@ -92,7 +99,16 @@ namespace RtsGame.Sim.Commands
             var units = new List<Unit>();
             for (int i = 0; i < sortedUnitIds.Count; i++)
             {
-                Unit unit = GetUnit(state, sortedUnitIds[i]);
+                if (!TryGetUnit(state, sortedUnitIds[i], out Unit? unit))
+                {
+                    continue;
+                }
+
+                if (unit.OwnerPlayerIndex != header.PlayerIndex || unit.IsDead || !CanAttack(unit.UnitTypeId))
+                {
+                    continue;
+                }
+
                 ClearBuildAssignment(state, unit);
                 SpatialRules.ClearInteractionReservation(state, unit);
                 unit.CurrentResourceAreaId = 0;
@@ -101,7 +117,8 @@ namespace RtsGame.Sim.Commands
                 unit.TaskPhase = WorkerTaskPhase.MovingToCommandMove;
                 unit.HasMoveTarget = false;
                 unit.AttackTargetId = 0;
-                unit.HasAttackMoveTarget = false;
+                unit.HasAttackMoveTarget = true;
+                unit.AttackMoveTarget = Target;
                 unit.IsSiegeDeployed = false;
                 unit.SiegeSetupTicksRemaining = 0;
                 unit.SiegeReloadTicksRemaining = 0;
@@ -110,7 +127,7 @@ namespace RtsGame.Sim.Commands
 
             int targetTileX = SpatialRules.GetTileX(Target);
             int targetTileY = SpatialRules.GetTileY(Target);
-            int searchRadius = GetDestinationSearchRadius(sortedUnitIds.Count);
+            int searchRadius = GetDestinationSearchRadius(units.Count);
             for (int i = 0; i < units.Count; i++)
             {
                 Unit unit = units[i];
@@ -132,6 +149,13 @@ namespace RtsGame.Sim.Commands
         {
             int radius = unitCount / 2 + 2;
             return radius < 3 ? 3 : radius;
+        }
+
+        private static bool CanAttack(UnitTypeId unitTypeId)
+        {
+            return GameData.GetUnitAttackDamage(unitTypeId) > 0
+                || GameData.GetAreaDamage(unitTypeId) > 0
+                || GameData.GetSiegeBuildingDamage(unitTypeId) > 0;
         }
 
         private static void ClearBuildAssignment(GameState state, Unit unit)
@@ -179,13 +203,5 @@ namespace RtsGame.Sim.Commands
             unit = state.EntityState.Units[entityRef.Index];
             return unit.Id == unitId;
         }
-
-        private static Unit GetUnit(GameState state, int unitId)
-        {
-            TryGetUnit(state, unitId, out Unit? unit);
-            return unit!;
-        }
     }
 }
-
-

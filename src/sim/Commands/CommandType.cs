@@ -14,6 +14,7 @@ namespace RtsGame.Sim.Commands
         PlaceWall = 9,
         CreateTradeRoute = 10,
         PlaceTradePost = 11,
-        ResearchTech = 12
+        ResearchTech = 12,
+        AttackMove = 13
     }
 }
