@@ -15,6 +15,7 @@ namespace RtsGame.Sim.Core
                 new CommandExecutionSystem(),
                 new DespawnSystem(),
                 new ResignationSystem(),
+                new AttackPositioningSystem(),
                 new MovementSystem(),
                 new VisibilitySystem(),
                 new ConstructionSystem(),

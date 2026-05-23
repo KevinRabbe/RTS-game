@@ -67,7 +67,8 @@ namespace RtsGame.Sim.Data
         ResourceNode = 1,
         Dropoff = 2,
         BuildSite = 3,
-        MoveDestination = 4
+        MoveDestination = 4,
+        AttackSlot = 5
     }
 
     public enum WorkerTaskPhase
@@ -80,7 +81,8 @@ namespace RtsGame.Sim.Data
         MovingToBuildSlot = 5,
         Building = 6,
         MovingToCommandMove = 7,
-        BlockedWaiting = 8
+        BlockedWaiting = 8,
+        MovingToAttackSlot = 9
     }
 
     public enum ReservationAttemptFailureReason

@@ -889,6 +889,7 @@ namespace RtsGame.Sim.Systems
             return phase == WorkerTaskPhase.MovingToResourceSlot
                 || phase == WorkerTaskPhase.MovingToDropoffSlot
                 || phase == WorkerTaskPhase.MovingToBuildSlot
+                || phase == WorkerTaskPhase.MovingToAttackSlot
                 || phase == WorkerTaskPhase.BlockedWaiting;
         }
 

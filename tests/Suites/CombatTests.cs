@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using RtsGame.Net.Lockstep;
 using RtsGame.Presentation.ClientInput;
 using RtsGame.Presentation.GodotBridge;
@@ -144,6 +145,84 @@ namespace RtsGame.Tests
 
             AssertEqual(1, state.DebugCounters.RejectedCommandCount, "non-combat unit attack should reject");
             AssertEqual(GameData.InfantryHitPoints, FindUnitById(state, enemyInfantryId).HitPoints, "rejected non-combat attack should not damage enemy");
+        }
+
+        private static void AttackOutOfRangeQueuesAttackSlotMovement()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            var state = GameInitializer.CreateNomadStart(2, 1);
+            int attackerId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Infantry, FixedVector2.FromInts(0, 0));
+            int targetId = EntityFactory.CreateUnit(state, 1, UnitTypeId.Infantry, FixedVector2.FromInts(7, 0));
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.Attack), new AttackCommand(new[] { attackerId }, targetId)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            Unit attacker = FindUnitById(state, attackerId);
+            AssertEqual(targetId, attacker.AttackTargetId, "attacker should retain explicit target");
+            AssertEqual(true, attacker.HasMoveTarget, "out-of-range attacker should receive move target to attack slot");
+            AssertEqual(WorkerTaskPhase.MovingToAttackSlot, attacker.TaskPhase, "attacker should use attack-slot movement phase");
+            AssertEqual(InteractionReservationKind.AttackSlot, attacker.ReservedInteractionKind, "attacker should reserve deterministic attack slot");
+            AssertEqual(targetId, attacker.ReservedInteractionTargetId, "attack slot reservation should be tied to target id");
+        }
+
+        private static void AttackGroupUsesDistinctAttackSlots()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            var state = GameInitializer.CreateNomadStart(2, 1);
+            int attackerA = EntityFactory.CreateUnit(state, 0, UnitTypeId.Infantry, FixedVector2.FromInts(0, 0));
+            int attackerB = EntityFactory.CreateUnit(state, 0, UnitTypeId.Infantry, FixedVector2.FromInts(0, 1));
+            int targetId = EntityFactory.CreateUnit(state, 1, UnitTypeId.Infantry, FixedVector2.FromInts(8, 0));
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.Attack), new AttackCommand(new[] { attackerA, attackerB }, targetId)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            Unit first = FindUnitById(state, attackerA);
+            Unit second = FindUnitById(state, attackerB);
+            AssertEqual(InteractionReservationKind.AttackSlot, first.ReservedInteractionKind, "first attacker should reserve attack slot");
+            AssertEqual(InteractionReservationKind.AttackSlot, second.ReservedInteractionKind, "second attacker should reserve attack slot");
+            bool sameSlot = first.ReservedInteractionTileX == second.ReservedInteractionTileX
+                && first.ReservedInteractionTileY == second.ReservedInteractionTileY;
+            AssertEqual(false, sameSlot, "group attackers should not reserve identical attack slot");
+        }
+
+        private static void AttackOverflowAttackersWaitWithoutStacking()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            var state = GameInitializer.CreateNomadStart(2, 1);
+            int targetId = EntityFactory.CreateUnit(state, 1, UnitTypeId.Infantry, FixedVector2.FromInts(18, 18));
+            var attackers = new List<int>();
+            for (int i = 0; i < 10; i++)
+            {
+                attackers.Add(EntityFactory.CreateUnit(state, 0, UnitTypeId.Infantry, FixedVector2.FromInts(i % 3, i / 3)));
+            }
+
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.Attack), new AttackCommand(attackers, targetId)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            int reservedCount = 0;
+            int waitingCount = 0;
+            for (int i = 0; i < attackers.Count; i++)
+            {
+                Unit attacker = FindUnitById(state, attackers[i]);
+                if (attacker.ReservedInteractionKind == InteractionReservationKind.AttackSlot)
+                {
+                    reservedCount++;
+                }
+                else if (attacker.TaskPhase == WorkerTaskPhase.BlockedWaiting && !attacker.HasMoveTarget)
+                {
+                    waitingCount++;
+                }
+            }
+
+            AssertEqual(true, reservedCount <= 8, "single-tile unit target should expose bounded ring slots");
+            AssertEqual(true, waitingCount > 0, "overflow attackers should wait instead of forcing stacks");
         }
 
         private static void MoveCommandClearsAttackTarget()
