@@ -247,6 +247,7 @@ namespace RtsGame.Tests
             AssertEqual(CombatTest01MapDefinition.MapName, session.MapName, "combat test local session should expose map name");
             AssertEqual(true, CountOwnedUnitType(setup, 0, UnitTypeId.Infantry) >= 8, "combat test setup should include local infantry group");
             AssertEqual(true, CountOwnedUnitType(setup, 1, UnitTypeId.Infantry) >= 8, "combat test setup should include enemy infantry group");
+            AssertEqual(true, CountOwnedBuildingType(setup, 1, BuildingTypeId.TradePost) >= 1, "combat test setup should include enemy building target");
             AssertEqual(true, HasUnitType(localSnapshot, UnitTypeId.Infantry), "combat test local player should have infantry units");
             AssertEqual(true, HasUnitType(localSnapshot, UnitTypeId.Scout), "combat test local player should have scout unit");
 
@@ -272,6 +273,56 @@ namespace RtsGame.Tests
             AssertEqual(true, after.Match.LastCommandAccepted, "combat test scenario attack command should be accepted through normal facade path");
             AssertEqual((int)CommandType.Attack, after.Match.LastCommandTypeId, "combat test scenario should execute attack command type");
             AssertEqual((int)CommandValidationReason.Accepted, after.Match.LastCommandReasonId, "combat test scenario attack should report accepted reason");
+        }
+
+        private static void CombatTestScenarioSupportsEnemyBuildingAttackThroughFacade()
+        {
+            GameState setup = GameInitializer.CreateCombatTest01(100);
+            int attackerId = 5;
+            int enemyBuildingId = FindOwnedBuildingId(setup, 1, BuildingTypeId.TradePost);
+            AssertEqual(true, enemyBuildingId != 0, "combat test scenario should expose enemy trade post target");
+
+            var runner = new TickRunner();
+            var buffer = new CommandBuffer();
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            int buildingIndex = setup.EntityState.EntityLookup[enemyBuildingId].Index;
+            int beforeHp = setup.EntityState.Buildings[buildingIndex].HitPoints;
+            Unit attackerSetup = FindUnitById(setup, attackerId);
+            attackerSetup.Position = FixedVector2.FromInts(73, 48);
+            attackerSetup.MoveTarget = attackerSetup.Position;
+            attackerSetup.HasMoveTarget = false;
+            attackerSetup.TaskPhase = WorkerTaskPhase.Idle;
+
+            buffer.Add(new CommandEnvelope(
+                new CommandHeader(0, 0, 0, CommandType.Attack),
+                new AttackCommand(new[] { attackerId }, enemyBuildingId)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+            runner.AdvanceOneTick(setup, rules, buffer);
+
+            Unit attacker = FindUnitById(setup, attackerId);
+            AssertEqual(enemyBuildingId, attacker.AttackTargetId, "attacker should preserve explicit building target intent");
+
+            int afterHp = beforeHp;
+            for (int tick = 1; tick < 220; tick++)
+            {
+                AddNoOp(buffer, tick, 0, (uint)tick);
+                AddNoOp(buffer, tick, 1, (uint)tick);
+                runner.AdvanceOneTick(setup, rules, buffer);
+
+                if (!setup.EntityState.EntityLookup.TryGetValue(enemyBuildingId, out EntityRef targetRef) || targetRef.Kind != EntityKind.Building)
+                {
+                    break;
+                }
+
+                afterHp = setup.EntityState.Buildings[targetRef.Index].HitPoints;
+                if (afterHp < beforeHp)
+                {
+                    break;
+                }
+            }
+
+            AssertEqual(true, beforeHp > 0, "enemy building target should have positive hit points before pressure");
+            AssertEqual(true, afterHp < beforeHp, "building target should take damage under sustained explicit attack pressure");
         }
 
         private static void GodotInteractionRouterPrioritizesAttack()
@@ -317,6 +368,64 @@ namespace RtsGame.Tests
 
             return count;
         }
+
+        private static int CountOwnedBuildingType(GameState state, int ownerPlayerIndex, BuildingTypeId buildingTypeId)
+        {
+            int count = 0;
+            for (int i = 0; i < state.EntityState.Buildings.Count; i++)
+            {
+                Building building = state.EntityState.Buildings[i];
+                if (!building.IsDead && building.OwnerPlayerIndex == ownerPlayerIndex && building.BuildingTypeId == buildingTypeId)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static int FindOwnedBuildingId(GameState state, int ownerPlayerIndex, BuildingTypeId buildingTypeId)
+        {
+            for (int i = 0; i < state.EntityState.Buildings.Count; i++)
+            {
+                Building building = state.EntityState.Buildings[i];
+                if (!building.IsDead
+                    && building.OwnerPlayerIndex == ownerPlayerIndex
+                    && building.BuildingTypeId == buildingTypeId)
+                {
+                    return building.Id;
+                }
+            }
+
+            return 0;
+        }
+
+        private static GodotUnitStatusDto? FindUnitStatus(GodotFrameDto frame, int unitId)
+        {
+            for (int i = 0; i < frame.UnitStatuses.Length; i++)
+            {
+                if (frame.UnitStatuses[i].UnitId == unitId)
+                {
+                    return frame.UnitStatuses[i];
+                }
+            }
+
+            return null;
+        }
+
+        private static GodotBuildingStatusDto? FindBuildingStatus(GodotFrameDto frame, int buildingId)
+        {
+            for (int i = 0; i < frame.BuildingStatuses.Length; i++)
+            {
+                if (frame.BuildingStatuses[i].BuildingId == buildingId)
+                {
+                    return frame.BuildingStatuses[i];
+                }
+            }
+
+            return null;
+        }
+
 
         private static void GodotInteractionRouterRoutesBuildAssignment()
         {

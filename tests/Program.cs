@@ -277,6 +277,7 @@ namespace RtsGame.Tests
                 new TestCase("local play session creates dry arabia test map", LocalPlaySessionCreatesDryArabiaTestMap),
                 new TestCase("local play session creates combat test map", LocalPlaySessionCreatesCombatTestMap),
                 new TestCase("combat test scenario supports attack intent through facade", CombatTestScenarioSupportsAttackIntentThroughFacade),
+                new TestCase("combat test scenario supports enemy building attack through facade", CombatTestScenarioSupportsEnemyBuildingAttackThroughFacade),
                 new TestCase("godot facade returns drawable frame dto", GodotFacadeReturnsDrawableFrameDto),
                 new TestCase("godot facade drives local capital flow", GodotFacadeDrivesLocalCapitalFlow),
                 new TestCase("godot facade creates local 6 player ffa", GodotFacadeCreatesLocal6PlayerFfa),

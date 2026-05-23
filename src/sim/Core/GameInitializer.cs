@@ -63,6 +63,8 @@ namespace RtsGame.Sim.Core
                 EntityFactory.CreateUnit(state, 1, UnitTypeId.Infantry, FixedVector2.FromInts(64 + i, 52));
             }
 
+            EntityFactory.CreateTradePost(state, 1, FixedVector2.FromInts(74, 48), true);
+
             return state;
         }
 
