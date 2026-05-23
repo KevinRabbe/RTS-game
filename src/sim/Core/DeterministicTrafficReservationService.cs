@@ -154,6 +154,8 @@ namespace RtsGame.Sim.Core
             int unitTileX,
             int unitTileY)
         {
+            // Deterministic shortlist: bounds path-cost work under pressure while
+            // keeping candidate ordering stable for replay/lockstep parity.
             if (candidates.Count <= GameData.PathCostShortlistMaxCandidates)
             {
                 return candidates;
@@ -204,6 +206,8 @@ namespace RtsGame.Sim.Core
 
         private bool IsEvictedForUnit(GameState state, Unit unit, InteractionReservationKind kind, int targetId, int tileX, int tileY)
         {
+            // Timeout eviction is per-unit and per-slot so one stalled worker does
+            // not repeatedly reclaim the same blocked slot every retarget cadence.
             long key = ComposeEvictionKey(unit.Id, kind, targetId, tileX, tileY);
             if (!_evictedUntilTickBySlotKey.TryGetValue(key, out int untilTick))
             {

@@ -48,6 +48,8 @@ namespace RtsGame.Sim.Checksums
                 writer.WriteInt32(unit.CorridorVersion);
                 writer.WriteInt32(unit.CorridorStepIndex);
                 writer.WriteInt32(unit.RetargetCooldownUntilTick);
+                // Persistent movement diagnostics are checksum-covered on purpose.
+                // Any divergence here must surface as desync, not hidden drift.
                 writer.WriteUInt16((ushort)unit.MovementBlockedReason);
                 writer.WriteInt32(unit.BlockedSinceTick);
                 writer.WriteInt32(unit.LastMeaningfulProgressTick);

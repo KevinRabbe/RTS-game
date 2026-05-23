@@ -383,6 +383,8 @@ namespace RtsGame.Sim.Systems
 
         private static void MarkSharedDestinationConflicts(MovementPlan[] plans)
         {
+            // Final-purpose slot ownership is deterministic: when multiple movers
+            // claim one destination tile in the same tick, lowest unit id wins.
             var contenderCounts = new Dictionary<int, int>();
             var winnerIndices = new Dictionary<int, int>();
             for (int i = 0; i < plans.Length; i++)
@@ -419,6 +421,8 @@ namespace RtsGame.Sim.Systems
 
         private static void MarkSwapConflicts(MovementPlan[] plans)
         {
+            // Swap conflicts never resolve by implicit pass-through. Both units
+            // keep intent and retry next tick, which preserves lockstep stability.
             var planByCurrentTile = new Dictionary<int, int>();
             for (int i = 0; i < plans.Length; i++)
             {

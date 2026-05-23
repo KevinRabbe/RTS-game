@@ -87,6 +87,8 @@ namespace RtsGame.Sim.Core
 
         public void EnsureWarm(GameState state)
         {
+            // Rebuild is tick-scoped. Hot-path queries can assume a coherent index
+            // for the current tick only; callers must not cache cross-tick results.
             if (!_isWarm || _warmTick != state.Tick)
             {
                 Rebuild(state);

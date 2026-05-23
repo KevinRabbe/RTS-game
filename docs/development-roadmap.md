@@ -1,366 +1,59 @@
 # Development Roadmap
 
-This roadmap turns the RTS plan into staged work toward a playable competitive prototype.
+## Current Completion Status
 
-The project follows the architecture constitution:
+Completed foundation tracks:
 
-- Simulation is deterministic, engine-agnostic, and command-driven.
-- Simulation runs at 20 ticks per second.
-- Networking uses deterministic lockstep, not state synchronization.
-- Presentation reads simulation state and never mutates it.
-- Features are added with data plus systems, not inheritance-heavy models.
+- Deterministic core + lockstep/replay baseline
+- Capital/economy/movement/combat/siege/trade prototype slices
+- Local playable shell + HUD foundation
+- RtsClientRoot presentation split
+- Full test-suite/harness structural cleanup
 
-## Product Target
+Current gate status:
 
-Primary mode:
+- `tests=472/472 PASS`
+- `chaos-v4` 5000-tick stress: pass
 
-- 6-player ranked free-for-all.
-- Nomad start with 4 villagers and 1 scout.
-- First placed Town Center becomes the player's Capital.
-- 200+ population per player.
-- Bonus population above cap may come from kills, rewards, or future systems.
-- 1200+ active units must remain replay/lockstep safe.
-- Spectator and caster clients consume read-only snapshots.
-- Target match length: 25-35 minutes.
+## Active Stage
 
-Win feeling:
+Phase 8C: Documentation, Contracts, and Load Audit
 
-1. Strategic superiority.
-2. Execution in key moments.
-3. Survival under pressure.
+This stage is architecture validation and planning, not gameplay expansion.
 
-## Prototype Strategy
+## Near-Term Sequence After 8C
 
-Build the prototype in vertical slices. Each slice must remain replayable from command stream alone before the next slice expands gameplay.
+1. Convert 8C audit outcomes into scoped follow-up issues.
+2. Prioritize blockers for full-game load target:
+   - high-risk movement/traffic scalability items
+   - bot/AI loop budget contracts
+   - visibility and networking operational risks
+3. Start next feature phase only after high-risk blockers are scheduled and contract tests exist.
 
-Avoid building the full RTS at once. The first playable goal is a small deterministic match that proves:
+## Full-Game Target Envelope
 
-- Players can place a Capital.
-- Villagers gather and deposit resources.
-- Units can move, attack, and destroy buildings.
-- Capital destruction creates a major penalty without instant defeat.
-- A replay can reproduce the match exactly.
-- A lockstep test can run the same command stream on multiple peers with matching checksums.
-- Worker, spawn, combat, siege, trade, and rally traffic are built from shared deterministic traffic policies instead of one-off fixes.
+- 6-player FFA
+- 200+ pop per player
+- ~1200 active units
+- up to ~720 villagers
 
-## Current Vertical Slice Milestone
+## Delivery Rules
 
-Short-term milestone:
+- No feature slice without deterministic scenario coverage.
+- No simulation semantics change without full gate pass.
+- No architecture bypass around command/lockstep/replay contracts.
+- Prefer additive upgrades over rewrites.
 
-- `DryArabiaTest01 Playable Economy Slice`
+## Validation Gate (Always)
 
-This milestone is prioritized ahead of broad feature expansion. The near-term roadmap is:
+1. `dotnet build GodotClient\RtsGame.GodotClient.csproj --no-restore`
+2. `dotnet build tests\RtsGame.Tests.csproj --no-restore`
+3. `dotnet run --project tests\RtsGame.Tests.csproj --no-build -- --fail-fast`
+4. `dotnet run --project src\tools\Headless\RtsGame.Headless.csproj --no-build -- run-stress --scenario chaos-v4 --ticks 5000 --seed 77`
 
-1. Stabilize worker command reliability.
-2. Add playability invariant tests and worker trace diagnostics.
-3. Finalize DryArabia economy layout for readable worker lanes.
-4. Build HUD foundation from read-only snapshots.
-5. Split `RtsClientRoot` into focused components.
-6. Stabilize basic combat slice.
-7. Add easy bot for local pressure testing.
-8. Harden replayable local 1v1 flow.
-9. Add LAN host/join lockstep slice.
-10. Add reconnect v1.
-11. Expand toward long-term 6-player FFA hardening.
+## References
 
-The long-term 6-player FFA target remains unchanged. This is a sequencing clarification, not a vision change.
-
-## Milestone 0: Project Foundation
-
-Goal: Establish the architecture guardrails before gameplay code grows.
-
-Deliverables:
-
-- Simulation-only project/module with no engine dependencies.
-- Presentation project/module that can read snapshots only.
-- Shared command serialization format.
-- Deterministic integer or fixed-point math utilities.
-- Seeded deterministic RNG.
-- Fixed-order simulation tick runner.
-- Basic checksum generation for desync detection.
-- Minimal two-peer headless lockstep harness.
-- Headless simulation test runner.
-
-Acceptance criteria:
-
-- Simulation can run 10,000 empty ticks and produce the same checksum every run.
-- No engine types are referenced by simulation code.
-- Systems are stateless functions over `GameState`.
-- Replay file with no commands reproduces the same state hash.
-- Two simulated peers can advance through the same empty command stream with matching checksums.
-- Missing input for a lockstep tick stalls advancement instead of guessing.
-
-## Milestone 1: Nomad Start and Capital Placement
-
-Goal: Make the opening structure of the game playable.
-
-Features:
-
-- 6 player slots.
-- Structured semi-random spawn sectors.
-- Initial units: 4 villagers and 1 scout per player.
-- Command: place building blueprint.
-- Command: assign villagers to build.
-- First completed Town Center becomes Capital.
-- Capital grants population bonus.
-- Capital cannot be rebuilt.
-
-Systems:
-
-- CommandValidationSystem.
-- BuildingPlacementSystem.
-- ConstructionSystem.
-- CapitalSystem.
-- PopulationSystem.
-- CleanupSystem.
-
-Acceptance criteria:
-
-- Each player can place exactly one first Capital.
-- Later Town Centers are normal Town Centers.
-- Destroyed Capital permanently removes its bonus.
-- Replay of Capital placement is byte-for-byte deterministic at checksum points.
-- Two simulated peers can place Capitals through the lockstep harness with matching checksums.
-
-## Milestone 2: Core Economy Loop
-
-Goal: Create the minimum economy needed to support decisions.
-
-Features:
-
-- Resources: food, wood, gold.
-- Villager gather commands.
-- Resource nodes for food, wood, and finite gold.
-- Drop-off at Town Centers.
-- Unit and building costs.
-- Shared population cap.
-- Train villager command.
-
-Systems:
-
-- ResourceGatherSystem.
-- ResourceDepositSystem.
-- TrainingSystem.
-- CostPaymentSystem.
-- PopulationSystem.
-
-Acceptance criteria:
-
-- Villagers gather resources deterministically.
-- Gold mines deplete and remain depleted in replay.
-- Units cannot train without resources and population room.
-- Economy state can be reconstructed from command stream only.
-- Worker traffic uses reserved interaction slots, bounded no-progress handling, and deterministic retargeting.
-
-## Milestone 3: Movement, Visibility, and Map Control
-
-Goal: Make scouting and territory matter.
-
-Features:
-
-- Deterministic grid or nav-cell movement.
-- Unit move command.
-- Group move destination slots or formations.
-- Fog of war state.
-- Scout vision.
-- Map sectors with center, flank, choke, and high-value region tags.
-- Neutral trade posts and resource clusters placed by seeded map generation.
-
-Systems:
-
-- MovementSystem.
-- VisibilitySystem.
-- MapControlSystem.
-
-Acceptance criteria:
-
-- Unit movement produces identical final positions across repeated runs.
-- Group traffic does not stack units or retarget every tick.
-- Visibility is derived only from simulation state.
-- No presentation-layer reveal logic affects gameplay.
-- Generated maps are fair but not mirrored.
-
-## Milestone 4: Combat and Building Pressure
-
-Goal: Create the first combat loop.
-
-Features:
-
-- Infantry unit.
-- Cavalry unit.
-- Basic attack command.
-- Target acquisition through commands or deterministic rules.
-- Building attack and destruction.
-- No friendly fire.
-- Deterministic melee surround slots where needed.
-- Capital destruction penalty.
-- Player remains alive if other Town Centers exist.
-
-Systems:
-
-- AttackCommandSystem.
-- CombatResolutionSystem.
-- DamageSystem.
-- DeathMarkSystem.
-- CapitalLossSystem.
-- CleanupSystem.
-
-Acceptance criteria:
-
-- Combat outcome is deterministic with identical command streams.
-- Capital destruction causes permanent modifier loss, not instant defeat.
-- Destroyed entities are marked dead first and removed only by CleanupSystem.
-- Placement ranking and elimination contribution can be recorded.
-
-## Milestone 5: Walls and Siege
-
-Goal: Add breakthrough tools and defensive counterplay.
-
-Features:
-
-- Quick wall blueprint command.
-- Walls are vulnerable while building.
-- Wall upgrade command.
-- Trebuchet or cannon with setup time and long reload.
-- Mangonel with area damage and no setup.
-- Deterministic siege deploy slots.
-- Siege population costs.
-
-Systems:
-
-- WallBlueprintSystem.
-- WallUpgradeSystem.
-- SiegeSetupSystem.
-- SiegeAttackSystem.
-- AreaDamageSystem.
-
-Acceptance criteria:
-
-- Siege setup and reload are tick-count based, never time-delta based.
-- Mangonel area damage is deterministic and has no friendly fire.
-- Walls create meaningful delay but can be broken.
-- Siege outcomes replay exactly.
-
-## Milestone 6: Trade and Late Game
-
-Goal: Make late game depend on map control instead of infinite mining.
-
-Features:
-
-- Trade post structures.
-- Trade unit training.
-- Trade route command between posts.
-- Longer physical route gives more income.
-- Trade units are vulnerable.
-- Trade route validity depends on map access and alive trade endpoints.
-- Trade endpoint traffic uses deterministic reservations where needed.
-
-Systems:
-
-- TradeRouteSystem.
-- TradeMovementSystem.
-- TradeIncomeSystem.
-- RouteValidationSystem.
-
-Acceptance criteria:
-
-- Trade income is deterministic and based on route length.
-- Destroyed endpoints invalidate routes.
-- Trade route control creates a reason to fight over center and flanks.
-- Late game economy remains possible after gold mines deplete.
-
-## Milestone 7: Lockstep Multiplayer
-
-Goal: Run real multiplayer matches using command lockstep.
-
-Features:
-
-- Future-tick input scheduling.
-- Local input delay.
-- Per-tick command collection.
-- Peer readiness tracking.
-- Simulation advances only when all required inputs are available.
-- Periodic checksum comparison.
-- Desync report tooling.
-
-Networking rules:
-
-- Send commands, never authoritative state.
-- Never use networking callbacks to mutate `GameState` directly.
-- Network layer queues commands for future simulation ticks.
-
-Acceptance criteria:
-
-- Two or more local clients can run the same match with matching checksums.
-- Artificial latency does not change simulation result.
-- Missing input stalls simulation instead of guessing.
-- Desync reports include tick, checksum, player commands, and seed.
-
-## Milestone 8: Competitive FFA Prototype
-
-Goal: Reach a complete 6-player FFA prototype.
-
-Features:
-
-- 6-player match setup.
-- Resignation command.
-- Resigned player's units turn neutral and despawn after 60 seconds.
-- Placement tracking.
-- Elimination contribution tracking.
-- Match end detection.
-- Basic ranked-result payload.
-
-Acceptance criteria:
-
-- Match can end decisively without requiring full annihilation of every asset.
-- Ranking uses placement first and elimination contribution second.
-- Replay can reproduce the full match.
-- Spectator replay can read command stream without simulation mutation.
-- 6-player high-pop smoke tests stay deterministic and avoid invariant failures.
-
-## Expansion Backlog
-
-Add only after multiplayer, replay, and deterministic foundations are stable:
-
-- Additional factions.
-- Unique faction mechanics.
-- Capital rule variants.
-- AI bots.
-- Spectator tools.
-- Larger casual modes.
-- 1v1 and 2v2 queues.
-
-## Risk Register
-
-Highest-risk areas:
-
-- Deterministic movement and pathing.
-- High-pop unit traffic and slot ownership.
-- Lockstep input delay and stall behavior.
-- Map generation fairness without mirroring.
-- Siege area damage determinism.
-- Trade route calculation.
-- Replay compatibility after gameplay changes.
-
-Risk policy:
-
-- Prefer simple deterministic approximations over complex non-deterministic realism.
-- Prove replay and checksum behavior before expanding feature complexity.
-- Keep simulation free from rendering, engine physics, wall-clock time, async callbacks, and unordered iteration.
-
-## High-Pop Scale Checklist
-
-Before each future simulation issue, answer:
-
-- Does this iterate over all units, buildings, or resources?
-- Is that acceptable at 1200+ active units?
-- Does it pathfind or repath every tick?
-- Does it retarget every tick?
-- Does it use unordered iteration?
-- Does it create per-unit logs every tick?
-- Does it rely on presentation, sprites, or colliders for gameplay?
-- Are deterministic tie-breakers defined?
-- Does this remain replay and lockstep safe?
-- Can spectator and caster clients consume it read-only?
-
-The detailed traffic policy is in [High-Pop Simulation Architecture](high-pop-simulation-architecture.md).
+- Current slice state: [current-vertical-slice.md](current-vertical-slice.md)
+- Architecture contracts: [prototype-architecture.md](prototype-architecture.md)
+- High-pop policy: [high-pop-simulation-architecture.md](high-pop-simulation-architecture.md)
+- Load risk classification: [architecture-load-audit.md](architecture-load-audit.md)

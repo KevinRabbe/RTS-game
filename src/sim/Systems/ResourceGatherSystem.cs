@@ -31,6 +31,8 @@ namespace RtsGame.Sim.Systems
                 }
 
                 ResourceNode? node = ResolveCurrentNode(state, unit);
+                // Contract: AssignedResourceNodeId is the player's sticky intent.
+                // CurrentResourceNodeId may rotate for deterministic continuation.
                 if (rules.EnableGatherEngineV2
                     && unit.AssignedResourceNodeId != 0
                     && (node == null || node.Id != unit.AssignedResourceNodeId))
