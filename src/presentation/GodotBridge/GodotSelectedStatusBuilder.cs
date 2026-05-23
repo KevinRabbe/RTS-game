@@ -27,6 +27,8 @@ namespace RtsGame.Presentation.GodotBridge
                     string build = unit.CurrentBuildTargetId == 0 ? "BuildTarget -" : "BuildTarget " + unit.CurrentBuildTargetId;
                     string resource = unit.CurrentResourceNodeId == 0 ? "ResourceTarget -" : "ResourceTarget " + unit.CurrentResourceNodeId;
                     string attack = unit.AttackTargetId == 0 ? "AttackTarget -" : "AttackTarget " + unit.AttackTargetId;
+                    string cooldown = unit.AttackCooldownTicksRemaining <= 0 ? "AttackCooldown -" : "AttackCooldown " + unit.AttackCooldownTicksRemaining;
+                    string health = unit.MaxHitPoints <= 0 ? "HP -" : "HP " + unit.CurrentHitPoints + "/" + unit.MaxHitPoints;
                     string position = "Tile(" + unit.PositionTileX + "," + unit.PositionTileY + ") PosRaw(" + unit.PositionXRaw + "," + unit.PositionYRaw + ")";
                     string phase = "Phase " + ResolveTaskPhaseLabel(unit.TaskPhaseId);
                     string reservation = unit.ReservedInteractionKindId == 0
@@ -54,7 +56,7 @@ namespace RtsGame.Presentation.GodotBridge
                         depositHint = "  DepositNeedsCompletedTC";
                     }
 
-                    return new[] { status, position + "  " + move + "  " + phase + "  " + reservation + "  " + ranges + "  " + noProgress + "  " + build + "  " + resource + "  " + attack + "  " + carry + depositHint };
+                    return new[] { status, position + "  " + move + "  " + phase + "  " + reservation + "  " + ranges + "  " + noProgress + "  " + build + "  " + resource + "  " + attack + "  " + cooldown + "  " + health + "  " + carry + depositHint };
                 }
             }
 

@@ -72,6 +72,8 @@ namespace RtsGame.Tests
                     new GodotUnitStatusDto(
                         7,
                         (int)UnitTypeId.Villager,
+                        35,
+                        GameData.VillagerHitPoints,
                         false,
                         0,
                         0,
@@ -100,7 +102,51 @@ namespace RtsGame.Tests
             string text = GodotHudTextBuilder.Build(frame, new[] { 7 }, 0, 0, false);
 
             AssertEqual(true, text.Contains("U7:Villager"), "hud should include selected primary unit id/type");
+            AssertEqual(true, text.Contains("HP 35/" + GameData.VillagerHitPoints), "hud should include selected primary unit health");
             AssertEqual(true, text.Contains("Phase Gathering"), "hud should include selected primary unit task phase");
+        }
+
+        private static void GodotHudTextIncludesCombatAttackTargetAndCooldown()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new[]
+                {
+                    new GodotUnitStatusDto(
+                        18,
+                        (int)UnitTypeId.Infantry,
+                        42,
+                        GameData.InfantryHitPoints,
+                        false,
+                        0,
+                        0,
+                        0,
+                        0,
+                        10,
+                        10,
+                        Fixed.FromInt(10).Raw,
+                        Fixed.FromInt(10).Raw,
+                        (int)WorkerTaskPhase.MovingToAttackSlot,
+                        0,
+                        0,
+                        0,
+                        0,
+                        false,
+                        false,
+                        false,
+                        0,
+                        0,
+                        0,
+                        25,
+                        4)
+                },
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new[] { 18 }, 0, 0, false);
+
+            AssertEqual(true, text.Contains("Attack 25 CD 4"), "hud should include selected combat attack target and cooldown");
+            AssertEqual(true, text.Contains("HP 42/" + GameData.InfantryHitPoints), "hud should include selected combat health");
         }
 
         private static void GodotHudTextIncludesBuildingTrainingStatus()
@@ -127,12 +173,12 @@ namespace RtsGame.Tests
                 new GodotUnitStatusDto[0],
                 new[]
                 {
-                    new GodotBuildingStatusDto(19, (int)BuildingTypeId.TradePost, false, 0, 0, 0, 0, 0, 0)
+                    new GodotBuildingStatusDto(19, (int)BuildingTypeId.TradePost, 120, GameData.TradePostHitPoints, false, 0, 0, 0, 0, 0, 0)
                 });
 
             string text = GodotHudTextBuilder.Build(frame, new int[0], 19, 0, false);
 
-            AssertEqual(true, text.Contains("TradePost Ready"), "hud should include selected building type label/state");
+            AssertEqual(true, text.Contains("TradePost HP 120/" + GameData.TradePostHitPoints + " Ready"), "hud should include selected building type, hp, and state");
         }
 
         private static void GodotHudTextIncludesResearchActionReady()
@@ -480,6 +526,36 @@ namespace RtsGame.Tests
             AssertEqual(true, text.Contains("r7(UnitCannotPerformAction)"), "hud should include reason label for last command");
         }
 
+        private static void GodotHudTextIncludesReadableNonCombatAttackRejectionHint()
+        {
+            GodotFrameDto frame = new GodotFrameDto(
+                1,
+                "DryArabiaTest01",
+                0,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotMatchDto(
+                    false,
+                    -1,
+                    -1,
+                    2,
+                    1,
+                    (int)CommandType.Attack,
+                    (int)CommandValidationReason.UnitCannotPerformAction,
+                    false,
+                    0,
+                    4,
+                    19,
+                    57,
+                    1,
+                    3),
+                new GodotPrimitiveDto[0],
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 0, 0, false);
+            AssertEqual(true, text.Contains("[NonCombatCannotAttack]"), "hud should include readable non-combat attack rejection hint");
+        }
+
         private static void GodotHudTextHandlesMissingStatus()
         {
             GodotFrameDto frame = CreateGodotHudFrame(
@@ -545,6 +621,8 @@ namespace RtsGame.Tests
                     new GodotUnitStatusDto(
                         12,
                         (int)UnitTypeId.Villager,
+                        25,
+                        GameData.VillagerHitPoints,
                         false,
                         0,
                         0,
@@ -572,6 +650,8 @@ namespace RtsGame.Tests
 
             string[] lines = GodotSelectedStatusBuilder.BuildLines(frame, new[] { 12 }, 0, 0);
 
+            AssertEqual(true, lines[1].Contains("HP 25/" + GameData.VillagerHitPoints), "selected status should include health values");
+            AssertEqual(true, lines[1].Contains("AttackCooldown -"), "selected status should include combat cooldown field");
             AssertEqual(true, lines[1].Contains("NoProgress 9"), "blocked waiting unit should expose no-progress ticks for stall diagnosis");
         }
 

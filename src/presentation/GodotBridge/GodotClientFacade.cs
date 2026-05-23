@@ -299,6 +299,8 @@ namespace RtsGame.Presentation.GodotBridge
             return new GodotUnitStatusDto(
                 snapshot.Id,
                 (int)snapshot.UnitTypeId,
+                snapshot.HitPoints,
+                GameData.GetUnitHitPoints(snapshot.UnitTypeId),
                 snapshot.HasMoveTarget,
                 snapshot.MoveTarget.X.Raw,
                 snapshot.MoveTarget.Y.Raw,
@@ -328,6 +330,8 @@ namespace RtsGame.Presentation.GodotBridge
             return new GodotBuildingStatusDto(
                 snapshot.Id,
                 (int)snapshot.BuildingTypeId,
+                snapshot.HitPoints,
+                GameData.GetBuildingCompletedHitPoints(snapshot.BuildingTypeId, snapshot.IsCapital),
                 snapshot.IsUnderConstruction,
                 snapshot.BuildProgressTicks,
                 snapshot.RequiredBuildTicks,

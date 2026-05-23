@@ -71,6 +71,7 @@ namespace RtsGame.Presentation.GodotBridge
 
             string prefix = "  U" + status.UnitId
                 + ":" + ResolveUnitTypeLabel(status.UnitTypeId)
+                + " HP " + status.CurrentHitPoints + "/" + status.MaxHitPoints
                 + " Phase " + ResolveWorkerTaskPhaseLabel(status.TaskPhaseId);
 
             if (status.CurrentResourceNodeId != 0)
@@ -86,6 +87,11 @@ namespace RtsGame.Presentation.GodotBridge
             if (status.AttackTargetId != 0)
             {
                 return prefix + " Attack " + status.AttackTargetId + " CD " + status.AttackCooldownTicksRemaining;
+            }
+
+            if (status.AttackCooldownTicksRemaining > 0)
+            {
+                return prefix + " CD " + status.AttackCooldownTicksRemaining;
             }
 
             if (status.HasMoveTarget)
@@ -117,17 +123,21 @@ namespace RtsGame.Presentation.GodotBridge
             if (status.IsUnderConstruction)
             {
                 return "  " + ResolveBuildingTypeLabel(status.BuildingTypeId)
+                    + " HP " + status.CurrentHitPoints + "/" + status.MaxHitPoints
                     + " Build " + status.BuildProgressTicks + "/" + status.RequiredBuildTicks;
             }
 
             if (status.TrainingQueueCount > 0)
             {
                 return "  " + ResolveBuildingTypeLabel(status.BuildingTypeId)
+                    + " HP " + status.CurrentHitPoints + "/" + status.MaxHitPoints
                     + " Train " + ResolveUnitTypeLabel(status.TrainingUnitTypeId)
                     + " " + status.TrainingProgressTicks + "/" + status.TrainingRequiredTicks;
             }
 
-            return "  " + ResolveBuildingTypeLabel(status.BuildingTypeId) + " Ready";
+            return "  " + ResolveBuildingTypeLabel(status.BuildingTypeId)
+                + " HP " + status.CurrentHitPoints + "/" + status.MaxHitPoints
+                + " Ready";
         }
 
         public static string GetSelectedBuildingResearchActionText(GodotFrameDto frame, int selectedBuildingId)
@@ -294,10 +304,18 @@ namespace RtsGame.Presentation.GodotBridge
             string command = ResolveCommandTypeLabel(match.LastCommandTypeId);
             string result = match.LastCommandAccepted ? "ok" : "rej";
             string readable = match.LastCommandAccepted ? "Accepted" : "Rejected";
-            return "  Cmd " + command + " " + result
+            string text = "  Cmd " + command + " " + result
                 + " r" + match.LastCommandReasonId
                 + "(" + ResolveCommandReasonLabel(match.LastCommandReasonId) + ")"
                 + " " + readable;
+            if (!match.LastCommandAccepted
+                && match.LastCommandTypeId == (int)CommandType.Attack
+                && match.LastCommandReasonId == (int)CommandValidationReason.UnitCannotPerformAction)
+            {
+                text += " [NonCombatCannotAttack]";
+            }
+
+            return text;
         }
 
         private static string ResolveCommandTypeLabel(int commandTypeId)

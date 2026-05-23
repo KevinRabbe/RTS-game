@@ -129,6 +129,8 @@ namespace RtsGame.Presentation.GodotBridge
     {
         public int UnitId { get; }
         public int UnitTypeId { get; }
+        public int CurrentHitPoints { get; }
+        public int MaxHitPoints { get; }
         public bool HasMoveTarget { get; }
         public long MoveTargetXRaw { get; }
         public long MoveTargetYRaw { get; }
@@ -167,6 +169,39 @@ namespace RtsGame.Presentation.GodotBridge
             : this(
                 unitId,
                 unitTypeId,
+                0,
+                0,
+                hasMoveTarget,
+                moveTargetXRaw,
+                moveTargetYRaw,
+                currentBuildTargetId,
+                currentResourceNodeId,
+                carriedResourceTypeId,
+                carriedAmount,
+                attackTargetId,
+                attackCooldownTicksRemaining)
+        {
+        }
+
+        public GodotUnitStatusDto(
+            int unitId,
+            int unitTypeId,
+            int currentHitPoints,
+            int maxHitPoints,
+            bool hasMoveTarget,
+            long moveTargetXRaw,
+            long moveTargetYRaw,
+            int currentBuildTargetId,
+            int currentResourceNodeId,
+            int carriedResourceTypeId,
+            int carriedAmount,
+            int attackTargetId,
+            int attackCooldownTicksRemaining)
+            : this(
+                unitId,
+                unitTypeId,
+                currentHitPoints,
+                maxHitPoints,
                 hasMoveTarget,
                 moveTargetXRaw,
                 moveTargetYRaw,
@@ -217,9 +252,68 @@ namespace RtsGame.Presentation.GodotBridge
             int carriedAmount,
             int attackTargetId,
             int attackCooldownTicksRemaining)
+            : this(
+                unitId,
+                unitTypeId,
+                0,
+                0,
+                hasMoveTarget,
+                moveTargetXRaw,
+                moveTargetYRaw,
+                currentBuildTargetId,
+                currentResourceNodeId,
+                positionTileX,
+                positionTileY,
+                positionXRaw,
+                positionYRaw,
+                taskPhaseId,
+                reservedInteractionKindId,
+                reservedInteractionTargetId,
+                reservedInteractionTileX,
+                reservedInteractionTileY,
+                inResourceInteractionRange,
+                inDropoffInteractionRange,
+                inBuildInteractionRange,
+                lastMovedTick,
+                carriedResourceTypeId,
+                carriedAmount,
+                attackTargetId,
+                attackCooldownTicksRemaining)
+        {
+        }
+
+        public GodotUnitStatusDto(
+            int unitId,
+            int unitTypeId,
+            int currentHitPoints,
+            int maxHitPoints,
+            bool hasMoveTarget,
+            long moveTargetXRaw,
+            long moveTargetYRaw,
+            int currentBuildTargetId,
+            int currentResourceNodeId,
+            int positionTileX,
+            int positionTileY,
+            long positionXRaw,
+            long positionYRaw,
+            int taskPhaseId,
+            int reservedInteractionKindId,
+            int reservedInteractionTargetId,
+            int reservedInteractionTileX,
+            int reservedInteractionTileY,
+            bool inResourceInteractionRange,
+            bool inDropoffInteractionRange,
+            bool inBuildInteractionRange,
+            int lastMovedTick,
+            int carriedResourceTypeId,
+            int carriedAmount,
+            int attackTargetId,
+            int attackCooldownTicksRemaining)
         {
             UnitId = unitId;
             UnitTypeId = unitTypeId;
+            CurrentHitPoints = currentHitPoints;
+            MaxHitPoints = maxHitPoints;
             HasMoveTarget = hasMoveTarget;
             MoveTargetXRaw = moveTargetXRaw;
             MoveTargetYRaw = moveTargetYRaw;
@@ -249,6 +343,8 @@ namespace RtsGame.Presentation.GodotBridge
     {
         public int BuildingId { get; }
         public int BuildingTypeId { get; }
+        public int CurrentHitPoints { get; }
+        public int MaxHitPoints { get; }
         public bool IsUnderConstruction { get; }
         public int BuildProgressTicks { get; }
         public int RequiredBuildTicks { get; }
@@ -267,9 +363,38 @@ namespace RtsGame.Presentation.GodotBridge
             int trainingUnitTypeId,
             int trainingProgressTicks,
             int trainingRequiredTicks)
+            : this(
+                buildingId,
+                buildingTypeId,
+                0,
+                0,
+                isUnderConstruction,
+                buildProgressTicks,
+                requiredBuildTicks,
+                trainingQueueCount,
+                trainingUnitTypeId,
+                trainingProgressTicks,
+                trainingRequiredTicks)
+        {
+        }
+
+        public GodotBuildingStatusDto(
+            int buildingId,
+            int buildingTypeId,
+            int currentHitPoints,
+            int maxHitPoints,
+            bool isUnderConstruction,
+            int buildProgressTicks,
+            int requiredBuildTicks,
+            int trainingQueueCount,
+            int trainingUnitTypeId,
+            int trainingProgressTicks,
+            int trainingRequiredTicks)
         {
             BuildingId = buildingId;
             BuildingTypeId = buildingTypeId;
+            CurrentHitPoints = currentHitPoints;
+            MaxHitPoints = maxHitPoints;
             IsUnderConstruction = isUnderConstruction;
             BuildProgressTicks = buildProgressTicks;
             RequiredBuildTicks = requiredBuildTicks;
