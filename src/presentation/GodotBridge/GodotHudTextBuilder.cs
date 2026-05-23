@@ -31,11 +31,14 @@ namespace RtsGame.Presentation.GodotBridge
 
             string lineB = "Selected " + selected
                 + " (" + selectedCount + ")"
+                + GetSelectedGroupSummaryText(selectedUnitIds)
                 + GetSelectedUnitStatusText(frame, selectedUnitIds)
+                + GetSelectedUnitActionHintText(frame, selectedUnitIds)
                 + "  Building " + selectedBuilding
                 + GetSelectedBuildingStatusText(frame, selectedBuildingId)
                 + GetSelectedBuildingTrainActionText(frame, selectedBuildingId)
                 + GetSelectedBuildingResearchActionText(frame, selectedBuildingId)
+                + GetSelectedBuildingActionHintText(frame, selectedBuildingId)
                 + "  Resource " + hoveredResource
                 + (paused ? "  Paused" : "")
                 + GetControlHintText();
@@ -219,6 +222,68 @@ namespace RtsGame.Presentation.GodotBridge
             return "  Press H for hotkeys";
         }
 
+        private static string GetSelectedGroupSummaryText(int[] selectedUnitIds)
+        {
+            if (selectedUnitIds.Length <= 1)
+            {
+                return "";
+            }
+
+            return " Group x" + selectedUnitIds.Length;
+        }
+
+        private static string GetSelectedUnitActionHintText(GodotFrameDto frame, int[] selectedUnitIds)
+        {
+            if (selectedUnitIds.Length == 0)
+            {
+                return "";
+            }
+
+            GodotUnitStatusDto? status = FindUnitStatus(frame, selectedUnitIds[0]);
+            if (status == null)
+            {
+                return "";
+            }
+
+            if (status.UnitTypeId == (int)UnitTypeId.Villager)
+            {
+                return "  Hint: RMB ground=Move resource=Gather foundation=Build";
+            }
+
+            return "  Hint: RMB ground=Move target=Attack";
+        }
+
+        private static string GetSelectedBuildingActionHintText(GodotFrameDto frame, int selectedBuildingId)
+        {
+            if (selectedBuildingId == 0)
+            {
+                return "";
+            }
+
+            GodotBuildingStatusDto? status = FindBuildingStatus(frame, selectedBuildingId);
+            if (status == null)
+            {
+                return "";
+            }
+
+            if (status.IsUnderConstruction)
+            {
+                return "  Hint: Villagers can assist construction";
+            }
+
+            if (status.BuildingTypeId == (int)BuildingTypeId.TownCenter)
+            {
+                return "  Hint: V=Villager I=Infantry Y=Research";
+            }
+
+            if (status.BuildingTypeId == (int)BuildingTypeId.TradePost)
+            {
+                return "  Hint: K=TradeCart";
+            }
+
+            return "";
+        }
+
         private static string GetLastCommandStatusText(GodotMatchDto match)
         {
             if (match.LastCommandTypeId == 0 && match.LastCommandReasonId == 0 && !match.LastCommandAccepted)
@@ -228,9 +293,11 @@ namespace RtsGame.Presentation.GodotBridge
 
             string command = ResolveCommandTypeLabel(match.LastCommandTypeId);
             string result = match.LastCommandAccepted ? "ok" : "rej";
+            string readable = match.LastCommandAccepted ? "Accepted" : "Rejected";
             return "  Cmd " + command + " " + result
                 + " r" + match.LastCommandReasonId
-                + "(" + ResolveCommandReasonLabel(match.LastCommandReasonId) + ")";
+                + "(" + ResolveCommandReasonLabel(match.LastCommandReasonId) + ")"
+                + " " + readable;
         }
 
         private static string ResolveCommandTypeLabel(int commandTypeId)
