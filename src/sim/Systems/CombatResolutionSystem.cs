@@ -20,6 +20,16 @@ namespace RtsGame.Sim.Systems
                     continue;
                 }
 
+                if (attacker.AttackTargetId != 0)
+                {
+                    if (!TryGetTarget(state, attacker.AttackTargetId, out EntityTarget targetCheck)
+                        || targetCheck.OwnerPlayerIndex == attacker.OwnerPlayerIndex
+                        || targetCheck.IsDead)
+                    {
+                        attacker.AttackTargetId = 0;
+                    }
+                }
+
                 if (attacker.AttackCooldownTicksRemaining > 0)
                 {
                     attacker.AttackCooldownTicksRemaining--;
@@ -27,12 +37,6 @@ namespace RtsGame.Sim.Systems
                 }
 
                 if (attacker.AttackTargetId == 0 || !TryGetTarget(state, attacker.AttackTargetId, out EntityTarget target))
-                {
-                    attacker.AttackTargetId = 0;
-                    continue;
-                }
-
-                if (target.OwnerPlayerIndex == attacker.OwnerPlayerIndex || target.IsDead)
                 {
                     attacker.AttackTargetId = 0;
                     continue;

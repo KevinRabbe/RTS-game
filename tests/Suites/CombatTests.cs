@@ -90,6 +90,62 @@ namespace RtsGame.Tests
             AssertEqual(GameData.InfantryHitPoints, state.EntityState.Units[6].HitPoints, "friendly target should not be damaged");
         }
 
+        private static void AttackOutOfRangePreservesIntent()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            var state = CreateAdjacentCombatState();
+            Unit attacker = state.EntityState.Units[10];
+            Unit target = state.EntityState.Units[11];
+            target.Position = FixedVector2.FromInts(10, 0);
+            int targetHitPointsBefore = target.HitPoints;
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.Attack), new AttackCommand(new[] { attacker.Id }, target.Id)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(targetHitPointsBefore, target.HitPoints, "out-of-range attack should not apply damage");
+            AssertEqual(target.Id, attacker.AttackTargetId, "out-of-range attack should preserve explicit attack target intent");
+        }
+
+        private static void DeadTargetClearsAttackIntentOnNextTick()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            var state = CreateAdjacentCombatState();
+            Unit attacker = state.EntityState.Units[10];
+            Unit target = state.EntityState.Units[11];
+            target.HitPoints = GameData.InfantryAttackDamage;
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.Attack), new AttackCommand(new[] { attacker.Id }, target.Id)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(false, state.EntityState.EntityLookup.ContainsKey(target.Id), "target should be removed during cleanup after lethal damage");
+
+            AddNoOp(buffer, 1, 0, 1);
+            AddNoOp(buffer, 1, 1, 1);
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(0, attacker.AttackTargetId, "attacker should clear explicit target when target id is no longer valid");
+        }
+
+        private static void AttackRejectsNonCombatUnit()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            var state = GameInitializer.CreateNomadStart(2, 1);
+            int tradeCartId = EntityFactory.CreateUnit(state, 0, UnitTypeId.TradeCart, FixedVector2.FromInts(0, 0));
+            int enemyInfantryId = EntityFactory.CreateUnit(state, 1, UnitTypeId.Infantry, FixedVector2.FromInts(1, 0));
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.Attack), new AttackCommand(new[] { tradeCartId }, enemyInfantryId)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(1, state.DebugCounters.RejectedCommandCount, "non-combat unit attack should reject");
+            AssertEqual(GameData.InfantryHitPoints, FindUnitById(state, enemyInfantryId).HitPoints, "rejected non-combat attack should not damage enemy");
+        }
+
         private static void MoveCommandClearsAttackTarget()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(2);
