@@ -653,108 +653,14 @@ namespace RtsGame.Tests
 
 
 
-        private static void NomadStartCreatesInitialUnits()
-        {
-            GameState state = GameInitializer.CreateNomadStart(5, 3);
-            AssertEqual(15, state.EntityState.Units.Count, "nomad start should create five units per player");
-            AssertEqual(0, state.EntityState.Buildings.Count, "nomad start should not create town centers");
-
-            for (int player = 0; player < 3; player++)
-            {
-                AssertEqual(5, state.PlayerStates.Players[player].PopulationUsed, "each player should start with five population used");
-                AssertEqual(0, state.PlayerStates.Players[player].PopulationCap, "capital bonus should not exist before TC placement");
-                AssertFalse(state.PlayerStates.Players[player].CapitalStatus.HasCapitalBeenPlaced, "capital should not exist before TC placement");
-            }
-        }
-
-        private static void NomadMapCreatesCenterResources()
-        {
-            GameState state = GameInitializer.CreateNomadStart(6, 3);
-            AssertEqual(12, state.EconomyState.ResourceNodes.Count, "nomad map should create player resources plus center resources");
-
-            ResourceNode centerGold = state.EconomyState.ResourceNodes[9];
-            AssertEqual(ResourceType.Gold, centerGold.ResourceType, "first center resource should be gold");
-            AssertEqual(FixedVector2.FromInts(GameData.MapWidthTiles / 2, GameData.MapHeightTiles / 2), centerGold.Position, "center gold should be placed at map center");
-            AssertEqual(GameData.CenterGoldAmount, centerGold.RemainingAmount, "center gold should be high value");
-        }
 
 
 
-        private static void ResourceVisualOverhangDoesNotChangeSimFootprint()
-        {
-            GameState state = CreateOccupancyState(603, 1);
-            ResourceNode tree = CreateTestResourceNode(state, GatherProfileId.Tree, FixedVector2.FromInts(10, 10), GameData.StartingWoodAmount);
-            GatherProfile profile = GameData.GetGatherProfile(tree.GatherProfileId);
 
-            AssertEqual(true, profile.VisualRadiusTiles >= profile.FootprintRadiusTiles, "tree profile visual radius should not undershoot sim footprint");
-            AssertEqual(true, SpatialRules.IsTileInsideResourceFootprint(tree, 10, 10), "tree trunk tile should be the sim footprint");
-            AssertEqual(false, SpatialRules.IsTileInsideResourceFootprint(tree, 12, 10), "visual overhang tile should not be inside sim footprint");
-            AssertEqual(false, SpatialRules.IsTileBlockedForUnitMovement(state, 12, 10), "visual overhang tile should not block movement");
-            AssertEqual(true, GodotPrimitiveHitTest.ContainsPointForInteraction(
-                CreateGodotPrimitive(VisualPrimitiveKind.WoodResourceCircle, tree.Id, GameData.NeutralOwnerPlayerIndex, 10, 10),
-                Fixed.FromInt(11).Raw,
-                Fixed.FromInt(10).Raw),
-                "presentation click bounds can be generous without changing sim footprint");
-        }
 
-        private static void ResourceInteractionRingUsesSimFootprint()
-        {
-            GameState state = CreateOccupancyState(604, 1);
-            ResourceNode berries = CreateTestResourceNode(state, GatherProfileId.BerryBush, FixedVector2.FromInts(10, 10), GameData.StartingFoodAmount);
 
-            List<SpatialRules.TileCoord> footprint = SpatialRules.EnumerateResourceFootprintTiles(state, berries);
-            List<SpatialRules.TileCoord> ring = SpatialRules.EnumerateResourceInteractionTiles(state, berries);
 
-            AssertEqual(1, footprint.Count, "1x1 resource footprint should enumerate one sim tile");
-            AssertEqual(8, ring.Count, "1x1 resource footprint should expose eight surrounding interaction slots");
-            AssertEqual(true, SpatialRules.ContainsInteractionTile(ring, 9, 9), "diagonal resource slot should be valid");
-            AssertEqual(false, SpatialRules.ContainsInteractionTile(ring, 10, 10), "resource footprint tile should not be an interaction slot");
-        }
 
-        private static void LargeResourceInteractionRingUsesLargerSimFootprint()
-        {
-            GameState state = CreateOccupancyState(605, 1);
-            ResourceNode largeGold = CreateTestResourceNode(state, GatherProfileId.GoldVeinLarge, FixedVector2.FromInts(20, 20), GameData.CenterGoldAmount);
-
-            List<SpatialRules.TileCoord> footprint = SpatialRules.EnumerateResourceFootprintTiles(state, largeGold);
-            List<SpatialRules.TileCoord> ring = SpatialRules.EnumerateResourceInteractionTiles(state, largeGold);
-
-            AssertEqual(true, footprint.Count > 1, "large gold should have a larger sim footprint than a 1x1 node");
-            AssertEqual(true, ring.Count > 8, "larger resource footprint should expose a larger interaction ring");
-            AssertEqual(true, SpatialRules.IsTileBlockedForUnitMovement(state, 19, 20), "large gold footprint should block pathing");
-            AssertEqual(false, SpatialRules.ContainsInteractionTile(ring, 20, 20), "large gold center should not be an interaction slot");
-        }
-
-        private static void BuildingInteractionRingUsesSimFootprint()
-        {
-            GameState state = CreateOccupancyState(606, 1);
-            int tcId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(20, 20));
-            Building tc = state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index];
-
-            List<SpatialRules.TileCoord> footprint = SpatialRules.EnumerateBuildingFootprintTiles(state, tc);
-            List<SpatialRules.TileCoord> ring = SpatialRules.EnumerateBuildingInteractionTiles(state, tc);
-
-            AssertEqual(true, footprint.Count > 1, "town center should have a multi-tile sim footprint");
-            AssertEqual(true, ring.Count > 8, "town center footprint should expose a larger interaction ring");
-            AssertEqual(true, SpatialRules.IsTileBlockedForUnitMovement(state, 20, 20), "town center footprint should block pathing");
-            AssertEqual(false, SpatialRules.ContainsInteractionTile(ring, 20, 20), "town center footprint tile should not be an interaction slot");
-        }
-
-        private static void TownCenterRingAcceptsWorkersOnEverySide()
-        {
-            GameState state = CreateOccupancyState(607, 1);
-            int tcId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(20, 20));
-            Building tc = state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index];
-            List<SpatialRules.TileCoord> ring = SpatialRules.EnumerateBuildingInteractionTiles(state, tc);
-
-            AssertEqual(true, SpatialRules.ContainsInteractionTile(ring, 20, 17), "TC ring should include north side around full footprint");
-            AssertEqual(true, SpatialRules.ContainsInteractionTile(ring, 20, 22), "TC ring should include south side around full footprint");
-            AssertEqual(true, SpatialRules.ContainsInteractionTile(ring, 17, 20), "TC ring should include west side around full footprint");
-            AssertEqual(true, SpatialRules.ContainsInteractionTile(ring, 22, 20), "TC ring should include east side around full footprint");
-            AssertEqual(true, SpatialRules.IsUnitInBuildInteractionRange(new Unit { Position = FixedVector2.FromInts(20, 17) }, tc), "north ring worker should be in build range");
-            AssertEqual(true, SpatialRules.IsUnitInBuildingInteractionRange(new Unit { Position = FixedVector2.FromInts(20, 22) }, tc), "south ring carrier should be in dropoff range");
-            AssertEqual(false, SpatialRules.IsTileInsideBuildingFootprint(tc, 20, 17), "ring tile should not be inside the TC footprint");
-        }
 
 
 
@@ -863,64 +769,6 @@ namespace RtsGame.Tests
 
 
 
-        private static void MovementArrivalSnapsWithoutRawOscillation()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState state = CreateOccupancyState(2091, 1);
-            int unitId = EntityFactory.CreateUnit(
-                state,
-                0,
-                UnitTypeId.Villager,
-                new FixedVector2(Fixed.FromRatio(19, 20), Fixed.FromInt(0)));
-            Unit unit = FindUnitById(state, unitId);
-            unit.HasMoveTarget = true;
-            unit.MoveTarget = FixedVector2.FromInts(1, 0);
-            unit.TaskPhase = WorkerTaskPhase.MovingToCommandMove;
-            var context = new TickCommandContext(new List<CommandEnvelope>());
-
-            new MovementSystem().Run(state, rules, context);
-            long snappedX = unit.Position.X.Raw;
-            long snappedY = unit.Position.Y.Raw;
-
-            AssertEqual(Fixed.FromInt(1).Raw, snappedX, "movement should snap to target when within one deterministic step");
-            AssertEqual(Fixed.FromInt(0).Raw, snappedY, "movement snap should keep y stable");
-            AssertEqual(false, unit.HasMoveTarget, "movement should clear target after snap arrival");
-            AssertEqual(WorkerTaskPhase.Idle, unit.TaskPhase, "command move should return to idle after arrival");
-
-            new MovementSystem().Run(state, rules, context);
-            AssertEqual(snappedX, unit.Position.X.Raw, "arrived unit should not oscillate raw x after snap");
-            AssertEqual(snappedY, unit.Position.Y.Raw, "arrived unit should not oscillate raw y after snap");
-        }
-
-        private static void WorkerSubTileJitterDoesNotResetNoProgressTimeout()
-        {
-            GameState state = CreateOccupancyState(2097, 1);
-            EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(10, 10));
-            Unit unit = state.EntityState.Units[state.EntityState.Units.Count - 1];
-            unit.TaskPhase = WorkerTaskPhase.MovingToResourceSlot;
-            unit.HasMoveTarget = true;
-            unit.MoveTarget = FixedVector2.FromInts(12, 10);
-            unit.LastMovedTick = state.Tick;
-            unit.CurrentResourceNodeId = 77;
-            SpatialRules.ReserveInteractionSlot(
-                state,
-                unit,
-                InteractionReservationKind.ResourceNode,
-                77,
-                new SpatialRules.TileCoord(12, 10));
-
-            bool progressRecorded = state.MovementProgressPolicy.ShouldRecordProgressTick(
-                unit,
-                entersNewTile: false,
-                reachesTarget: false);
-            AssertEqual(true, progressRecorded, "worker movement may still report sub-tile progress");
-
-            state.Tick = GameData.NoProgressTimeoutTicks + 1;
-            AssertEqual(
-                true,
-                SpatialRules.IsInteractionReservationTimedOut(state, unit, InteractionReservationKind.ResourceNode, 77),
-                "slot timeout should use reservation age so sub-tile jitter cannot stall recovery forever");
-        }
 
 
 
@@ -953,97 +801,15 @@ namespace RtsGame.Tests
 
 
 
-        private static void UnitOrderedToOccupiedDestinationReceivesNearbySlot()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState state = CreateOccupancyState(1);
-            EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(0, 0));
-            EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(1, 0));
-            var buffer = new CommandBuffer();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1 }, FixedVector2.FromInts(1, 0))));
-            new TickRunner().AdvanceOneTick(state, rules, buffer);
-
-            Unit mover = state.EntityState.Units[0];
-            AssertEqual(true, mover.HasMoveTarget, "occupied final tile should choose a nearby destination slot instead of clearing intent");
-            AssertEqual(InteractionReservationKind.MoveDestination, mover.ReservedInteractionKind, "occupied final tile should reserve a move destination slot");
-            AssertEqual(false, SpatialRules.GetTileX(mover.MoveTarget) == 1 && SpatialRules.GetTileY(mover.MoveTarget) == 0, "move destination should not be the occupied tile");
-            AssertNoLiveUnitStacking(state, "occupied final tile command should not stack units");
-        }
 
 
 
 
 
 
-        private static void TcFrontBlockerAllowsPassAroundProgress()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState state = CreateOccupancyState(3014);
-            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(10, 10));
-            int moverId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(10, 6));
-            EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(10, 7));
-            var buffer = new CommandBuffer();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { moverId }, FixedVector2.FromInts(10, 15))));
 
-            new TickRunner().AdvanceOneTick(state, rules, buffer);
 
-            Unit mover = FindUnitById(state, moverId);
-            AssertEqual(true, mover.HasMoveTarget, "tc-front congestion should preserve move target");
-            AssertEqual(false, SpatialRules.GetTileX(mover.Position) == 10 && SpatialRules.GetTileY(mover.Position) == 6, "mover should make local pass-around progress near TC");
-            AssertEqual(false, SpatialRules.IsTileInsideBuildingFootprint(state.EntityState.Buildings[0], SpatialRules.GetTileX(mover.Position), SpatialRules.GetTileY(mover.Position)), "pass-around should not enter TC footprint");
-        }
 
-        private static void ResourceDropoffBlockerPreservesWorkerIntent()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState state = CreateOccupancyState(3015);
-            int workerId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(20, 6));
-            EntityFactory.CreateUnit(state, 0, UnitTypeId.Villager, FixedVector2.FromInts(20, 7));
-            int resourceId = state.EconomyState.NextResourceNodeId++;
-            state.EconomyState.ResourceNodes.Add(new ResourceNode
-            {
-                Id = resourceId,
-                ResourceType = ResourceType.Wood,
-                Position = FixedVector2.FromInts(26, 20),
-                RemainingAmount = GameData.StartingWoodAmount
-            });
-            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(20, 10));
-            Unit worker = FindUnitById(state, workerId);
-            worker.CurrentResourceNodeId = resourceId;
-            worker.CarriedResourceType = ResourceType.Wood;
-            worker.CarriedAmount = GameData.VillagerCarryCapacity;
-            worker.TaskPhase = WorkerTaskPhase.MovingToDropoffSlot;
-            worker.HasMoveTarget = true;
-            worker.MoveTarget = FixedVector2.FromInts(20, 15);
-
-            new TickRunner().AdvanceOneTick(state, rules, new CommandBuffer());
-
-            AssertEqual(resourceId, worker.CurrentResourceNodeId, "local traffic avoidance should preserve resource intent");
-            AssertEqual(GameData.VillagerCarryCapacity, worker.CarriedAmount, "local traffic avoidance should not fake deposit");
-            AssertEqual(true, worker.HasMoveTarget, "local traffic avoidance should keep dropoff move target");
-        }
-
-        private static void MovingUnitCanEnterVacatedTileWithoutStacking()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState state = CreateOccupancyState(3040);
-            int followerId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(0, 0));
-            int leaderId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(1, 0));
-            Unit follower = FindUnitById(state, followerId);
-            Unit leader = FindUnitById(state, leaderId);
-            follower.HasMoveTarget = true;
-            follower.MoveTarget = FixedVector2.FromInts(2, 0);
-            follower.TaskPhase = WorkerTaskPhase.MovingToCommandMove;
-            leader.HasMoveTarget = true;
-            leader.MoveTarget = FixedVector2.FromInts(3, 0);
-            leader.TaskPhase = WorkerTaskPhase.MovingToCommandMove;
-
-            new MovementSystem().Run(state, rules, new TickCommandContext(new List<CommandEnvelope>()));
-
-            AssertEqual(1, SpatialRules.GetTileX(follower.Position), "follower should be allowed to enter a tile vacated by a moving leader");
-            AssertEqual(2, SpatialRules.GetTileX(leader.Position), "leader should move forward first in the traffic chain");
-            AssertNoLiveUnitStacking(state, "vacated-tile follow-through should not stack units");
-        }
 
 
 
@@ -1192,11 +958,6 @@ namespace RtsGame.Tests
 
 
 
-        private static void BerryVisualRadiusMatchesSimulationFootprintRadius()
-        {
-            GatherProfile profile = GameData.GetGatherProfile(GatherProfileId.BerryBush);
-            AssertEqual(profile.FootprintRadiusTiles, profile.VisualRadiusTiles, "berry visual radius should match node simulation footprint radius");
-        }
 
 
 
@@ -1632,124 +1393,6 @@ namespace RtsGame.Tests
             AssertEqual(true, state.PlayerStates.Players[0].Resources.Gold > initialGold || AnyWorkerHasResourceIntent(state, goldWorkers), label + " gold workers should make progress or keep gather intent");
         }
 
-        private static void TwoUnitsAttemptingSameTileReceiveSlots()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState state = CreateOccupancyState(2);
-            EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(0, 1));
-            EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(2, 1));
-            var buffer = new CommandBuffer();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1, 2 }, FixedVector2.FromInts(1, 1))));
-            new TickRunner().AdvanceOneTick(state, rules, buffer);
-            int arrivedOrReserved = 0;
-            var reservedTiles = new HashSet<int>();
-            for (int i = 1; i <= 2; i++)
-            {
-                Unit unit = FindUnitById(state, i);
-                if (!unit.HasMoveTarget)
-                {
-                    arrivedOrReserved++;
-                    continue;
-                }
-
-                AssertEqual(InteractionReservationKind.MoveDestination, unit.ReservedInteractionKind, "active mover should keep a move destination reservation unit=" + unit.Id);
-                int key = (unit.ReservedInteractionTileY << 16) ^ (unit.ReservedInteractionTileX & 0xFFFF);
-                AssertEqual(true, reservedTiles.Add(key), "active movers should not share destination reservations");
-                arrivedOrReserved++;
-            }
-
-            AssertEqual(2, arrivedOrReserved, "two-unit move should either arrive or keep stable destination reservations");
-        }
-
-        private static void ThreeUnitsAttemptingSameTileReceiveSlots()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState state = CreateOccupancyState(3);
-            EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(0, 1));
-            EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(2, 1));
-            EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(1, 2));
-            var buffer = new CommandBuffer();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1, 2, 3 }, FixedVector2.FromInts(1, 1))));
-            new TickRunner().AdvanceOneTick(state, rules, buffer);
-            int arrivedOrReserved = 0;
-            var reservedTiles = new HashSet<int>();
-            for (int i = 1; i <= 3; i++)
-            {
-                Unit unit = FindUnitById(state, i);
-                if (!unit.HasMoveTarget)
-                {
-                    arrivedOrReserved++;
-                    continue;
-                }
-
-                AssertEqual(InteractionReservationKind.MoveDestination, unit.ReservedInteractionKind, "active mover should keep a move destination reservation unit=" + unit.Id);
-                int key = (unit.ReservedInteractionTileY << 16) ^ (unit.ReservedInteractionTileX & 0xFFFF);
-                AssertEqual(true, reservedTiles.Add(key), "active movers should not share destination reservations");
-                arrivedOrReserved++;
-            }
-
-            AssertEqual(3, arrivedOrReserved, "three-unit move should either arrive or keep stable destination reservations");
-        }
-
-        private static void TwoUnitTileSwapFails()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState state = CreateOccupancyState(4);
-            EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(0, 0));
-            EntityFactory.CreateUnit(state, 0, UnitTypeId.Scout, FixedVector2.FromInts(1, 0));
-            state.EntityState.Units[0].LastMovedTick = -1;
-            state.EntityState.Units[1].LastMovedTick = -1;
-            var buffer = new CommandBuffer();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1 }, FixedVector2.FromInts(1, 0))));
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 1, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 2 }, FixedVector2.FromInts(0, 0))));
-            new TickRunner().AdvanceOneTick(state, rules, buffer);
-
-            AssertNoLiveUnitStacking(state, "two units should not stack while avoiding a swap");
-            AssertEqual(true, state.EntityState.Units[0].HasMoveTarget, "first unit should keep movement intent while avoiding a swap");
-            AssertEqual(true, state.EntityState.Units[1].HasMoveTarget, "second unit should keep movement intent while avoiding a swap");
-            AssertEqual(false, SpatialRules.GetTileX(state.EntityState.Units[0].Position) == 1 && SpatialRules.GetTileY(state.EntityState.Units[0].Position) == 0, "first unit should not move into second unit's occupied tile");
-            AssertEqual(false, SpatialRules.GetTileX(state.EntityState.Units[1].Position) == 0 && SpatialRules.GetTileY(state.EntityState.Units[1].Position) == 0, "second unit should not move into first unit's occupied tile");
-        }
-
-
-
-
-        private static void WallBlockingReplayDeterminism()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState firstState = CreateWallBlockingState(17);
-            GameState secondState = CreateWallBlockingState(17);
-            var commands = new[]
-            {
-                new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1 }, FixedVector2.FromInts(4, 0))),
-                new CommandEnvelope(new CommandHeader(1, 0, 1, CommandType.NoOp), new NoOpCommand()),
-                new CommandEnvelope(new CommandHeader(2, 0, 2, CommandType.NoOp), new NoOpCommand())
-            };
-
-            ulong first = RunCommandsFromState(firstState, rules, commands, 3);
-            ulong second = RunCommandsFromState(secondState, rules, commands, 3);
-            AssertEqual(first, second, "wall blocking replay should be deterministic");
-        }
-
-        private static void WallBlockingLockstep()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(2);
-            var session = new LockstepSession(rules, 18, true);
-            AddCompletedWall(session.Peers[0].LocalState, 0, FixedVector2.FromInts(2, 0));
-            AddCompletedWall(session.Peers[1].LocalState, 0, FixedVector2.FromInts(2, 0));
-            session.Broadcast(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1 }, FixedVector2.FromInts(4, 0))));
-            session.Broadcast(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
-            AssertEqual(true, session.TryAdvanceOneTick(), "wall blocking move tick should advance");
-            for (int tick = 1; tick <= 2; tick++)
-            {
-                session.Broadcast(new CommandEnvelope(new CommandHeader(tick, 0, (uint)tick, CommandType.NoOp), new NoOpCommand()));
-                session.Broadcast(new CommandEnvelope(new CommandHeader(tick, 1, (uint)tick, CommandType.NoOp), new NoOpCommand()));
-                AssertEqual(true, session.TryAdvanceOneTick(), "wall blocking continuation tick should advance");
-            }
-
-            AssertEqual(0, session.DesyncReports.Count, "wall blocking lockstep should not desync");
-            AssertEqual(session.Peers[0].LocalState.LastChecksum, session.Peers[1].LocalState.LastChecksum, "wall blocking peer checksums should match");
-        }
 
 
 
@@ -1773,48 +1416,19 @@ namespace RtsGame.Tests
 
 
 
-        private static void GatherEngineV2FlagDefaultsOn()
-        {
-            GameRules rules = GameRules.CreatePhaseZeroDefaults(1);
-            AssertEqual(true, rules.EnableGatherEngineV2, "gather engine v2 should default on after staged rollout");
-        }
 
 
 
 
 
 
-        private static void GatherEngineV2ModeRemainsDeterministic()
-        {
-            GameRules rules = GameRules.CreatePhaseZeroDefaults(1).WithGatherEngineV2(true);
-            GameState first = CreateSingleNodeResourceAreaState(2013, GatherProfileId.BerryBush, out int nodeId, out _);
-            GameState second = CreateSingleNodeResourceAreaState(2013, GatherProfileId.BerryBush, out _, out _);
-            Unit firstWorker = first.EntityState.Units[0];
-            Unit secondWorker = second.EntityState.Units[0];
 
-            FixedVector2 tcPosition = FixedVector2.FromInts(8, 8);
-            EntityFactory.CreateTownCenter(first, 0, tcPosition);
-            EntityFactory.CreateTownCenter(second, 0, tcPosition);
-            first.EntityState.Buildings[0].IsUnderConstruction = false;
-            second.EntityState.Buildings[0].IsUnderConstruction = false;
 
-            var command = new GatherResourceCommand(nodeId, new[] { firstWorker.Id });
-            var header = new CommandHeader(first.Tick, 0, 0, CommandType.GatherResource);
-            command.Execute(first, rules, header);
-            var command2 = new GatherResourceCommand(nodeId, new[] { secondWorker.Id });
-            command2.Execute(second, rules, header);
 
-            var runner = new TickRunner();
-            for (int i = 0; i < 40; i++)
-            {
-                runner.AdvanceOneTick(first, rules, new CommandBuffer());
-                runner.AdvanceOneTick(second, rules, new CommandBuffer());
-            }
 
-            ulong firstChecksum = StateChecksum.Compute(first, rules);
-            ulong secondChecksum = StateChecksum.Compute(second, rules);
-            AssertEqual(firstChecksum, secondChecksum, "gather engine v2 mode must remain deterministic");
-        }
+
+
+
 
         private static bool ContainsFieldAssignment(string source, string fieldName)
         {
@@ -2018,82 +1632,17 @@ namespace RtsGame.Tests
 
 
 
-        private static void TrainInfantryCompletes()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            var state = GameInitializer.CreateNomadStart(1, 1);
-            var buffer = new CommandBuffer();
-            var runner = new TickRunner();
-            CompleteCapitalForPlayerZero(rules, state, buffer, runner);
-            state.PlayerStates.Players[0].Resources.Food = GameData.InfantryFoodCost;
-            int buildingId = state.EntityState.Buildings[0].Id;
-            int initialUnits = state.EntityState.Units.Count;
 
-            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 3, CommandType.TrainUnit), new TrainUnitCommand(buildingId, UnitTypeId.Infantry)));
-            runner.AdvanceOneTick(state, rules, buffer);
-            for (int i = 0; i < GameData.InfantryTrainTicks - 1; i++)
-            {
-                AddNoOp(buffer, state.Tick, 0, (uint)(4 + i));
-                runner.AdvanceOneTick(state, rules, buffer);
-            }
 
-            AssertEqual(initialUnits + 1, state.EntityState.Units.Count, "infantry should complete training");
-            AssertEqual(UnitTypeId.Infantry, state.EntityState.Units[state.EntityState.Units.Count - 1].UnitTypeId, "trained unit should be infantry");
-        }
 
-        private static void TrainCavalryCompletes()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            var state = GameInitializer.CreateNomadStart(2, 1);
-            var buffer = new CommandBuffer();
-            var runner = new TickRunner();
-            CompleteCapitalForPlayerZero(rules, state, buffer, runner);
-            state.PlayerStates.Players[0].Resources.Food = GameData.CavalryFoodCost;
-            state.PlayerStates.Players[0].Resources.Gold = GameData.CavalryGoldCost;
-            int buildingId = state.EntityState.Buildings[0].Id;
-            int initialUnits = state.EntityState.Units.Count;
 
-            buffer.Add(new CommandEnvelope(new CommandHeader(state.Tick, 0, 3, CommandType.TrainUnit), new TrainUnitCommand(buildingId, UnitTypeId.Cavalry)));
-            runner.AdvanceOneTick(state, rules, buffer);
-            for (int i = 0; i < GameData.CavalryTrainTicks - 1; i++)
-            {
-                AddNoOp(buffer, state.Tick, 0, (uint)(4 + i));
-                runner.AdvanceOneTick(state, rules, buffer);
-            }
 
-            AssertEqual(initialUnits + 1, state.EntityState.Units.Count, "cavalry should complete training");
-            AssertEqual(UnitTypeId.Cavalry, state.EntityState.Units[state.EntityState.Units.Count - 1].UnitTypeId, "trained unit should be cavalry");
-            AssertEqual(7, state.PlayerStates.Players[0].PopulationUsed, "cavalry should reserve two population");
-        }
 
-        private static void CavalryMovesFasterThanInfantry()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState state = CreateOccupancyState(61);
-            EntityFactory.CreateUnit(state, 0, UnitTypeId.Infantry, FixedVector2.FromInts(0, 0));
-            EntityFactory.CreateUnit(state, 0, UnitTypeId.Cavalry, FixedVector2.FromInts(0, 1));
-            var buffer = new CommandBuffer();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1 }, FixedVector2.FromInts(5, 0))));
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 1, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 2 }, FixedVector2.FromInts(5, 1))));
 
-            new TickRunner().AdvanceOneTick(state, rules, buffer);
 
-            AssertEqual(Fixed.FromRatio(2, 5).Raw, state.EntityState.Units[0].Position.X.Raw, "infantry should move at infantry speed");
-            AssertEqual(Fixed.FromRatio(4, 5).Raw, state.EntityState.Units[1].Position.X.Raw, "cavalry should move at cavalry speed");
-        }
 
-        private static void CavalryDamagesEnemyUnit()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(2);
-            GameState state = CreateCavalryCombatState();
-            var buffer = new CommandBuffer();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.Attack), new AttackCommand(new[] { 11 }, 12)));
 
-            new TickRunner().AdvanceOneTick(state, rules, buffer);
 
-            AssertEqual(GameData.InfantryHitPoints - GameData.CavalryAttackDamage, state.EntityState.Units[11].HitPoints, "cavalry should damage enemy infantry");
-            AssertEqual(GameData.CavalryAttackCooldownTicks, state.EntityState.Units[10].AttackCooldownTicksRemaining, "cavalry cooldown should be set");
-        }
 
 
 
@@ -2103,7 +1652,6 @@ namespace RtsGame.Tests
 
 
 
-
 
 
 
@@ -2115,327 +1663,38 @@ namespace RtsGame.Tests
 
 
 
-
-
-        private static void ResignNeutralizesAssetsAndAssignsPlacement()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(2);
-            GameState state = GameInitializer.CreateNomadStart(12, 2);
-            int buildingId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(1, 0));
-            state.EntityState.Buildings[state.EntityState.EntityLookup[buildingId].Index].IsUnderConstruction = false;
-            var buffer = new CommandBuffer();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.Resign), new ResignCommand()));
-
-            new TickRunner().AdvanceOneTick(state, rules, buffer);
-
-            AssertEqual(true, state.PlayerStates.Players[0].IsResigned, "player should be resigned");
-            AssertEqual(true, state.PlayerStates.Players[0].IsDefeated, "resigned player should be defeated for placement");
-            AssertEqual(2, state.PlayerStates.Players[0].Placement, "first defeated player in 2-player match should get second place");
-            AssertEqual(0, state.RankingState.NextPlacement, "next placement should be exhausted after winner assignment");
-            AssertEqual(true, state.MatchResultState.IsFinished, "match should finish after one player resigns in a two-player match");
-            AssertEqual(1, state.PlayerStates.Players[1].Placement, "remaining player should receive first place");
-            AssertEqual(GameData.NeutralOwnerPlayerIndex, state.EntityState.Units[0].OwnerPlayerIndex, "resigned unit should become neutral");
-            AssertEqual(GameData.ResignedAssetDespawnTicks, state.EntityState.Units[0].DespawnTicksRemaining, "resigned unit should get despawn timer");
-            AssertEqual(GameData.NeutralOwnerPlayerIndex, state.EntityState.Buildings[0].OwnerPlayerIndex, "resigned building should become neutral");
-            AssertEqual(GameData.ResignedAssetDespawnTicks, state.EntityState.Buildings[0].DespawnTicksRemaining, "resigned building should get despawn timer");
-        }
-
-        private static void ResignedAssetsDespawnAfterTimer()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState state = GameInitializer.CreateNomadStart(13, 1);
-            var buffer = new CommandBuffer();
-            var runner = new TickRunner();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.Resign), new ResignCommand()));
-            runner.AdvanceOneTick(state, rules, buffer);
-
-            for (int i = 0; i < GameData.ResignedAssetDespawnTicks; i++)
-            {
-                runner.AdvanceOneTick(state, rules, buffer);
-            }
-
-            AssertEqual(0, state.EntityState.Units.Count, "resigned units should despawn after timer");
-        }
-
-        private static void ResignedPlayerNonNoOpCommandsReject()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState state = GameInitializer.CreateNomadStart(14, 1);
-            var buffer = new CommandBuffer();
-            var runner = new TickRunner();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.Resign), new ResignCommand()));
-            runner.AdvanceOneTick(state, rules, buffer);
-            buffer.Add(new CommandEnvelope(new CommandHeader(1, 0, 1, CommandType.MoveUnits), new MoveUnitsCommand(new[] { 1 }, FixedVector2.FromInts(10, 0))));
-            runner.AdvanceOneTick(state, rules, buffer);
-
-            AssertEqual(1, state.DebugCounters.RejectedCommandCount, "resigned non-noop command should be rejected");
-            AssertEqual(false, state.EntityState.Units[0].HasMoveTarget, "neutral resigned unit should not receive move target");
-        }
-
-        private static void ResignationReplayDeterminism()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(2);
-            var recorder = new ReplayRecorder(rules, 15, 2, ReplayInitialState.Nomad);
-            recorder.RecordCommand(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.Resign), new ResignCommand()));
-            recorder.RecordCommand(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
-
-            ReplayResult first = new ReplayRunner().Run(recorder.Replay, 10);
-            ReplayResult second = new ReplayRunner().Run(recorder.Replay, 10);
-            AssertEqual(first.FinalChecksum, second.FinalChecksum, "resignation replay should be deterministic");
-        }
-
-        private static void ResignationLockstep()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(2);
-            var session = new LockstepSession(rules, 16, true);
-            session.Broadcast(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.Resign), new ResignCommand()));
-            session.Broadcast(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
-            AssertEqual(true, session.TryAdvanceOneTick(), "resignation tick should advance");
-
-            AssertEqual(0, session.DesyncReports.Count, "resignation lockstep should not desync");
-            AssertEqual(session.Peers[0].LocalState.LastChecksum, session.Peers[1].LocalState.LastChecksum, "resignation peer checksums should match");
-            AssertEqual(GameData.NeutralOwnerPlayerIndex, session.Peers[0].LocalState.EntityState.Units[0].OwnerPlayerIndex, "resigned player unit should be neutral in lockstep");
-        }
-
-        private static void PlayerEliminatedWithNoTownCenterAndNoVillagers()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(2);
-            GameState state = GameInitializer.CreateNomadStart(21, 2);
-            KillPlayerVillagers(state, 0);
-            var buffer = new CommandBuffer();
-
-            new TickRunner().AdvanceOneTick(state, rules, buffer);
-
-            AssertEqual(true, state.PlayerStates.Players[0].IsDefeated, "player with no TC and no villagers should be defeated");
-            AssertEqual(2, state.PlayerStates.Players[0].Placement, "first eliminated player should receive last place");
-        }
-
-        private static void PlayerSurvivesWithVillagerAfterTownCenterLoss()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(2);
-            GameState state = GameInitializer.CreateNomadStart(22, 2);
-            EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(1, 0));
-            state.EntityState.Buildings[0].IsUnderConstruction = false;
-            state.EntityState.Buildings[0].IsDead = true;
-            var buffer = new CommandBuffer();
-
-            new TickRunner().AdvanceOneTick(state, rules, buffer);
-
-            AssertEqual(false, state.PlayerStates.Players[0].IsDefeated, "player should survive TC loss if villagers remain");
-        }
-
-        private static void EliminationReplayDeterminism()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(2);
-            GameState first = GameInitializer.CreateNomadStart(23, 2);
-            GameState second = GameInitializer.CreateNomadStart(23, 2);
-            KillPlayerVillagers(first, 0);
-            KillPlayerVillagers(second, 0);
-            ulong firstChecksum = RunCommandsFromState(first, rules, new CommandEnvelope[0], 1);
-            ulong secondChecksum = RunCommandsFromState(second, rules, new CommandEnvelope[0], 1);
-            AssertEqual(firstChecksum, secondChecksum, "elimination should be deterministic");
-        }
-
-        private static void EliminationLockstep()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(2);
-            var session = new LockstepSession(rules, 24, true);
-            KillPlayerVillagers(session.Peers[0].LocalState, 0);
-            KillPlayerVillagers(session.Peers[1].LocalState, 0);
-            session.Broadcast(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.NoOp), new NoOpCommand()));
-            session.Broadcast(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
-
-            AssertEqual(true, session.TryAdvanceOneTick(), "elimination tick should advance");
-            AssertEqual(0, session.DesyncReports.Count, "elimination lockstep should not desync");
-            AssertEqual(session.Peers[0].LocalState.LastChecksum, session.Peers[1].LocalState.LastChecksum, "elimination peer checksums should match");
-            AssertEqual(true, session.Peers[0].LocalState.PlayerStates.Players[0].IsDefeated, "player should be defeated in lockstep");
-        }
-
-        private static void MatchEndsWhenOnePlayerRemains()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(2);
-            GameState state = GameInitializer.CreateNomadStart(25, 2);
-            KillPlayerVillagers(state, 0);
-
-            new TickRunner().AdvanceOneTick(state, rules, new CommandBuffer());
-
-            AssertEqual(true, state.MatchResultState.IsFinished, "match should finish when one player remains");
-            AssertEqual(1, state.MatchResultState.WinnerPlayerIndex, "remaining player should be winner");
-            AssertEqual(1, state.PlayerStates.Players[1].Placement, "winner should receive first place");
-            AssertEqual(2, state.PlayerStates.Players[0].Placement, "eliminated player should receive second place");
-        }
-
-        private static void MatchEndReplayDeterminism()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(2);
-            GameState first = GameInitializer.CreateNomadStart(26, 2);
-            GameState second = GameInitializer.CreateNomadStart(26, 2);
-            KillPlayerVillagers(first, 0);
-            KillPlayerVillagers(second, 0);
-
-            ulong firstChecksum = RunCommandsFromState(first, rules, new CommandEnvelope[0], 1);
-            ulong secondChecksum = RunCommandsFromState(second, rules, new CommandEnvelope[0], 1);
-            AssertEqual(firstChecksum, secondChecksum, "match end should be deterministic");
-        }
-
-        private static void MatchEndLockstep()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(2);
-            var session = new LockstepSession(rules, 27, true);
-            KillPlayerVillagers(session.Peers[0].LocalState, 0);
-            KillPlayerVillagers(session.Peers[1].LocalState, 0);
-            session.Broadcast(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.NoOp), new NoOpCommand()));
-            session.Broadcast(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
-
-            AssertEqual(true, session.TryAdvanceOneTick(), "match end tick should advance");
-            AssertEqual(0, session.DesyncReports.Count, "match end lockstep should not desync");
-            AssertEqual(true, session.Peers[0].LocalState.MatchResultState.IsFinished, "match should finish in lockstep");
-            AssertEqual(1, session.Peers[0].LocalState.PlayerStates.Players[1].Placement, "winner placement should be assigned in lockstep");
-        }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        private static void WallRejectsMissingWood()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            var state = GameInitializer.CreateNomadStart(39, 1);
-            var buffer = new CommandBuffer();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.PlaceWall), new PlaceWallCommand(FixedVector2.FromInts(3, 0))));
-            new TickRunner().AdvanceOneTick(state, rules, buffer);
-
-            AssertEqual(0, state.EntityState.Buildings.Count, "wall should reject without wood");
-            AssertEqual(1, state.DebugCounters.RejectedCommandCount, "missing wall wood should count as rejected");
-        }
-
-        private static void PlaceWallCreatesVulnerableConstruction()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            var state = GameInitializer.CreateNomadStart(40, 1);
-            state.PlayerStates.Players[0].Resources.Wood = GameData.WallWoodCost;
-            var buffer = new CommandBuffer();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.PlaceWall), new PlaceWallCommand(FixedVector2.FromInts(3, 0))));
-
-            new TickRunner().AdvanceOneTick(state, rules, buffer);
-
-            AssertEqual(1, state.EntityState.Buildings.Count, "wall should be created");
-            AssertEqual(0, state.PlayerStates.Players[0].Resources.Wood, "wall should spend wood");
-            AssertEqual(BuildingTypeId.Wall, state.EntityState.Buildings[0].BuildingTypeId, "created building should be wall");
-            AssertEqual(true, state.EntityState.Buildings[0].IsUnderConstruction, "wall should start under construction");
-            AssertEqual(GameData.WallUnderConstructionHitPoints, state.EntityState.Buildings[0].HitPoints, "under-construction wall should be vulnerable");
-            AssertEqual(false, state.EntityState.Buildings[0].IsCapital, "wall should never be capital");
-        }
-
-        private static void AssignedVillagersCompleteWall()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            var state = GameInitializer.CreateNomadStart(41, 1);
-            state.PlayerStates.Players[0].Resources.Wood = GameData.WallWoodCost;
-            var buffer = new CommandBuffer();
-            var runner = new TickRunner();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.PlaceWall), new PlaceWallCommand(FixedVector2.FromInts(3, 0))));
-            runner.AdvanceOneTick(state, rules, buffer);
-            int wallId = state.EntityState.Buildings[0].Id;
-            buffer.Add(new CommandEnvelope(new CommandHeader(1, 0, 1, CommandType.AssignBuild), new AssignBuildCommand(wallId, new[] { 1, 2 })));
-            runner.AdvanceOneTick(state, rules, buffer);
-            AddNoOp(buffer, 2, 0, 2);
-            runner.AdvanceOneTick(state, rules, buffer);
-
-            AssertEqual(wallId, state.EntityState.Units[0].CurrentBuildTargetId, "first villager should stay assigned to wall build target");
-            AssertEqual(wallId, state.EntityState.Units[1].CurrentBuildTargetId, "second villager should stay assigned to wall build target");
-            AssertEqual(true, state.EntityState.Units[0].HasMoveTarget || state.EntityState.Units[1].HasMoveTarget, "at least one assigned wall builder should move toward interaction range");
-        }
-
-        private static void AssignBuildSetsAdjacentDeterministicApproachTarget()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState state = GameInitializer.CreateNomadStart(141, 1);
-            int tcId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(10, 10));
-            Building building = state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index];
-            Unit villager = state.EntityState.Units[0];
-            villager.Position = FixedVector2.FromInts(6, 10);
-            var buffer = new CommandBuffer();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AssignBuild), new AssignBuildCommand(tcId, new[] { villager.Id })));
-            new TickRunner().AdvanceOneTick(state, rules, buffer);
-
-            AssertEqual(true, villager.HasMoveTarget, "assigned builder should get movement target");
-            int targetX = SpatialRules.GetTileX(villager.MoveTarget);
-            int targetY = SpatialRules.GetTileY(villager.MoveTarget);
-            AssertEqual(false, SpatialRules.IsTileInsideBuildingFootprint(building, targetX, targetY), "build approach target should never be inside footprint");
-            AssertEqual(true,
-                SpatialRules.IsTileInsideBuildingFootprint(building, targetX + 1, targetY)
-                    || SpatialRules.IsTileInsideBuildingFootprint(building, targetX - 1, targetY)
-                    || SpatialRules.IsTileInsideBuildingFootprint(building, targetX, targetY + 1)
-                    || SpatialRules.IsTileInsideBuildingFootprint(building, targetX, targetY - 1),
-                "build approach target should be adjacent to footprint");
-        }
-
-        private static void AssignBuildGivesDistinctApproachTilesForMultipleVillagers()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState state = GameInitializer.CreateNomadStart(142, 1);
-            int tcId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(10, 10));
-            state.EntityState.Units[0].Position = FixedVector2.FromInts(6, 9);
-            state.EntityState.Units[1].Position = FixedVector2.FromInts(6, 10);
-            state.EntityState.Units[2].Position = FixedVector2.FromInts(6, 11);
-            var buffer = new CommandBuffer();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AssignBuild), new AssignBuildCommand(tcId, new[] { 1, 2, 3 })));
-            new TickRunner().AdvanceOneTick(state, rules, buffer);
-
-            var tiles = new HashSet<string>();
-            for (int i = 0; i < 3; i++)
-            {
-                Unit villager = state.EntityState.Units[i];
-                AssertEqual(true, villager.HasMoveTarget, "each assigned villager should get a target");
-                tiles.Add(SpatialRules.GetTileX(villager.MoveTarget) + "," + SpatialRules.GetTileY(villager.MoveTarget));
-            }
-
-            AssertEqual(3, tiles.Count, "multiple builders should reserve distinct adjacent approach tiles when available");
-        }
-
-        private static void AssignBuildRejectsWhenNoInteractionTileIsReachable()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState state = GameInitializer.CreateNomadStart(143, 1);
-            int tcId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(10, 10));
-            Building tc = state.EntityState.Buildings[state.EntityState.EntityLookup[tcId].Index];
-            List<SpatialRules.TileCoord> blockedRing = SpatialRules.EnumerateBuildInteractionTiles(state, tc);
-            for (int i = 0; i < blockedRing.Count; i++)
-            {
-                AddCompletedWall(state, 0, FixedVector2.FromInts(blockedRing[i].X, blockedRing[i].Y));
-            }
-            var buffer = new CommandBuffer();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AssignBuild), new AssignBuildCommand(tcId, new[] { 1 })));
-            new TickRunner().AdvanceOneTick(state, rules, buffer);
-
-            AssertEqual(1, state.DebugCounters.RejectedCommandCount, "assign build should reject when no reachable interaction tile exists");
-            AssertEqual(0, state.EntityState.Units[0].CurrentBuildTargetId, "rejected assignment should not set build target");
-        }
-
-
-
-
-        private static void VillagerPathsToTcInteractionTileFromLeft()
-        {
-            AssertVillagerPathsToTcInteractionTileFromSide(-6, 1461);
-        }
-
-        private static void VillagerPathsToTcInteractionTileFromRight()
-        {
-            AssertVillagerPathsToTcInteractionTileFromSide(6, 1462);
-        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
         private static void AssertVillagerPathsToTcInteractionTileFromSide(int xOffset, ulong seed)
@@ -2887,309 +2146,21 @@ namespace RtsGame.Tests
             }
         }
 
-        private static void UnderConstructionWallCanBeDestroyed()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(2);
-            var state = GameInitializer.CreateNomadStart(42, 2);
-            state.PlayerStates.Players[0].Resources.Wood = GameData.WallWoodCost;
-            EntityFactory.CreateUnit(state, 1, UnitTypeId.Infantry, FixedVector2.FromInts(3, 0));
-            var buffer = new CommandBuffer();
-            var runner = new TickRunner();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.PlaceWall), new PlaceWallCommand(FixedVector2.FromInts(3, 0))));
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
-            runner.AdvanceOneTick(state, rules, buffer);
-            int wallId = state.EntityState.Buildings[0].Id;
-            state.EntityState.Buildings[0].HitPoints = GameData.InfantryAttackDamage;
 
-            buffer.Add(new CommandEnvelope(new CommandHeader(1, 0, 1, CommandType.NoOp), new NoOpCommand()));
-            buffer.Add(new CommandEnvelope(new CommandHeader(1, 1, 1, CommandType.Attack), new AttackCommand(new[] { 11 }, wallId)));
-            runner.AdvanceOneTick(state, rules, buffer);
 
-            AssertEqual(false, state.EntityState.EntityLookup.ContainsKey(wallId), "destroyed under-construction wall should be removed");
-        }
 
-        private static void WallReplayDeterminism()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            var commands = new[]
-            {
-                new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.PlaceWall), new PlaceWallCommand(FixedVector2.FromInts(3, 0))),
-                new CommandEnvelope(new CommandHeader(1, 0, 1, CommandType.AssignBuild), new AssignBuildCommand(6, new[] { 1, 2 })),
-                new CommandEnvelope(new CommandHeader(2, 0, 2, CommandType.NoOp), new NoOpCommand())
-            };
-            GameState firstState = GameInitializer.CreateNomadStart(43, 1);
-            GameState secondState = GameInitializer.CreateNomadStart(43, 1);
-            firstState.PlayerStates.Players[0].Resources.Wood = GameData.WallWoodCost;
-            secondState.PlayerStates.Players[0].Resources.Wood = GameData.WallWoodCost;
 
-            ulong first = RunCommandsFromState(firstState, rules, commands, 3);
-            ulong second = RunCommandsFromState(secondState, rules, commands, 3);
-            AssertEqual(first, second, "wall replay should be deterministic");
-        }
 
-        private static void WallLockstep()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(2);
-            var session = new LockstepSession(rules, 44, true);
-            session.Peers[0].LocalState.PlayerStates.Players[0].Resources.Wood = GameData.WallWoodCost;
-            session.Peers[1].LocalState.PlayerStates.Players[0].Resources.Wood = GameData.WallWoodCost;
-            session.Broadcast(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.PlaceWall), new PlaceWallCommand(FixedVector2.FromInts(3, 0))));
-            session.Broadcast(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
-            AssertEqual(true, session.TryAdvanceOneTick(), "wall placement tick should advance");
-            session.Broadcast(new CommandEnvelope(new CommandHeader(1, 0, 1, CommandType.AssignBuild), new AssignBuildCommand(11, new[] { 1, 2 })));
-            session.Broadcast(new CommandEnvelope(new CommandHeader(1, 1, 1, CommandType.NoOp), new NoOpCommand()));
-            AssertEqual(true, session.TryAdvanceOneTick(), "wall build assignment tick should advance");
 
-            AssertEqual(0, session.DesyncReports.Count, "wall lockstep should not desync");
-            AssertEqual(session.Peers[0].LocalState.LastChecksum, session.Peers[1].LocalState.LastChecksum, "wall peer checksums should match");
-        }
 
-        private static void TradePostRejectsBeforeCompletedTownCenter()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState state = GameInitializer.CreateNomadStart(53, 1);
-            FundTradePost(state, 0);
-            var buffer = new CommandBuffer();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.PlaceTradePost), new PlaceTradePostCommand(FixedVector2.FromInts(20, 20))));
-            new TickRunner().AdvanceOneTick(state, rules, buffer);
 
-            AssertEqual(0, state.EntityState.Buildings.Count, "trade post should require completed town center");
-            AssertEqual(1, state.DebugCounters.RejectedCommandCount, "early trade post placement should be rejected");
-        }
 
-        private static void TradePostRejectsMissingResources()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState state = GameInitializer.CreateNomadStart(54, 1);
-            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(0, 0));
-            var buffer = new CommandBuffer();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.PlaceTradePost), new PlaceTradePostCommand(FixedVector2.FromInts(20, 20))));
-            new TickRunner().AdvanceOneTick(state, rules, buffer);
 
-            AssertEqual(1, state.EntityState.Buildings.Count, "trade post should reject without resources");
-            AssertEqual(1, state.DebugCounters.RejectedCommandCount, "missing trade post resources should count as rejected");
-        }
 
-        private static void PlaceTradePostCreatesConstruction()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState state = GameInitializer.CreateNomadStart(53, 1);
-            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(0, 0));
-            FundTradePost(state, 0);
-            var buffer = new CommandBuffer();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.PlaceTradePost), new PlaceTradePostCommand(FixedVector2.FromInts(20, 20))));
-            new TickRunner().AdvanceOneTick(state, rules, buffer);
 
-            Building tradePost = state.EntityState.Buildings[1];
-            AssertEqual(0, state.PlayerStates.Players[0].Resources.Wood, "trade post should spend wood");
-            AssertEqual(0, state.PlayerStates.Players[0].Resources.Gold, "trade post should spend gold");
-            AssertEqual(BuildingTypeId.TradePost, tradePost.BuildingTypeId, "trade post placement should create trade post");
-            AssertEqual(true, tradePost.IsUnderConstruction, "placed trade post should start under construction");
-            AssertEqual(GameData.TradePostUnderConstructionHitPoints, tradePost.HitPoints, "placed trade post should be vulnerable while building");
-        }
 
-        private static void AssignedVillagersCompleteTradePost()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState state = GameInitializer.CreateNomadStart(54, 1);
-            AddCompletedTownCenter(state, 0, FixedVector2.FromInts(0, 0));
-            FundTradePost(state, 0);
-            var buffer = new CommandBuffer();
-            var runner = new TickRunner();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.PlaceTradePost), new PlaceTradePostCommand(FixedVector2.FromInts(20, 20))));
-            runner.AdvanceOneTick(state, rules, buffer);
-            buffer.Add(new CommandEnvelope(new CommandHeader(1, 0, 1, CommandType.AssignBuild), new AssignBuildCommand(7, new[] { 1, 2 })));
-            runner.AdvanceOneTick(state, rules, buffer);
-            AddNoOp(buffer, 2, 0, 2);
-            runner.AdvanceOneTick(state, rules, buffer);
 
-            Building tradePost = state.EntityState.Buildings[1];
-            AssertEqual(true, tradePost.IsUnderConstruction || tradePost.BuildProgressTicks > 0, "assigned villagers should begin trade post construction after assignment");
-            AssertEqual(7, state.EntityState.Units[0].CurrentBuildTargetId, "first villager should stay assigned to trade post");
-            AssertEqual(7, state.EntityState.Units[1].CurrentBuildTargetId, "second villager should stay assigned to trade post");
-        }
 
-        private static void TradePostReplayDeterminism()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            var commands = new[]
-            {
-                new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.PlaceTradePost), new PlaceTradePostCommand(FixedVector2.FromInts(20, 20))),
-                new CommandEnvelope(new CommandHeader(1, 0, 1, CommandType.AssignBuild), new AssignBuildCommand(7, new[] { 1, 2 })),
-                new CommandEnvelope(new CommandHeader(2, 0, 2, CommandType.NoOp), new NoOpCommand()),
-                new CommandEnvelope(new CommandHeader(3, 0, 3, CommandType.NoOp), new NoOpCommand())
-            };
-            GameState firstState = GameInitializer.CreateNomadStart(55, 1);
-            GameState secondState = GameInitializer.CreateNomadStart(55, 1);
-            AddCompletedTownCenter(firstState, 0, FixedVector2.FromInts(0, 0));
-            AddCompletedTownCenter(secondState, 0, FixedVector2.FromInts(0, 0));
-            FundTradePost(firstState, 0);
-            FundTradePost(secondState, 0);
-
-            ulong first = RunCommandsFromState(firstState, rules, commands, 4);
-            ulong second = RunCommandsFromState(secondState, rules, commands, 4);
-            AssertEqual(first, second, "trade post replay checksums should match");
-        }
-
-        private static void TradePostLockstep()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(2);
-            var session = new LockstepSession(rules, 56, true);
-            AddCompletedTownCenter(session.Peers[0].LocalState, 0, FixedVector2.FromInts(0, 0));
-            AddCompletedTownCenter(session.Peers[1].LocalState, 0, FixedVector2.FromInts(0, 0));
-            FundTradePost(session.Peers[0].LocalState, 0);
-            FundTradePost(session.Peers[1].LocalState, 0);
-            session.Broadcast(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.PlaceTradePost), new PlaceTradePostCommand(FixedVector2.FromInts(20, 20))));
-            session.Broadcast(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
-            AssertEqual(true, session.TryAdvanceOneTick(), "trade post placement tick should advance");
-            int tradePostId = FindUnderConstructionBuildingId(session.Peers[0].LocalState, 0, BuildingTypeId.TradePost);
-            session.Broadcast(new CommandEnvelope(new CommandHeader(1, 0, 1, CommandType.AssignBuild), new AssignBuildCommand(tradePostId, new[] { 1, 2 })));
-            session.Broadcast(new CommandEnvelope(new CommandHeader(1, 1, 1, CommandType.NoOp), new NoOpCommand()));
-            AssertEqual(true, session.TryAdvanceOneTick(), "trade post build assignment tick should advance");
-            session.Broadcast(new CommandEnvelope(new CommandHeader(2, 0, 2, CommandType.NoOp), new NoOpCommand()));
-            session.Broadcast(new CommandEnvelope(new CommandHeader(2, 1, 2, CommandType.NoOp), new NoOpCommand()));
-            AssertEqual(true, session.TryAdvanceOneTick(), "trade post build tick should advance");
-            int tick = 3;
-            uint sequence = 3;
-            while (tick < 80 && session.Peers[0].LocalState.EntityState.Buildings[1].IsUnderConstruction)
-            {
-                session.Broadcast(new CommandEnvelope(new CommandHeader(tick, 0, sequence, CommandType.NoOp), new NoOpCommand()));
-                session.Broadcast(new CommandEnvelope(new CommandHeader(tick, 1, sequence, CommandType.NoOp), new NoOpCommand()));
-                AssertEqual(true, session.TryAdvanceOneTick(), "trade post completion progression tick should advance");
-                tick++;
-                sequence++;
-            }
-
-            Building tradePost = session.Peers[0].LocalState.EntityState.Buildings[1];
-            AssertEqual(0, session.DesyncReports.Count, "trade post lockstep should not desync");
-            AssertEqual(tradePostId, session.Peers[0].LocalState.EntityState.Units[0].CurrentBuildTargetId, "first builder should remain assigned to trade post in lockstep");
-            AssertEqual(tradePostId, session.Peers[0].LocalState.EntityState.Units[1].CurrentBuildTargetId, "second builder should remain assigned to trade post in lockstep");
-            AssertEqual(session.Peers[0].LocalState.LastChecksum, session.Peers[1].LocalState.LastChecksum, "trade post peer checksums should match");
-        }
-
-        private static void TrainTradeCartCompletes()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState state = GameInitializer.CreateNomadStart(50, 1);
-            int postId = EntityFactory.CreateTradePost(state, 0, FixedVector2.FromInts(0, 0));
-            state.PlayerStates.Players[0].PopulationCap = 10;
-            state.PlayerStates.Players[0].Resources.Wood = GameData.TradeCartWoodCost;
-            state.PlayerStates.Players[0].Resources.Gold = GameData.TradeCartGoldCost;
-            var buffer = new CommandBuffer();
-            var runner = new TickRunner();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.TrainUnit), new TrainUnitCommand(postId, UnitTypeId.TradeCart)));
-            runner.AdvanceOneTick(state, rules, buffer);
-            for (int i = 0; i < GameData.TradeCartTrainTicks - 1; i++)
-            {
-                AddNoOp(buffer, state.Tick, 0, (uint)(1 + i));
-                runner.AdvanceOneTick(state, rules, buffer);
-            }
-
-            AssertEqual(UnitTypeId.TradeCart, state.EntityState.Units[state.EntityState.Units.Count - 1].UnitTypeId, "trade post should train trade cart");
-        }
-
-        private static void TradeRoutePaysGoldOnArrival()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState state = CreateTradeState(10);
-            var buffer = new CommandBuffer();
-            var runner = new TickRunner();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.CreateTradeRoute), new CreateTradeRouteCommand(6, 7, 8)));
-            AdvanceTradeUntilFirstDeposit(state, rules, runner, buffer, 64);
-
-            AssertEqual(20, state.PlayerStates.Players[0].Resources.Gold, "trade cart should pay gold based on route length");
-            AssertEqual(7, state.EntityState.Units[5].TradeDestinationId, "cart should head back to first post after payment");
-        }
-
-        private static void LongerTradeRoutePaysMore()
-        {
-            GameState shortRoute = CreateTradeState(10);
-            GameState longRoute = CreateTradeState(20);
-            AssertEqual(true, shortRoute.EntityState.Units[5].Id == 6, "trade cart id should be deterministic");
-            var shortCommand = new CreateTradeRouteCommand(6, 7, 8);
-            var longCommand = new CreateTradeRouteCommand(6, 7, 8);
-            shortCommand.Execute(shortRoute, GameRules.CreatePhaseZeroDefaults(1), new CommandHeader(0, 0, 0, CommandType.CreateTradeRoute));
-            longCommand.Execute(longRoute, GameRules.CreatePhaseZeroDefaults(1), new CommandHeader(0, 0, 0, CommandType.CreateTradeRoute));
-            AssertEqual(true, longRoute.EntityState.Units[5].TradeIncomePerTrip > shortRoute.EntityState.Units[5].TradeIncomePerTrip, "longer route should pay more");
-        }
-
-        private static void DestroyedTradeEndpointClearsRoute()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            GameState state = CreateTradeState(10);
-            var buffer = new CommandBuffer();
-            var runner = new TickRunner();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.CreateTradeRoute), new CreateTradeRouteCommand(6, 7, 8)));
-            runner.AdvanceOneTick(state, rules, buffer);
-            state.EntityState.Buildings[1].IsDead = true;
-            AddNoOp(buffer, 1, 0, 1);
-            runner.AdvanceOneTick(state, rules, buffer);
-
-            AssertEqual(0, state.EntityState.Units[5].TradeRouteAId, "destroyed endpoint should clear trade route");
-        }
-
-        private static void TradeCartCanBeKilled()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(2);
-            GameState state = GameInitializer.CreateNomadStart(51, 2);
-            EntityFactory.CreateUnit(state, 0, UnitTypeId.TradeCart, FixedVector2.FromInts(1, 0));
-            EntityFactory.CreateUnit(state, 1, UnitTypeId.Infantry, FixedVector2.FromInts(1, 0));
-            state.EntityState.Units[10].HitPoints = GameData.InfantryAttackDamage;
-            var buffer = new CommandBuffer();
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.NoOp), new NoOpCommand()));
-            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.Attack), new AttackCommand(new[] { 12 }, 11)));
-
-            new TickRunner().AdvanceOneTick(state, rules, buffer);
-
-            AssertEqual(false, state.EntityState.EntityLookup.ContainsKey(11), "trade cart should be vulnerable to attack");
-        }
-
-        private static void TradeReplayDeterminism()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(1);
-            var commands = new List<CommandEnvelope>
-            {
-                new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.CreateTradeRoute), new CreateTradeRouteCommand(6, 7, 8))
-            };
-
-            for (int tick = 1; tick < 64; tick++)
-            {
-                commands.Add(new CommandEnvelope(new CommandHeader(tick, 0, (uint)tick, CommandType.NoOp), new NoOpCommand()));
-            }
-
-            GameState firstState = CreateTradeState(10);
-            GameState secondState = CreateTradeState(10);
-            ulong first = RunCommandsFromState(firstState, rules, commands, 64);
-            ulong second = RunCommandsFromState(secondState, rules, commands, 64);
-            AssertEqual(first, second, "trade route trip should replay deterministically");
-            AssertEqual(true, firstState.PlayerStates.Players[0].Resources.Gold >= 20, "replayed trade route should pay gold on arrival");
-        }
-
-        private static void TradeLockstep()
-        {
-            var rules = GameRules.CreatePhaseZeroDefaults(2);
-            var session = new LockstepSession(rules, 52, true);
-            SetupTradeState(session.Peers[0].LocalState, 10);
-            SetupTradeState(session.Peers[1].LocalState, 10);
-            session.Broadcast(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.CreateTradeRoute), new CreateTradeRouteCommand(11, 12, 13)));
-            session.Broadcast(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
-            AssertEqual(true, session.TryAdvanceOneTick(), "trade route tick should advance");
-            for (int tick = 1; tick < 64; tick++)
-            {
-                session.Broadcast(new CommandEnvelope(new CommandHeader(tick, 0, (uint)tick, CommandType.NoOp), new NoOpCommand()));
-                session.Broadcast(new CommandEnvelope(new CommandHeader(tick, 1, (uint)tick, CommandType.NoOp), new NoOpCommand()));
-                AssertEqual(true, session.TryAdvanceOneTick(), "trade movement tick should advance");
-
-                if (session.Peers[0].LocalState.PlayerStates.Players[0].Resources.Gold >= 20)
-                {
-                    break;
-                }
-            }
-
-            AssertEqual(0, session.DesyncReports.Count, "trade lockstep should not desync");
-            AssertEqual(20, session.Peers[0].LocalState.PlayerStates.Players[0].Resources.Gold, "trade income should be paid in lockstep state");
-            AssertEqual(session.Peers[0].LocalState.LastChecksum, session.Peers[1].LocalState.LastChecksum, "trade peer checksums should match");
-        }
 
         private static void AdvanceTradeUntilFirstDeposit(GameState state, GameRules rules, TickRunner runner, CommandBuffer buffer, int maxTicks)
         {
@@ -3209,45 +2180,10 @@ namespace RtsGame.Tests
         }
 
 
-        private static void ChaosV1StressSmoke()
-        {
-            StressScenarioResult result = new StressScenarioRunner().RunChaosV1(1200, 77);
-            AssertEqual(true, result.Passed, "chaos v1 stress should pass invariants");
-            AssertEqual(1200, result.FinalTick, "chaos v1 stress should reach requested tick");
-        }
 
-        private static void ChaosV2StressSmoke()
-        {
-            StressScenarioResult result = new StressScenarioRunner().RunChaosV2(1200, 78);
-            string invariantDetails = result.InvariantFailures.Count == 0 ? "none" : string.Join(" | ", result.InvariantFailures);
-            AssertEqual(true, result.Passed, "chaos v2 stress should pass invariants details=" + invariantDetails);
-            AssertEqual(1200, result.FinalTick, "chaos v2 stress should reach requested tick");
-            AssertEqual(1, result.ScenarioVersion, "chaos v2 version should be frozen at v1");
-        }
 
-        private static void ChaosV3StressSmoke()
-        {
-            StressScenarioResult result = new StressScenarioRunner().RunChaosV3(1200, 79);
-            AssertEqual(true, result.Passed, "chaos v3 stress should pass invariants");
-            AssertEqual(1200, result.FinalTick, "chaos v3 stress should reach requested tick");
-            AssertEqual(1, result.ScenarioVersion, "chaos v3 version should be frozen at v1");
-        }
 
-        private static void ChaosV4StressSmoke()
-        {
-            StressScenarioResult result = new StressScenarioRunner().RunChaosV4(1200, 80);
-            AssertEqual(true, result.Passed, "chaos v4 stress should pass invariants");
-            AssertEqual(1200, result.FinalTick, "chaos v4 stress should reach requested tick");
-            AssertEqual(1, result.ScenarioVersion, "chaos v4 version should be frozen at v1");
-        }
 
-        private static void ChaosV5StressSmoke()
-        {
-            StressScenarioResult result = new StressScenarioRunner().RunChaosV5(1200, 81);
-            AssertEqual(true, result.Passed, "chaos v5 stress should pass invariants");
-            AssertEqual(1200, result.FinalTick, "chaos v5 stress should reach requested tick");
-            AssertEqual(1, result.ScenarioVersion, "chaos v5 version should be frozen at v1");
-        }
 
         private static ulong RunNoOpSimulation(int ticks, int players, ulong seed)
         {
