@@ -2,13 +2,16 @@
 
 ## Current Completion Status
 
-Completed foundation tracks:
+Completed tracks:
 
 - Deterministic core + lockstep/replay baseline
-- Capital/economy/movement/combat/siege/trade prototype slices
-- Local playable shell + HUD foundation
+- Economy/movement/gather prototype stability
+- Movement/Gather V2 default-on rollout
+- Local playable shell + HUD foundation + HUD UX polish
 - RtsClientRoot presentation split
-- Full test-suite/harness structural cleanup
+- Test-suite/harness structural cleanup
+- Architecture/load audit and contracts (8C)
+- Scalable combat hotspot architecture plan (9A.0)
 
 Current gate status:
 
@@ -17,18 +20,24 @@ Current gate status:
 
 ## Active Stage
 
-Phase 8C: Documentation, Contracts, and Load Audit
+Phase 9A.0 complete: scalable combat hotspot architecture documented.
 
-This stage is architecture validation and planning, not gameplay expansion.
+Next active implementation stage:
 
-## Near-Term Sequence After 8C
+- **9A.1 Explicit Attack Target Slice**
 
-1. Convert 8C audit outcomes into scoped follow-up issues.
-2. Prioritize blockers for full-game load target:
-   - high-risk movement/traffic scalability items
-   - bot/AI loop budget contracts
-   - visibility and networking operational risks
-3. Start next feature phase only after high-risk blockers are scheduled and contract tests exist.
+## Near-Term Combat Sequence (9A)
+
+1. **9A.1** Explicit attack target slice
+2. **9A.2** Attack slot / attack ring system
+3. **9A.3** Combat hotspot pressure scenarios
+4. **9A.4** Combat HUD debug/status
+
+Guardrails:
+
+- Keep attack-move and auto-acquire out of first combat slice.
+- Keep combat pathing owned by movement (no combat pathfinding bypass).
+- No O(units x enemies) per tick loops.
 
 ## Full-Game Target Envelope
 
@@ -57,3 +66,4 @@ This stage is architecture validation and planning, not gameplay expansion.
 - Architecture contracts: [prototype-architecture.md](prototype-architecture.md)
 - High-pop policy: [high-pop-simulation-architecture.md](high-pop-simulation-architecture.md)
 - Load risk classification: [architecture-load-audit.md](architecture-load-audit.md)
+- Combat scale plan: [combat-architecture.md](combat-architecture.md)

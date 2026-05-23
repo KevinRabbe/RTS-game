@@ -1,13 +1,15 @@
 # Current Vertical Slice
 
-## Accepted State (Phase 8C Entry)
+## Accepted State (Phase 9A.0 Entry)
 
 - Branch: `phase-6-visual-placeholder-pipeline`
 - `MovementEngineV2` and `GatherEngineV2` are default-on and accepted as prototype-ready.
 - Legacy movement/gather flags remain available for rollback and deterministic comparison.
 - `RtsClientRoot` split is complete; presentation orchestration is separated into focused helpers.
 - Prototype HUD foundation is implemented from read-only snapshot/frame data.
+- Prototype HUD UX polish is implemented (clearer hints + command status readability).
 - Test project cleanup is complete: suites + harness split, `Program.cs` is runner/registration-focused.
+- Scalable combat hotspot architecture plan is documented before new combat implementation.
 - Full gate remains green:
   - tests: `472/472 PASS`
   - `chaos-v4` (`5000` ticks): `desync=False`, `invariant_failures=0`
@@ -56,8 +58,13 @@ Only touch it when:
 
 ## Next Phase Intent
 
-Phase 8C is documentation/contracts/load-audit only:
+Phase 9A.0 is complete (combat architecture planning only).
 
-- no gameplay feature expansion,
-- no simulation semantic changes,
-- no architecture rewrites.
+Next implementation steps:
+
+1. 9A.1 Explicit attack target slice
+2. 9A.2 Attack slot/ring integration
+3. 9A.3 Hotspot pressure scenario pack
+4. 9A.4 Combat HUD/debug status
+
+No combat depth expansion beyond these slices until hotspot scenario gates are green.

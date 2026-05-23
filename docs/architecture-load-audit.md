@@ -221,6 +221,7 @@ Status: **Not acceptable for full game until addressed**.
 3. `NET-01`: Reconnect v1 contract tests for lockstep sessions.
 4. `VIS-01`: Visibility budget profiling under full-load scenarios.
 5. `COMBAT-01`: Deterministic targeting priority contract for future combat depth.
+6. `COMBAT-02`: Attack-slot/ring hotspot pressure scenarios (50v50, 150v150, objective hotspot, 300 knight, 600 mixed).
 
 ## Final Verdict
 
@@ -232,3 +233,13 @@ In short:
 
 - Prototype target: **Yes, structurally supported**.
 - Full-game target: **Supported in direction, but requires the follow-up issue pack above before claiming readiness**.
+
+## Phase 9A.0 Addendum
+
+Combat planning is now explicitly documented in [combat-architecture.md](combat-architecture.md) with:
+
+- explicit target command contracts
+- movement-owned combat positioning
+- deterministic attack-slot/ring model
+- bounded hotspot scale rules
+- required combat scenario pack before declaring hotspot readiness
