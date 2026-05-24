@@ -708,6 +708,49 @@ namespace RtsGame.Tests
             AssertEqual(0, edit.SelectedBuildingId, "shift-click empty space should keep building selection state");
         }
 
+        private static void GodotSelectionRouterDoubleClickOwnedVillagerSelectsSameType()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(new[]
+            {
+                CreateGodotPrimitiveWithType(VisualPrimitiveKind.UnitSquare, 100, 0, (int)UnitTypeId.Villager, 5, 5),
+                CreateGodotPrimitiveWithType(VisualPrimitiveKind.UnitSquare, 101, 0, (int)UnitTypeId.Villager, 6, 5),
+                CreateGodotPrimitiveWithType(VisualPrimitiveKind.UnitSquare, 102, 0, (int)UnitTypeId.Infantry, 7, 5),
+                CreateGodotPrimitiveWithType(VisualPrimitiveKind.UnitSquare, 103, 1, (int)UnitTypeId.Villager, 8, 5)
+            });
+
+            int[] selected = GodotSelectionRouter.SelectOwnedUnitsOfSameTypeAt(frame, 0, Fixed.FromInt(5).Raw, Fixed.FromInt(5).Raw);
+            AssertEqual(2, selected.Length, "double-click villager should select all owned visible villagers");
+            AssertEqual(100, selected[0], "double-click same-type selection should be deterministic");
+            AssertEqual(101, selected[1], "double-click same-type selection should be deterministic");
+        }
+
+        private static void GodotSelectionRouterDoubleClickOwnedInfantrySelectsSameType()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(new[]
+            {
+                CreateGodotPrimitiveWithType(VisualPrimitiveKind.UnitSquare, 110, 0, (int)UnitTypeId.Infantry, 10, 10),
+                CreateGodotPrimitiveWithType(VisualPrimitiveKind.UnitSquare, 111, 0, (int)UnitTypeId.Infantry, 11, 10),
+                CreateGodotPrimitiveWithType(VisualPrimitiveKind.UnitSquare, 112, 0, (int)UnitTypeId.Villager, 12, 10)
+            });
+
+            int[] selected = GodotSelectionRouter.SelectOwnedUnitsOfSameTypeAt(frame, 0, Fixed.FromInt(10).Raw, Fixed.FromInt(10).Raw);
+            AssertEqual(2, selected.Length, "double-click infantry should select all owned visible infantry");
+            AssertEqual(110, selected[0], "double-click same-type selection should be deterministic");
+            AssertEqual(111, selected[1], "double-click same-type selection should be deterministic");
+        }
+
+        private static void GodotSelectionRouterDoubleClickEnemyDoesNotSelectControllableUnits()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(new[]
+            {
+                CreateGodotPrimitiveWithType(VisualPrimitiveKind.UnitSquare, 120, 1, (int)UnitTypeId.Infantry, 14, 14),
+                CreateGodotPrimitiveWithType(VisualPrimitiveKind.UnitSquare, 121, 0, (int)UnitTypeId.Infantry, 16, 14)
+            });
+
+            int[] selected = GodotSelectionRouter.SelectOwnedUnitsOfSameTypeAt(frame, 0, Fixed.FromInt(14).Raw, Fixed.FromInt(14).Raw);
+            AssertEqual(0, selected.Length, "double-click enemy should not create controllable local selection");
+        }
+
         private static void ControlGroupRecallWorksAfterShiftSelectionEdit()
         {
             var groups = new GodotControlGroupState();

@@ -38,6 +38,50 @@ namespace RtsGame.Presentation.GodotBridge
 
     public static class GodotSelectionRouter
     {
+        public static int[] SelectOwnedUnitsOfSameTypeAt(GodotFrameDto frame, int localPlayerIndex, long xRaw, long yRaw)
+        {
+            GodotSelectionResult selection = SelectAt(frame, localPlayerIndex, xRaw, yRaw);
+            if (selection.Kind != GodotSelectionKind.Unit)
+            {
+                return new int[0];
+            }
+
+            int selectedUnitTypeId = 0;
+            for (int i = 0; i < frame.Primitives.Length; i++)
+            {
+                GodotPrimitiveDto primitive = frame.Primitives[i];
+                if (primitive.Kind == (int)VisualPrimitiveKind.UnitSquare
+                    && primitive.OwnerPlayerIndex == localPlayerIndex
+                    && primitive.EntityId == selection.EntityId)
+                {
+                    selectedUnitTypeId = primitive.TypeId;
+                    break;
+                }
+            }
+
+            if (selectedUnitTypeId == 0)
+            {
+                return new[] { selection.EntityId };
+            }
+
+            var selected = new List<int>();
+            for (int i = 0; i < frame.Primitives.Length; i++)
+            {
+                GodotPrimitiveDto primitive = frame.Primitives[i];
+                if (primitive.Kind != (int)VisualPrimitiveKind.UnitSquare
+                    || primitive.OwnerPlayerIndex != localPlayerIndex
+                    || primitive.TypeId != selectedUnitTypeId)
+                {
+                    continue;
+                }
+
+                selected.Add(primitive.EntityId);
+            }
+
+            selected.Sort();
+            return selected.ToArray();
+        }
+
         public static GodotSelectionEditResult ResolveClickSelection(
             IReadOnlyList<int> currentSelectedUnitIds,
             int currentSelectedBuildingId,

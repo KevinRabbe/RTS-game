@@ -68,7 +68,8 @@ internal static class RtsInputMouseRouter
 					findResourceAt(frame, mouseWorldPosition, 16),
 					hoveredResourceNodeId,
 					addDebugEvent,
-					mouse.ShiftPressed);
+					mouse.ShiftPressed,
+					mouse.DoubleClick);
 				inputModeState.ExitToNormal();
 				refreshFrame();
 				return;
@@ -114,7 +115,8 @@ internal static class RtsInputMouseRouter
 				findResourceAt(frame, mouseWorldPosition, 16),
 				hoveredResourceNodeId,
 				addDebugEvent,
-				mouse.ShiftPressed);
+				mouse.ShiftPressed,
+				mouse.DoubleClick);
 			refreshFrame();
 			return;
 		}

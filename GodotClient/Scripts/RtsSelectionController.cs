@@ -101,13 +101,33 @@ internal sealed class RtsSelectionController
 		int clickedResourceId,
 		int hoveredResourceId,
 		Action<string> log,
-		bool additive = false)
+		bool additive = false,
+		bool selectSameType = false)
 	{
+		long xRaw = screenToRaw(screenPosition.X);
+		long yRaw = screenToRaw(screenPosition.Y);
+		if (!additive && selectSameType)
+		{
+			int[] sameTypeUnits = GodotSelectionRouter.SelectOwnedUnitsOfSameTypeAt(frame, localPlayerIndex, xRaw, yRaw);
+			if (sameTypeUnits.Length > 0)
+			{
+				_selectedUnitIds.Clear();
+				_selectedBuildingId = 0;
+				for (int i = 0; i < sameTypeUnits.Length; i++)
+				{
+					_selectedUnitIds.Add(sameTypeUnits[i]);
+				}
+
+				log("double select same-type units=" + string.Join(",", sameTypeUnits));
+				return;
+			}
+		}
+
 		GodotSelectionResult selection = GodotSelectionRouter.SelectAt(
 			frame,
 			localPlayerIndex,
-			screenToRaw(screenPosition.X),
-			screenToRaw(screenPosition.Y));
+			xRaw,
+			yRaw);
 
 		if (selection.Kind == GodotSelectionKind.Unit || selection.Kind == GodotSelectionKind.Building || !additive)
 		{
