@@ -266,3 +266,27 @@ Hard constraints for implementation:
 3. **9C.3** resume-after-kill/invalidation behavior
 4. **9C.4** attack-move pressure scenario pack
 5. **9C.5** HUD/command feedback for attack-move
+
+## Phase 9C.7 Acceptance Addendum
+
+The attack-move foundation is now accepted for prototype use.
+
+Accepted state:
+
+- explicit `AttackMoveCommand` path and persistent intent state
+- bounded indexed target acquisition cadence
+- deterministic resume-after-target-clear behavior
+- scale scenarios validated (`10-path`, `50v50`, `150v150`, 3-attacker hotspot)
+- HUD/debug readability for attack-move state
+- explicit RTS input mode contract integrated (`A + click`, `Escape` cancel)
+
+Manual smoke contract (accepted):
+
+- left click selection works
+- drag selection works
+- right-click contextual commands work
+- `A + click` issues attack-move
+- `Escape` cancels active mode
+- `F1/F2` scenario switching remains stable
+
+Remaining attack-move work is future depth/polish (formations/advanced AI behaviors), not core architecture stabilization.

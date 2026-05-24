@@ -1,6 +1,6 @@
 # Current Vertical Slice
 
-## Accepted State (Phase 9C.0 Entry)
+## Accepted State (Phase 9C.7 Entry)
 
 - Branch: `phase-6-visual-placeholder-pipeline`
 - `MovementEngineV2` and `GatherEngineV2` are default-on and accepted as prototype-ready.
@@ -14,7 +14,7 @@
 - Combat test lab scenarios are implemented (`F2 CombatTest01` + enemy building target).
 - Combat scenario UX polish is complete (scenario camera hint + clearer hotkey labels).
 - Full gate remains green:
-  - tests: `489/489 PASS`
+  - tests: `512/512 PASS`
   - `chaos-v4` (`5000` ticks): `desync=False`, `invariant_failures=0`
 
 ## Vertical Slice Scope
@@ -59,16 +59,32 @@ Only touch it when:
 - pressure/chaos gate fails,
 - or new feature integration requires a scoped contract change.
 
+## Accepted Input + Attack-Move Contract
+
+Client input contract is now accepted for prototype:
+
+- Left click = select/info
+- Left drag = box select
+- Right click = contextual command
+- `A` + click = attack-move
+- `Escape` = cancel active mode
+- `F1` / `F2` = scenario switch (`DryArabiaTest01` / `CombatTest01`)
+
+Attack-move core loop is accepted for prototype:
+
+- 9C.1 state/command plumbing
+- 9C.2 bounded indexed target acquisition
+- 9C.3 resume-after-clear behavior
+- 9C.4 pressure scenarios (`10-path`, `50v50`, `150v150`, hotspot)
+- 9C.5 HUD/debug exposure
+- 9C.6 explicit RTS input mode contract
+
+Remaining attack-move work is polish or future command-depth/AI/formation scope, not a core-foundation blocker.
+
 ## Next Phase Intent
 
-Phase 9C.0 is complete (attack-move/auto-target architecture planning only).
+Next recommended phase:
 
-Next implementation steps:
+1. **10A — Control Groups and Selection Quality**
 
-1. 9C.1 `AttackMoveCommand` + state only
-2. 9C.2 bounded indexed auto-target acquisition
-3. 9C.3 resume-after-kill/invalidation behavior
-4. 9C.4 attack-move pressure scenarios
-5. 9C.5 attack-move HUD/command feedback
-
-No attack-move depth expansion beyond these slices until scale scenario gates are green.
+Reason: highest value for both economy and combat without touching simulation balance contracts.

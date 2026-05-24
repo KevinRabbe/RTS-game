@@ -24,24 +24,31 @@ Completed tracks:
 
 Current gate status:
 
-- `tests=489/489 PASS`
+- `tests=512/512 PASS`
 - `chaos-v4` 5000-tick stress: pass
 
 ## Active Stage
 
-Phase 9C.0 complete: attack-move/auto-target architecture documented.
+Phase 9C complete: attack-move core architecture + implementation accepted.
 
-Next active implementation stage:
+Completed 9C chain:
 
-- **9C.1 AttackMoveCommand + state only (no auto-target yet)**
+- 9C.1 AttackMoveCommand + state only
+- 9C.2 bounded indexed target acquisition
+- 9C.3 resume-after-target-clear behavior
+- 9C.4 attack-move pressure scenarios
+- 9C.5 attack-move HUD/command feedback
+- 9C.6 explicit RTS input mode contract
 
-## Near-Term Combat Sequence (9C)
+## Next Active Stage
 
-1. **9C.1** AttackMoveCommand + state only
-2. **9C.2** bounded indexed target acquisition
-3. **9C.3** resume-after-kill/invalidation behavior
-4. **9C.4** attack-move pressure scenarios
-5. **9C.5** attack-move HUD/command feedback
+**10A — Control Groups and Selection Quality**
+
+Near-term target:
+
+1. Control group assign/select contracts (deterministic client-input behavior)
+2. Selection UX quality (clear group intent and safe replacement behavior)
+3. No simulation gameplay/balance changes in first 10A slices
 
 Guardrails:
 

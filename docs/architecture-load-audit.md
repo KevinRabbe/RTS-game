@@ -256,7 +256,7 @@ Combat baseline implementation and manual lab support are now in place:
 
 Gate at this checkpoint:
 
-- tests `489/489 PASS`
+- tests `512/512 PASS`
 - chaos-v4 `5000 ticks`, `desync=False`, `invariant_failures=0`
 
 ## Phase 9C.0 Addendum (Attack-Move Architecture Risk Framing)
@@ -283,3 +283,22 @@ Attack-move is acceptable only if:
 - acquisition budgets remain bounded under `50v50` and `150v150`
 - hotspot scenario does not produce reservation/path-query runaway
 - no stack/desync collapse under 3-attacker hotspot pressure
+
+## Phase 9C.7 Addendum (Accepted Input + Attack-Move State)
+
+Accepted prototype contract:
+
+- explicit RTS input mode behavior is stable and test-covered:
+  - left click select/info
+  - left drag box select
+  - right click contextual command
+  - `A + click` attack-move
+  - `Escape` cancel active mode
+  - `F1/F2` scenario switch
+- attack-move state/acquisition/resume/HUD path is complete for prototype scope
+- remaining attack-move work is quality/polish or future advanced AI/formation behavior
+
+Risk classification impact:
+
+- attack-move foundation risk is reduced from planning-time high uncertainty to **medium operational risk**, controlled by existing pressure scenarios and cadence/budget contracts
+- next high-value risk reduction shifts to **control groups/selection quality** at the client-input layer (Phase 10A), improving competitive usability without simulation-balance changes
