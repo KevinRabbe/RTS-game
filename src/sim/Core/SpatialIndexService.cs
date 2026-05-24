@@ -18,6 +18,12 @@ namespace RtsGame.Sim.Core
             return state.SpatialTileIndex.IsOccupiedByLiveUnit(tileX, tileY, ignoredUnitId);
         }
 
+        public bool TryGetOccupiedUnitId(GameState state, int tileX, int tileY, int ignoredUnitId, out int unitId)
+        {
+            state.SpatialTileIndex.EnsureWarm(state);
+            return state.SpatialTileIndex.TryGetOccupiedUnitId(tileX, tileY, ignoredUnitId, out unitId);
+        }
+
         public bool IsReserved(GameState state, int tileX, int tileY, int ignoredUnitId = 0)
         {
             state.SpatialTileIndex.EnsureWarm(state);

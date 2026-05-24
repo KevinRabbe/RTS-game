@@ -88,6 +88,7 @@ namespace RtsGame.Sim.Commands
                 unit.HasMoveTarget = false;
                 unit.AttackTargetId = TargetEntityId;
                 unit.HasAttackMoveTarget = false;
+                unit.NextAttackMoveAcquireTick = 0;
                 if (!GameData.IsSiege(unit.UnitTypeId))
                 {
                     unit.IsSiegeDeployed = false;

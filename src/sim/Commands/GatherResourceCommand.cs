@@ -107,6 +107,7 @@ namespace RtsGame.Sim.Commands
                 unit.TaskPhase = WorkerTaskPhase.MovingToResourceSlot;
                 unit.AttackTargetId = 0;
                 unit.HasAttackMoveTarget = false;
+                unit.NextAttackMoveAcquireTick = 0;
                 unit.IsSiegeDeployed = false;
                 unit.SiegeSetupTicksRemaining = 0;
                 unit.SiegeReloadTicksRemaining = 0;

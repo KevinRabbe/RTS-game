@@ -119,6 +119,7 @@ namespace RtsGame.Sim.Commands
                 unit.AttackTargetId = 0;
                 unit.HasAttackMoveTarget = true;
                 unit.AttackMoveTarget = Target;
+                unit.NextAttackMoveAcquireTick = state.Tick;
                 unit.IsSiegeDeployed = false;
                 unit.SiegeSetupTicksRemaining = 0;
                 unit.SiegeReloadTicksRemaining = 0;

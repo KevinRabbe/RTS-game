@@ -78,6 +78,7 @@ namespace RtsGame.Sim.Checksums
                 writer.WriteBool(unit.HasAttackMoveTarget);
                 writer.WriteFixed(unit.AttackMoveTarget.X);
                 writer.WriteFixed(unit.AttackMoveTarget.Y);
+                writer.WriteInt32(unit.NextAttackMoveAcquireTick);
                 writer.WriteInt32(unit.AttackCooldownTicksRemaining);
                 writer.WriteBool(unit.IsSiegeDeployed);
                 writer.WriteInt32(unit.SiegeSetupTicksRemaining);

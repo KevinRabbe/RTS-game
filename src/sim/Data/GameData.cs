@@ -109,6 +109,9 @@ namespace RtsGame.Sim.Data
         public const bool EnableMovementSolverV2ForVillagers = false;
         public const int MovementSteeringDecisionCadenceTicks = 4;
         public const int MovementRetargetCooldownTicks = 6;
+        public const int AttackMoveAcquireCadenceTicks = 6;
+        public const int AttackMoveAcquireRadiusTiles = 6;
+        public const int AttackMoveAcquireBudgetPerTick = 200;
         public const int TownCenterWoodCost = 275;
         public const int WallWoodCost = 5;
         public const int TradePostWoodCost = 150;

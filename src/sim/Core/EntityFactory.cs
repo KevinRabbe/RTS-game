@@ -46,6 +46,7 @@ namespace RtsGame.Sim.Core
                 AttackTargetId = 0,
                 HasAttackMoveTarget = false,
                 AttackMoveTarget = position,
+                NextAttackMoveAcquireTick = 0,
                 AttackCooldownTicksRemaining = 0,
                 IsSiegeDeployed = false,
                 SiegeSetupTicksRemaining = 0,

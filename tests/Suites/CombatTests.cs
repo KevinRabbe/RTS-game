@@ -545,6 +545,158 @@ namespace RtsGame.Tests
             AssertEqual(session.Peers[0].LocalState.LastChecksum, session.Peers[1].LocalState.LastChecksum, "attack-move lockstep checksums should match");
         }
 
+        private static void AttackMoveAcquiresNearbyEnemy()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = CreateOccupancyState(901, 2);
+            int attackerId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Infantry, FixedVector2.FromInts(30, 30));
+            int enemyId = EntityFactory.CreateUnit(state, 1, UnitTypeId.Infantry, FixedVector2.FromInts(31, 30));
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AttackMove), new AttackMoveCommand(new[] { attackerId }, FixedVector2.FromInts(40, 30))));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            Unit attacker = FindUnitById(state, attackerId);
+            AssertEqual(enemyId, attacker.AttackTargetId, "attack-move should acquire nearby enemy target on bounded indexed query");
+            AssertEqual(true, attacker.HasAttackMoveTarget, "attack-move destination intent should remain active during temporary combat target");
+        }
+
+        private static void AttackMoveWithoutNearbyEnemyKeepsMoving()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = CreateOccupancyState(902, 2);
+            int attackerId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Infantry, FixedVector2.FromInts(30, 30));
+            int enemyId = EntityFactory.CreateUnit(state, 1, UnitTypeId.Infantry, FixedVector2.FromInts(45, 45));
+            var buffer = new CommandBuffer();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AttackMove), new AttackMoveCommand(new[] { attackerId }, FixedVector2.FromInts(40, 30))));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            Unit attacker = FindUnitById(state, attackerId);
+            AssertEqual(0, attacker.AttackTargetId, "attack-move should not acquire distant enemy outside search radius");
+            AssertEqual(true, attacker.HasMoveTarget, "attack-move should continue moving when no target is nearby");
+            AssertEqual(true, state.EntityState.EntityLookup.ContainsKey(enemyId), "distant enemy should still exist");
+        }
+
+        private static void AttackMoveAcquisitionRespectsCadence()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = CreateOccupancyState(903, 2);
+            int attackerId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Infantry, FixedVector2.FromInts(30, 30));
+            int enemyId = EntityFactory.CreateUnit(state, 1, UnitTypeId.Infantry, FixedVector2.FromInts(45, 45));
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AttackMove), new AttackMoveCommand(new[] { attackerId }, FixedVector2.FromInts(40, 30))));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+            runner.AdvanceOneTick(state, rules, buffer);
+            Unit attacker = FindUnitById(state, attackerId);
+            AssertEqual(0, attacker.AttackTargetId, "initial far enemy should not be acquired");
+
+            Unit enemy = FindUnitById(state, enemyId);
+            enemy.Position = FixedVector2.FromInts(31, 30);
+
+            for (int tick = state.Tick; tick < GameData.AttackMoveAcquireCadenceTicks; tick++)
+            {
+                AddNoOp(buffer, tick, 0, (uint)tick);
+                AddNoOp(buffer, tick, 1, (uint)tick);
+                runner.AdvanceOneTick(state, rules, buffer);
+                attacker = FindUnitById(state, attackerId);
+                AssertEqual(0, attacker.AttackTargetId, "acquisition should wait for cadence window");
+            }
+
+            AddNoOp(buffer, state.Tick, 0, (uint)state.Tick);
+            AddNoOp(buffer, state.Tick, 1, (uint)state.Tick);
+            runner.AdvanceOneTick(state, rules, buffer);
+            attacker = FindUnitById(state, attackerId);
+            AssertEqual(enemyId, attacker.AttackTargetId, "attack-move should acquire once cadence window opens");
+        }
+
+        private static void AttackMoveAcquisitionReplayDeterminism()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState firstState = CreateOccupancyState(904, 2);
+            GameState secondState = CreateOccupancyState(904, 2);
+            int firstAttackerId = EntityFactory.CreateUnit(firstState, 0, UnitTypeId.Infantry, FixedVector2.FromInts(30, 30));
+            int firstEnemyId = EntityFactory.CreateUnit(firstState, 1, UnitTypeId.Infantry, FixedVector2.FromInts(31, 30));
+            int secondAttackerId = EntityFactory.CreateUnit(secondState, 0, UnitTypeId.Infantry, FixedVector2.FromInts(30, 30));
+            int secondEnemyId = EntityFactory.CreateUnit(secondState, 1, UnitTypeId.Infantry, FixedVector2.FromInts(31, 30));
+            AssertEqual(firstEnemyId, secondEnemyId, "replay acquisition setup should produce stable enemy ids");
+            var commands = new[]
+            {
+                new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AttackMove), new AttackMoveCommand(new[] { firstAttackerId }, FixedVector2.FromInts(40, 30))),
+                new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand())
+            };
+            var mirroredCommands = new[]
+            {
+                new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AttackMove), new AttackMoveCommand(new[] { secondAttackerId }, FixedVector2.FromInts(40, 30))),
+                new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand())
+            };
+
+            ulong first = RunCommandsFromState(firstState, rules, commands, 1);
+            ulong second = RunCommandsFromState(secondState, rules, mirroredCommands, 1);
+            AssertEqual(first, second, "attack-move acquisition should replay deterministically");
+        }
+
+        private static void AttackMoveAcquisitionLockstep()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            var session = new LockstepSession(rules, 714, true);
+            EntityFactory.CreateUnit(session.Peers[0].LocalState, 0, UnitTypeId.Infantry, FixedVector2.FromInts(0, 0));
+            EntityFactory.CreateUnit(session.Peers[0].LocalState, 1, UnitTypeId.Infantry, FixedVector2.FromInts(1, 0));
+            EntityFactory.CreateUnit(session.Peers[1].LocalState, 0, UnitTypeId.Infantry, FixedVector2.FromInts(0, 0));
+            EntityFactory.CreateUnit(session.Peers[1].LocalState, 1, UnitTypeId.Infantry, FixedVector2.FromInts(1, 0));
+
+            session.Broadcast(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AttackMove), new AttackMoveCommand(new[] { 11 }, FixedVector2.FromInts(8, 0))));
+            session.Broadcast(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+            AssertEqual(true, session.TryAdvanceOneTick(), "attack-move acquisition lockstep tick should advance");
+
+            AssertEqual(0, session.DesyncReports.Count, "attack-move acquisition lockstep should not desync");
+            AssertEqual(session.Peers[0].LocalState.LastChecksum, session.Peers[1].LocalState.LastChecksum, "attack-move acquisition lockstep checksums should match");
+        }
+
+        private static void AttackMovePressureTenUnitsThroughEnemyGroupStaysStable()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = GameInitializer.CreateNomadStart(2, 1);
+            int[] attackers = CreateInfantryLine(state, 0, 10, 0, 10);
+            int[] enemies = CreateInfantryLine(state, 1, 6, 6, 10);
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            var traces = new Queue<string>();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AttackMove), new AttackMoveCommand(attackers, FixedVector2.FromInts(20, 10))));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+
+            bool acquired = false;
+            for (int tick = 0; tick < 160; tick++)
+            {
+                runner.AdvanceOneTick(state, rules, buffer);
+                CaptureCombatTraceTick(state, attackers, traces, 160);
+                AssertNoDuplicateFinalPurposeReservations(state, BuildTraceFailureMessage("attack-move pressure reservation invariant", traces));
+                for (int i = 0; i < attackers.Length; i++)
+                {
+                    if (!state.EntityState.EntityLookup.TryGetValue(attackers[i], out EntityRef entityRef) || entityRef.Kind != EntityKind.Unit)
+                    {
+                        continue;
+                    }
+
+                    Unit attacker = state.EntityState.Units[entityRef.Index];
+                    if (!attacker.IsDead && attacker.AttackTargetId != 0)
+                    {
+                        acquired = true;
+                        break;
+                    }
+                }
+
+                AddNoOp(buffer, state.Tick, 0, (uint)state.Tick);
+                AddNoOp(buffer, state.Tick, 1, (uint)state.Tick);
+            }
+
+            AssertEqual(true, acquired, BuildTraceFailureMessage("attack-move pressure should acquire enemies under contact", traces));
+            AssertEqual(true, CountAliveUnitsForPlayer(state, 1) < enemies.Length || CountDamagedUnitsForPlayer(state, 1) > 0, BuildTraceFailureMessage("attack-move pressure should apply combat pressure", traces));
+        }
+
         private static int[] CreateInfantryLine(GameState state, int ownerPlayerIndex, int count, int startX, int y)
         {
             var ids = new int[count];

@@ -9,6 +9,7 @@ namespace RtsGame.Sim.Core
         private readonly HashSet<int> _resourceBlockedTiles = new HashSet<int>();
         private readonly Dictionary<int, int> _buildingBlockedCounts = new Dictionary<int, int>();
         private readonly Dictionary<int, int> _unitOccupancyCounts = new Dictionary<int, int>();
+        private readonly Dictionary<int, int> _unitOccupancyMinId = new Dictionary<int, int>();
         private readonly Dictionary<int, int> _reservedTileCounts = new Dictionary<int, int>();
         private bool _isWarm;
         private int _warmTick = int.MinValue;
@@ -19,6 +20,7 @@ namespace RtsGame.Sim.Core
             _resourceBlockedTiles.Clear();
             _buildingBlockedCounts.Clear();
             _unitOccupancyCounts.Clear();
+            _unitOccupancyMinId.Clear();
             _reservedTileCounts.Clear();
 
             for (int i = 0; i < state.EntityState.Buildings.Count; i++)
@@ -73,6 +75,10 @@ namespace RtsGame.Sim.Core
 
                 int occupiedKey = SpatialRules.EncodeTileKey(SpatialRules.GetTileX(unit.Position), SpatialRules.GetTileY(unit.Position));
                 AddCount(_unitOccupancyCounts, occupiedKey);
+                if (!_unitOccupancyMinId.TryGetValue(occupiedKey, out int minId) || unit.Id < minId)
+                {
+                    _unitOccupancyMinId[occupiedKey] = unit.Id;
+                }
 
                 if (unit.ReservedInteractionKind != InteractionReservationKind.None)
                 {
@@ -135,6 +141,34 @@ namespace RtsGame.Sim.Core
             }
 
             return count > 1;
+        }
+
+        public bool TryGetOccupiedUnitId(int tileX, int tileY, int ignoredUnitId, out int unitId)
+        {
+            unitId = 0;
+            int key = SpatialRules.EncodeTileKey(tileX, tileY);
+            if (!_unitOccupancyCounts.TryGetValue(key, out int count) || count <= 0)
+            {
+                return false;
+            }
+
+            if (!_unitOccupancyMinId.TryGetValue(key, out int minId))
+            {
+                return false;
+            }
+
+            if (minId == ignoredUnitId && count <= 1)
+            {
+                return false;
+            }
+
+            if (minId != ignoredUnitId)
+            {
+                unitId = minId;
+                return true;
+            }
+
+            return false;
         }
 
         public bool IsReservedByLiveUnit(int tileX, int tileY, int ignoredUnitId)

@@ -30,6 +30,10 @@ namespace RtsGame.Sim.Core
         /// </summary>
         bool IsOccupied(GameState state, int tileX, int tileY, int ignoredUnitId = 0);
         /// <summary>
+        /// Returns one deterministic live unit occupant id at a tile if present.
+        /// </summary>
+        bool TryGetOccupiedUnitId(GameState state, int tileX, int tileY, int ignoredUnitId, out int unitId);
+        /// <summary>
         /// Reservation occupancy query for final-purpose slots.
         /// </summary>
         bool IsReserved(GameState state, int tileX, int tileY, int ignoredUnitId = 0);

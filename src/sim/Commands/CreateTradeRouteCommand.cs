@@ -68,6 +68,7 @@ namespace RtsGame.Sim.Commands
             cart.TaskPhase = WorkerTaskPhase.MovingToCommandMove;
             cart.AttackTargetId = 0;
             cart.HasAttackMoveTarget = false;
+            cart.NextAttackMoveAcquireTick = 0;
             cart.HasMoveTarget = true;
             cart.MoveTarget = postB.Position;
         }
