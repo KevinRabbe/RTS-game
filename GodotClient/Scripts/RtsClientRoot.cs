@@ -140,7 +140,7 @@ public partial class RtsClientRoot : Node2D
 
 				if (mouse.Pressed)
 				{
-					_selectionController.BeginDrag(GetGlobalMousePosition());
+					_selectionController.BeginDrag(GetGlobalMousePosition(), mouse.ShiftPressed, mouse.DoubleClick);
 					QueueRedraw();
 				}
 				else

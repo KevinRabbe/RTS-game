@@ -9,6 +9,8 @@ internal sealed class RtsSelectionController
 	private readonly List<int> _selectedUnitIds = new List<int>();
 	private int _selectedBuildingId;
 	private bool _dragActive;
+	private bool _dragAdditive;
+	private bool _dragSelectSameType;
 	private Vector2 _dragStart = Vector2.Zero;
 	private Vector2 _dragCurrent = Vector2.Zero;
 
@@ -47,13 +49,17 @@ internal sealed class RtsSelectionController
 		_selectedUnitIds.Clear();
 		_selectedBuildingId = 0;
 		_dragActive = false;
+		_dragAdditive = false;
+		_dragSelectSameType = false;
 		_dragStart = Vector2.Zero;
 		_dragCurrent = Vector2.Zero;
 	}
 
-	public void BeginDrag(Vector2 worldPosition)
+	public void BeginDrag(Vector2 worldPosition, bool additive = false, bool selectSameType = false)
 	{
 		_dragActive = true;
+		_dragAdditive = additive;
+		_dragSelectSameType = selectSameType;
 		_dragStart = worldPosition;
 		_dragCurrent = worldPosition;
 	}
@@ -81,13 +87,17 @@ internal sealed class RtsSelectionController
 		Vector2 delta = _dragCurrent - _dragStart;
 		bool isRectangleSelection = delta.LengthSquared() >= DragSelectionThresholdPixels * DragSelectionThresholdPixels;
 		_dragActive = false;
+		bool additive = _dragAdditive;
+		bool selectSameType = _dragSelectSameType;
+		_dragAdditive = false;
+		_dragSelectSameType = false;
 		if (isRectangleSelection)
 		{
 			SelectUnitsInRectangle(frame, localPlayerIndex, screenToRaw, log);
 		}
 		else
 		{
-			SelectAt(frame, localPlayerIndex, _dragCurrent, screenToRaw, clickedResourceId, hoveredResourceId, log);
+			SelectAt(frame, localPlayerIndex, _dragCurrent, screenToRaw, clickedResourceId, hoveredResourceId, log, additive, selectSameType);
 		}
 
 		return true;
