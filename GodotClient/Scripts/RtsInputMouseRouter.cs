@@ -52,6 +52,23 @@ internal static class RtsInputMouseRouter
 
 		if (inputModeState.IsAttackMoveTargeting && mouse.ButtonIndex == MouseButton.Left)
 		{
+			GodotSelectionResult selection = GodotSelectionRouter.SelectAt(frame, localPlayerIndex, mouseXRaw, mouseYRaw);
+			if (selection.Kind == GodotSelectionKind.Unit || selection.Kind == GodotSelectionKind.Building)
+			{
+				tradeRouteSelection.Clear();
+				selectionController.SelectAt(
+					frame,
+					localPlayerIndex,
+					mouseWorldPosition,
+					x => RtsCoordinateTransform.ScreenToRaw(x, 16),
+					findResourceAt(frame, mouseWorldPosition, 16),
+					hoveredResourceNodeId,
+					addDebugEvent);
+				inputModeState.ExitToNormal();
+				refreshFrame();
+				return;
+			}
+
 			if (selectionController.HasSelectedUnits)
 			{
 				int[] selectedUnitIds = selectionController.GetSelectedUnitIdsSorted();
@@ -106,10 +123,16 @@ internal static class RtsInputMouseRouter
 
 		if (mouse.ButtonIndex == MouseButton.Right && selectionController.HasSelectedUnits)
 		{
+			bool cancelledAttackMoveMode = inputModeState.IsAttackMoveTargeting;
+			if (cancelledAttackMoveMode)
+			{
+				inputModeState.ExitToNormal();
+			}
+
 			int[] selectedUnitIds = selectionController.GetSelectedUnitIdsSorted();
 			GodotInteractionProbeResult probe = GodotInteractionProbe.Probe(frame, localPlayerIndex, mouseXRaw, mouseYRaw);
 			RtsResolvedCommand resolved = RtsCommandModeResolver.ResolveModeClick(
-				inputModeState.CurrentMode,
+				cancelledAttackMoveMode ? RtsInputModeKind.Normal : inputModeState.CurrentMode,
 				frame,
 				localPlayerIndex,
 				selectionController.HasSelectedUnits,
@@ -129,9 +152,9 @@ internal static class RtsInputMouseRouter
 				queueCommandAndConfirm,
 				setCommandMarker);
 
-			if (inputModeState.IsAttackMoveTargeting)
+			if (cancelledAttackMoveMode)
 			{
-				inputModeState.ExitToNormal();
+				addDebugEvent("attack-move targeting cancelled (RMB)");
 			}
 		}
 	}
