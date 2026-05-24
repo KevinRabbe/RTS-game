@@ -21,6 +21,7 @@ public partial class RtsClientRoot : Node2D
 	private readonly RtsCameraController _cameraController = new RtsCameraController();
 	private readonly RtsSelectionController _selectionController = new RtsSelectionController();
 	private readonly RtsCommandMarker _commandMarker = new RtsCommandMarker();
+	private readonly RtsInputModeState _inputModeState = new RtsInputModeState();
 	private readonly RtsTradeRouteSelection _tradeRouteSelection = new RtsTradeRouteSelection();
 	private readonly RtsTownCenterPlacementState _tcPlacementState = new RtsTownCenterPlacementState();
 	private GodotClientFacade? _facade;
@@ -130,6 +131,12 @@ public partial class RtsClientRoot : Node2D
 
 			if (mouse.ButtonIndex == MouseButton.Left)
 			{
+				if (_inputModeState.IsAttackMoveTargeting && mouse.Pressed)
+				{
+					HandleMouse(mouse);
+					return;
+				}
+
 				if (mouse.Pressed)
 				{
 					_selectionController.BeginDrag(GetGlobalMousePosition());
@@ -196,6 +203,7 @@ public partial class RtsClientRoot : Node2D
 			TileToRaw,
 			ToScreen,
 			_spriteRenderer,
+			_inputModeState,
 			_tcPlacementState,
 			StartDryArabiaTest01,
 			StartCombatTest01,
@@ -257,6 +265,7 @@ public partial class RtsClientRoot : Node2D
 			ref _hoveredResourceNodeId,
 			ref _tickAccumulator,
 			ref _paused);
+		_inputModeState.ExitToNormal();
 
 		ApplyScenarioCameraStartIfDefined();
 	}
@@ -292,6 +301,7 @@ public partial class RtsClientRoot : Node2D
 			mouseXRaw,
 			mouseYRaw,
 			_hoveredResourceNodeId,
+			_inputModeState,
 			_tcPlacementState,
 			_selectionController,
 			_tradeRouteSelection,

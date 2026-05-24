@@ -377,8 +377,10 @@ namespace RtsGame.Tests
             AssertEqual(true, ContainsHotkey(entries, "Left Click", "Select / confirm placement"), "hotkey help should include left-click selection behavior");
             AssertEqual(true, ContainsHotkey(entries, "Right Click", "Move, gather, attack, assign build, or cancel placement"), "hotkey help should include right-click context behavior");
             AssertEqual(true, ContainsHotkey(entries, "C", "Enter Town Center placement mode"), "hotkey help should include C placement binding");
+            AssertEqual(true, ContainsHotkey(entries, "A", "Enter Attack-Move targeting mode"), "hotkey help should include A attack-move mode binding");
             AssertEqual(true, ContainsHotkey(entries, "W", "Place Wall at mouse"), "hotkey help should include W placement binding");
             AssertEqual(true, ContainsHotkey(entries, "T", "Place Trade Post at mouse"), "hotkey help should include T placement binding");
+            AssertEqual(true, ContainsHotkey(entries, "Escape", "Cancel active mode"), "hotkey help should include escape cancel mode binding");
             AssertEqual(true, ContainsHotkey(entries, "R", "Create Trade Route with selected Trade Cart"), "hotkey help should include R trade route binding");
             AssertEqual(true, ContainsHotkey(entries, "V", "Train Villager"), "hotkey help should include V train villager binding");
             AssertEqual(true, ContainsHotkey(entries, "I", "Train Infantry"), "hotkey help should include I train infantry binding");

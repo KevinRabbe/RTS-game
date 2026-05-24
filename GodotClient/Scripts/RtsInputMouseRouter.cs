@@ -14,6 +14,7 @@ internal static class RtsInputMouseRouter
 		long mouseXRaw,
 		long mouseYRaw,
 		int hoveredResourceNodeId,
+		RtsInputModeState inputModeState,
 		RtsTownCenterPlacementState tcPlacementState,
 		RtsSelectionController selectionController,
 		RtsTradeRouteSelection tradeRouteSelection,
@@ -34,6 +35,7 @@ internal static class RtsInputMouseRouter
 
 		if (tcPlacementState.IsActive)
 		{
+			inputModeState.EnterTownCenterPlacement();
 			if (mouse.ButtonIndex == MouseButton.Left)
 			{
 				confirmTcPlacement(tile);
@@ -41,9 +43,41 @@ internal static class RtsInputMouseRouter
 			else if (mouse.ButtonIndex == MouseButton.Right)
 			{
 				tcPlacementState.Cancel();
+				inputModeState.ExitToNormal();
 				addDebugEvent("TC placement cancelled (RMB)");
 				queueRedraw();
 			}
+			return;
+		}
+
+		if (inputModeState.IsAttackMoveTargeting && mouse.ButtonIndex == MouseButton.Left)
+		{
+			if (selectionController.HasSelectedUnits)
+			{
+				int[] selectedUnitIds = selectionController.GetSelectedUnitIdsSorted();
+				RtsResolvedCommand resolved = RtsCommandModeResolver.ResolveModeClick(
+					inputModeState.CurrentMode,
+					frame,
+					localPlayerIndex,
+					true,
+					mouseXRaw,
+					mouseYRaw);
+				ExecuteResolvedCommand(
+					resolved,
+					frame,
+					localPlayerIndex,
+					selectedUnitIds,
+					tile,
+					toScreen,
+					tileToRaw,
+					queueCommandAndConfirm,
+					setCommandMarker);
+				addDebugEvent(
+					"lclick mode raw=(" + mouseXRaw + "," + mouseYRaw + ") tile=(" + tile.X + "," + tile.Y + ") route=" + resolved.Kind + " mode=" + inputModeState.CurrentMode);
+			}
+
+			inputModeState.ExitToNormal();
+			queueRedraw();
 			return;
 		}
 
@@ -62,11 +96,20 @@ internal static class RtsInputMouseRouter
 			return;
 		}
 
+		if (mouse.ButtonIndex == MouseButton.Right && inputModeState.IsAttackMoveTargeting && !selectionController.HasSelectedUnits)
+		{
+			inputModeState.ExitToNormal();
+			addDebugEvent("attack-move targeting cancelled (no selected units)");
+			queueRedraw();
+			return;
+		}
+
 		if (mouse.ButtonIndex == MouseButton.Right && selectionController.HasSelectedUnits)
 		{
 			int[] selectedUnitIds = selectionController.GetSelectedUnitIdsSorted();
 			GodotInteractionProbeResult probe = GodotInteractionProbe.Probe(frame, localPlayerIndex, mouseXRaw, mouseYRaw);
-			GodotInteractionIntent intent = GodotInteractionRouter.RouteRightClick(
+			RtsResolvedCommand resolved = RtsCommandModeResolver.ResolveModeClick(
+				inputModeState.CurrentMode,
 				frame,
 				localPlayerIndex,
 				selectionController.HasSelectedUnits,
@@ -74,51 +117,85 @@ internal static class RtsInputMouseRouter
 				mouseYRaw);
 			addDebugEvent(
 				"rclick raw=(" + mouseXRaw + "," + mouseYRaw + ") tile=(" + tile.X + "," + tile.Y + ") target="
-				+ probe.TargetKind + ":" + probe.TargetEntityId + " route=" + intent.Kind);
+				+ probe.TargetKind + ":" + probe.TargetEntityId + " route=" + resolved.Kind + " mode=" + inputModeState.CurrentMode);
+			ExecuteResolvedCommand(
+				resolved,
+				frame,
+				localPlayerIndex,
+				selectedUnitIds,
+				tile,
+				toScreen,
+				tileToRaw,
+				queueCommandAndConfirm,
+				setCommandMarker);
 
-			if (intent.Kind == GodotInteractionIntentKind.Attack)
+			if (inputModeState.IsAttackMoveTargeting)
 			{
-				GodotPrimitiveDto? target = RtsFrameLookup.FindPrimitiveByEntityId(frame, intent.TargetEntityId);
-				if (target != null)
-				{
-					setCommandMarker("Attack", toScreen(target.XRaw, target.YRaw), Colors.IndianRed);
-				}
+				inputModeState.ExitToNormal();
+			}
+		}
+	}
 
-				queueCommandAndConfirm(
-					"attack p=" + localPlayerIndex + " targetEntity=" + intent.TargetEntityId + " units=[" + string.Join(",", selectedUnitIds) + "]",
-					f => f.QueueAttack(localPlayerIndex, selectedUnitIds, intent.TargetEntityId));
-			}
-			else if (intent.Kind == GodotInteractionIntentKind.AssignBuild)
+	private static void ExecuteResolvedCommand(
+		RtsResolvedCommand resolved,
+		GodotFrameDto frame,
+		int localPlayerIndex,
+		int[] selectedUnitIds,
+		Vector2I tile,
+		Func<long, long, Vector2> toScreen,
+		Func<int, long> tileToRaw,
+		Action<string, Action<GodotClientFacade>> queueCommandAndConfirm,
+		Action<string, Vector2, Color> setCommandMarker)
+	{
+		if (resolved.Kind == RtsResolvedCommandKind.Attack)
+		{
+			GodotPrimitiveDto? target = RtsFrameLookup.FindPrimitiveByEntityId(frame, resolved.TargetEntityId);
+			if (target != null)
 			{
-				GodotPrimitiveDto? target = RtsFrameLookup.FindPrimitiveByEntityId(frame, intent.TargetEntityId);
-				if (target != null)
-				{
-					setCommandMarker("Build", toScreen(target.XRaw, target.YRaw), Colors.Khaki);
-				}
+				setCommandMarker("Attack", toScreen(target.XRaw, target.YRaw), Colors.IndianRed);
+			}
 
-				queueCommandAndConfirm(
-					"assign build p=" + localPlayerIndex + " targetBuilding=" + intent.TargetEntityId + " units=[" + string.Join(",", selectedUnitIds) + "]",
-					f => f.QueueAssignBuild(localPlayerIndex, intent.TargetEntityId, selectedUnitIds));
-			}
-			else if (intent.Kind == GodotInteractionIntentKind.GatherResource)
+			queueCommandAndConfirm(
+				"attack p=" + localPlayerIndex + " targetEntity=" + resolved.TargetEntityId + " units=[" + string.Join(",", selectedUnitIds) + "]",
+				f => f.QueueAttack(localPlayerIndex, selectedUnitIds, resolved.TargetEntityId));
+		}
+		else if (resolved.Kind == RtsResolvedCommandKind.AssignBuild)
+		{
+			GodotPrimitiveDto? target = RtsFrameLookup.FindPrimitiveByEntityId(frame, resolved.TargetEntityId);
+			if (target != null)
 			{
-				GodotPrimitiveDto? target = RtsFrameLookup.FindPrimitiveByEntityId(frame, intent.ResourceNodeId);
-				if (target != null)
-				{
-					setCommandMarker("Gather", toScreen(target.XRaw, target.YRaw), Colors.ForestGreen);
-				}
+				setCommandMarker("Build", toScreen(target.XRaw, target.YRaw), Colors.Khaki);
+			}
 
-				queueCommandAndConfirm(
-					"gather p=" + localPlayerIndex + " resource=" + intent.ResourceNodeId + " units=[" + string.Join(",", selectedUnitIds) + "]",
-					f => f.QueueGatherResource(localPlayerIndex, intent.ResourceNodeId, selectedUnitIds));
-			}
-			else if (intent.Kind == GodotInteractionIntentKind.Move)
+			queueCommandAndConfirm(
+				"assign build p=" + localPlayerIndex + " targetBuilding=" + resolved.TargetEntityId + " units=[" + string.Join(",", selectedUnitIds) + "]",
+				f => f.QueueAssignBuild(localPlayerIndex, resolved.TargetEntityId, selectedUnitIds));
+		}
+		else if (resolved.Kind == RtsResolvedCommandKind.Gather)
+		{
+			GodotPrimitiveDto? target = RtsFrameLookup.FindPrimitiveByEntityId(frame, resolved.ResourceNodeId);
+			if (target != null)
 			{
-				setCommandMarker("Move", toScreen(tileToRaw(tile.X), tileToRaw(tile.Y)), Colors.LightSkyBlue);
-				queueCommandAndConfirm(
-					"move p=" + localPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ") units=[" + string.Join(",", selectedUnitIds) + "]",
-					f => f.QueueMoveUnits(localPlayerIndex, selectedUnitIds, tile.X, tile.Y));
+				setCommandMarker("Gather", toScreen(target.XRaw, target.YRaw), Colors.ForestGreen);
 			}
+
+			queueCommandAndConfirm(
+				"gather p=" + localPlayerIndex + " resource=" + resolved.ResourceNodeId + " units=[" + string.Join(",", selectedUnitIds) + "]",
+				f => f.QueueGatherResource(localPlayerIndex, resolved.ResourceNodeId, selectedUnitIds));
+		}
+		else if (resolved.Kind == RtsResolvedCommandKind.Move)
+		{
+			setCommandMarker("Move", toScreen(tileToRaw(tile.X), tileToRaw(tile.Y)), Colors.LightSkyBlue);
+			queueCommandAndConfirm(
+				"move p=" + localPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ") units=[" + string.Join(",", selectedUnitIds) + "]",
+				f => f.QueueMoveUnits(localPlayerIndex, selectedUnitIds, tile.X, tile.Y));
+		}
+		else if (resolved.Kind == RtsResolvedCommandKind.AttackMove)
+		{
+			setCommandMarker("AttackMove", toScreen(tileToRaw(tile.X), tileToRaw(tile.Y)), Colors.OrangeRed);
+			queueCommandAndConfirm(
+				"attack-move p=" + localPlayerIndex + " tile=(" + tile.X + "," + tile.Y + ") units=[" + string.Join(",", selectedUnitIds) + "]",
+				f => f.QueueAttackMove(localPlayerIndex, selectedUnitIds, tile.X, tile.Y));
 		}
 	}
 }

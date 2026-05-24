@@ -14,6 +14,7 @@ internal static class RtsInputKeyRouter
 		Func<int, long> tileToRaw,
 		Func<long, long, Vector2> toScreen,
 		Phase6SpriteRenderer spriteRenderer,
+		RtsInputModeState inputModeState,
 		RtsTownCenterPlacementState tcPlacementState,
 		Action startDryArabiaTest01,
 		Action startCombatTest01,
@@ -99,18 +100,42 @@ internal static class RtsInputKeyRouter
 
 		if (key.Keycode == Key.C)
 		{
+			inputModeState.EnterTownCenterPlacement();
 			tcPlacementState.Enter(frame, screenToTile(getMousePosition()));
 			addDebugEvent("TC placement mode entered");
 			queueRedraw();
 			return;
 		}
 
-		if (key.Keycode == Key.Escape && tcPlacementState.IsActive)
+		if (key.Keycode == Key.A)
 		{
-			tcPlacementState.Cancel();
-			addDebugEvent("TC placement cancelled (Esc)");
+			inputModeState.EnterAttackMoveTargeting();
+			addDebugEvent("attack-move targeting mode entered");
 			queueRedraw();
 			return;
+		}
+
+		if (key.Keycode == Key.Escape)
+		{
+			if (tcPlacementState.IsActive)
+			{
+				tcPlacementState.Cancel();
+				inputModeState.ExitToNormal();
+				addDebugEvent("TC placement cancelled (Esc)");
+				queueRedraw();
+				return;
+			}
+
+			if (inputModeState.IsAttackMoveTargeting)
+			{
+				inputModeState.ExitToNormal();
+				addDebugEvent("attack-move targeting cancelled (Esc)");
+				queueRedraw();
+				return;
+			}
+
+			inputModeState.ExitToNormal();
+			queueRedraw();
 		}
 
 		if (key.Keycode == Key.W)

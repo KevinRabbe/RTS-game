@@ -40,10 +40,11 @@ namespace RtsGame.Presentation.GodotBridge
 
                 new GodotHotkeyHelpEntry("Building:", ""),
                 new GodotHotkeyHelpEntry("C", "Enter Town Center placement mode"),
+                new GodotHotkeyHelpEntry("A", "Enter Attack-Move targeting mode"),
                 new GodotHotkeyHelpEntry("W", "Place Wall at mouse"),
                 new GodotHotkeyHelpEntry("T", "Place Trade Post at mouse"),
                 new GodotHotkeyHelpEntry("Right Click", "Confirm contextual action / cancel placement depending mode"),
-                new GodotHotkeyHelpEntry("Escape", "Cancel placement mode"),
+                new GodotHotkeyHelpEntry("Escape", "Cancel active mode"),
                 new GodotHotkeyHelpEntry("", ""),
 
                 new GodotHotkeyHelpEntry("Production:", ""),

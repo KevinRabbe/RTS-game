@@ -129,6 +129,11 @@ namespace RtsGame.Presentation.GodotBridge
             _session.QueueIntent(playerIndex, ClientCommandIntent.Attack(attackerUnitIds, targetEntityId));
         }
 
+        public void QueueAttackMove(int playerIndex, int[] attackerUnitIds, int tileX, int tileY)
+        {
+            _session.QueueIntent(playerIndex, ClientCommandIntent.AttackMove(attackerUnitIds, FixedVector2.FromInts(tileX, tileY)));
+        }
+
         public void QueuePlaceWall(int playerIndex, int tileX, int tileY)
         {
             _session.QueueIntent(playerIndex, ClientCommandIntent.PlaceWall(FixedVector2.FromInts(tileX, tileY)));
