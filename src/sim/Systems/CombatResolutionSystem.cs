@@ -8,6 +8,8 @@ namespace RtsGame.Sim.Systems
     {
         public void Run(GameState state, GameRules rules, TickCommandContext commandContext)
         {
+            // Contract: this system resolves explicit targets only. Auto-target
+            // acquisition is handled elsewhere to keep this loop deterministic and bounded.
             for (int i = 0; i < state.EntityState.Units.Count; i++)
             {
                 Unit attacker = state.EntityState.Units[i];
@@ -22,6 +24,8 @@ namespace RtsGame.Sim.Systems
 
                 if (attacker.AttackTargetId != 0)
                 {
+                    // Explicit target cleanup is deterministic and local: invalid/dead/friendly
+                    // targets clear immediately before cooldown/damage processing.
                     if (!TryGetTarget(state, attacker.AttackTargetId, out EntityTarget targetCheck)
                         || targetCheck.OwnerPlayerIndex == attacker.OwnerPlayerIndex
                         || targetCheck.IsDead)

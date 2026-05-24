@@ -11,6 +11,8 @@ namespace RtsGame.Sim.Core
 
         public void Reserve(GameState state, Unit unit, InteractionReservationKind kind, int targetId, SpatialRules.TileCoord tile)
         {
+            // Single authority contract: reservation mutation flows through this
+            // service so slot ownership and churn counters stay deterministic.
             bool hadReservation = unit.ReservedInteractionKind != InteractionReservationKind.None;
             bool reservationChanged = !hadReservation
                 || unit.ReservedInteractionKind != kind
@@ -102,6 +104,7 @@ namespace RtsGame.Sim.Core
 
                 int distance = Abs(unitTileX - tile.X) + Abs(unitTileY - tile.Y);
                 int laneScore = LanePreferenceScorer?.Score(state, unit, kind, targetId, tile, contextVersion) ?? 0;
+                // Deterministic tie-break chain: path cost, distance, lane score, tile.
                 if (!found
                     || cost < bestPathCost
                     || (cost == bestPathCost && distance < bestDistance)

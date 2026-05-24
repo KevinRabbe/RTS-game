@@ -18,6 +18,8 @@ namespace RtsGame.Sim.Checksums
 
         private static void WriteState(CanonicalWriter writer, GameState state, GameRules rules)
         {
+            // Contract: checksum includes all persistent simulation state (including
+            // deterministic diagnostics) and excludes presentation-only client state.
             writer.WriteUInt32(rules.RulesVersion);
             writer.WriteInt32(rules.TickRate);
             writer.WriteInt32(rules.MaxPlayers);

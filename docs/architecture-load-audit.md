@@ -302,3 +302,7 @@ Risk classification impact:
 
 - attack-move foundation risk is reduced from planning-time high uncertainty to **medium operational risk**, controlled by existing pressure scenarios and cadence/budget contracts
 - next high-value risk reduction shifts to **control groups/selection quality** at the client-input layer (Phase 10A), improving competitive usability without simulation-balance changes
+
+## Phase 9C.8 Addendum (Contract Comment Pass)
+
+Targeted code comments now mark non-obvious deterministic contracts in input-mode routing, attack-move acquisition/positioning, combat resolution, movement/gather intent handling, reservation/index services, checksum coverage boundaries, and sim-first harness workflow.

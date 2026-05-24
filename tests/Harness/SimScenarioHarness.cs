@@ -65,6 +65,8 @@ namespace RtsGame.Tests
 
             public void AssertCoreInvariants(string header)
             {
+                // Workflow contract: manual symptom -> scenario reproduction ->
+                // invariant assertion + trace, then fix and keep as regression.
                 AssertNoLiveUnitStacking(State, Fail(header + " stacking"));
                 AssertNoDuplicateFinalPurposeReservations(State, Fail(header + " duplicate reservations"));
                 AssertEqual(true, State.DebugCounters.RejectedCommandCount <= 64, Fail(header + " suspicious command reject volume"));

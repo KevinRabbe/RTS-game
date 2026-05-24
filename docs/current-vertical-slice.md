@@ -1,6 +1,6 @@
 # Current Vertical Slice
 
-## Accepted State (Phase 9C.7 Entry)
+## Accepted State (Phase 9C.8 Entry)
 
 - Branch: `phase-6-visual-placeholder-pipeline`
 - `MovementEngineV2` and `GatherEngineV2` are default-on and accepted as prototype-ready.
@@ -13,6 +13,7 @@
 - Combat baseline + hotspot pressure slices are implemented and validated (9A.1-9A.4).
 - Combat test lab scenarios are implemented (`F2 CombatTest01` + enemy building target).
 - Combat scenario UX polish is complete (scenario camera hint + clearer hotkey labels).
+- Code documentation and targeted contract comments pass is complete (9C.8).
 - Full gate remains green:
   - tests: `512/512 PASS`
   - `chaos-v4` (`5000` ticks): `desync=False`, `invariant_failures=0`

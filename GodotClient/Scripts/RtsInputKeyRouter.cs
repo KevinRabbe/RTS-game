@@ -59,6 +59,7 @@ internal static class RtsInputKeyRouter
 
 		if (key.Keycode == Key.F1)
 		{
+			// Scenario switches are global and reset temporary command modes via session init.
 			startDryArabiaTest01();
 			addDebugEvent("restart " + dryArabiaMapName + " 1v1 (F1)");
 			return;
@@ -129,6 +130,8 @@ internal static class RtsInputKeyRouter
 
 		if (key.Keycode == Key.A)
 		{
+			// Attack-move is an explicit temporary targeting mode. Normal RMB on ground
+			// remains move; we do not overload default RMB semantics with attack-move.
 			inputModeState.EnterAttackMoveTargeting();
 			addDebugEvent("attack-move targeting mode entered");
 			queueRedraw();
@@ -137,6 +140,7 @@ internal static class RtsInputKeyRouter
 
 		if (key.Keycode == Key.Escape)
 		{
+			// Escape cancels active temporary mode deterministically; no command emitted.
 			if (tcPlacementState.IsActive)
 			{
 				tcPlacementState.Cancel();

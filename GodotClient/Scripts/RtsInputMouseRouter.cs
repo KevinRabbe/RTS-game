@@ -35,6 +35,8 @@ internal static class RtsInputMouseRouter
 
 		if (tcPlacementState.IsActive)
 		{
+			// Placement modes own mouse handling: RMB/Escape cancel placement only.
+			// We intentionally do not fall through to contextual move/attack/gather.
 			inputModeState.EnterTownCenterPlacement();
 			if (mouse.ButtonIndex == MouseButton.Left)
 			{
@@ -52,6 +54,8 @@ internal static class RtsInputMouseRouter
 
 		if (inputModeState.IsAttackMoveTargeting && mouse.ButtonIndex == MouseButton.Left)
 		{
+			// LMB in attack-move mode either issues attack-move on ground or explicit
+			// attack when clicking an enemy target, then always exits to Normal.
 			GodotSelectionResult selection = GodotSelectionRouter.SelectAt(frame, localPlayerIndex, mouseXRaw, mouseYRaw);
 			if (selection.Kind == GodotSelectionKind.Unit || selection.Kind == GodotSelectionKind.Building)
 			{
@@ -123,6 +127,8 @@ internal static class RtsInputMouseRouter
 
 		if (mouse.ButtonIndex == MouseButton.Right && selectionController.HasSelectedUnits)
 		{
+			// RTS contract: RMB during attack-move mode first cancels the temporary
+			// mode, then resolves normal contextual RMB command (move/attack/gather/build).
 			bool cancelledAttackMoveMode = inputModeState.IsAttackMoveTargeting;
 			if (cancelledAttackMoveMode)
 			{

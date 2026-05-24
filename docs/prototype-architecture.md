@@ -34,6 +34,7 @@ No cross-layer mutation bypass is allowed.
 - Reservation, fallback, and no-progress policies are explicit and deterministic.
 - `RtsClientRoot` split completed (orchestration focused).
 - HUD foundation is read-only and presentation-only.
+- RTS input mode contract is explicit and accepted (`LMB` select, `RMB` contextual, `A+click` attack-move, `Esc` cancel).
 - Test suites/harness split completed.
 
 ## Service Boundaries (Must Keep)

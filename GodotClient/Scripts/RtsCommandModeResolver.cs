@@ -41,6 +41,8 @@ internal static class RtsCommandModeResolver
 
 		if (mode == RtsInputModeKind.AttackMoveTargeting)
 		{
+			// In attack-move mode: enemy click intentionally maps to explicit attack;
+			// ground click maps to attack-move destination command.
 			int targetId = GodotInteractionRouter.FindEnemyTargetAt(frame, localPlayerIndex, mouseXRaw, mouseYRaw);
 			if (targetId != 0)
 			{

@@ -235,6 +235,8 @@ namespace RtsGame.Sim.Systems
 
         private static bool TryChooseContinuationNode(GameState state, Unit unit, int resourceAreaId, out ResourceNode? selectedNode)
         {
+            // Continuation selection is area-scoped and reservation-aware so
+            // multi-worker pressure distributes instead of hot-looping one node.
             return ResourceGatherTargeting.TryChooseResourceNodeAndReserveSlot(
                 state,
                 unit,

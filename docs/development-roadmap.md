@@ -39,6 +39,8 @@ Completed 9C chain:
 - 9C.4 attack-move pressure scenarios
 - 9C.5 attack-move HUD/command feedback
 - 9C.6 explicit RTS input mode contract
+- 9C.7 accepted-state documentation
+- 9C.8 code documentation and contract comments pass
 
 ## Next Active Stage
 

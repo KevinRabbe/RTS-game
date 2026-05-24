@@ -93,6 +93,8 @@ namespace RtsGame.Sim.Systems
                     attacker.AttackTargetId,
                     slots))
                 {
+                    // Combat requests desired slots; movement remains the owner of
+                    // actual pathing/congestion to that reserved tile.
                     attacker.MoveTarget = FixedVector2.FromInts(attacker.ReservedInteractionTileX, attacker.ReservedInteractionTileY);
                     attacker.HasMoveTarget = true;
                     attacker.TaskPhase = WorkerTaskPhase.MovingToAttackSlot;
@@ -127,6 +129,8 @@ namespace RtsGame.Sim.Systems
 
         private static void ResumeAttackMoveTravel(GameState state, Unit unit)
         {
+            // Contract: losing a temporary combat target must not discard the
+            // long-term attack-move destination intent.
             if (!unit.HasAttackMoveTarget)
             {
                 unit.HasMoveTarget = false;

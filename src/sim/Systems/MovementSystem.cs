@@ -886,6 +886,8 @@ namespace RtsGame.Sim.Systems
 
         private static bool IsWorkerTaskMovementPhase(WorkerTaskPhase phase)
         {
+            // Contract: MovingToAttackSlot is treated like other intent-driven
+            // approach phases so temporary congestion does not erase combat intent.
             return phase == WorkerTaskPhase.MovingToResourceSlot
                 || phase == WorkerTaskPhase.MovingToDropoffSlot
                 || phase == WorkerTaskPhase.MovingToBuildSlot

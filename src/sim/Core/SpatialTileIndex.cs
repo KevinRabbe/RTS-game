@@ -5,6 +5,8 @@ namespace RtsGame.Sim.Core
 {
     public sealed class SpatialTileIndex
     {
+        // Query-only deterministic cache for the current tick. Systems must not
+        // persist index-derived decisions across ticks without revalidation.
         private readonly HashSet<int> _wallTiles = new HashSet<int>();
         private readonly HashSet<int> _resourceBlockedTiles = new HashSet<int>();
         private readonly Dictionary<int, int> _buildingBlockedCounts = new Dictionary<int, int>();
@@ -157,6 +159,8 @@ namespace RtsGame.Sim.Core
                 return false;
             }
 
+            // Occupancy representative is deterministic (minimum unit id). This
+            // avoids unordered collection iteration in local target probes.
             if (minId == ignoredUnitId && count <= 1)
             {
                 return false;

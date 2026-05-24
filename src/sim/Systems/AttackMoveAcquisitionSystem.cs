@@ -7,6 +7,8 @@ namespace RtsGame.Sim.Systems
     {
         public void Run(GameState state, GameRules rules, TickCommandContext commandContext)
         {
+            // Scale contract: acquisition is globally budgeted per tick to avoid
+            // hotspot O(units x enemies) blowups during concentrated fights.
             int remainingBudget = GameData.AttackMoveAcquireBudgetPerTick;
             for (int i = 0; i < state.EntityState.Units.Count; i++)
             {
@@ -25,6 +27,8 @@ namespace RtsGame.Sim.Systems
                 if (TryAcquireNearestEnemyUnit(state, unit, GameData.AttackMoveAcquireRadiusTiles, out int targetUnitId))
                 {
                     unit.AttackTargetId = targetUnitId;
+                    // Attack-move destination intent stays persistent; this only
+                    // injects a temporary combat target.
                     unit.HasMoveTarget = false;
                     remainingBudget--;
                 }
@@ -51,6 +55,8 @@ namespace RtsGame.Sim.Systems
             int attackerTileY = SpatialRules.GetTileY(attacker.Position);
             long bestDistanceSquared = long.MaxValue;
 
+            // Candidate search is local-radius only via tile occupancy index. We
+            // never scan the full unit list for attack-move acquisition.
             for (int offsetY = -searchRadiusTiles; offsetY <= searchRadiusTiles; offsetY++)
             {
                 int tileY = attackerTileY + offsetY;
@@ -69,6 +75,7 @@ namespace RtsGame.Sim.Systems
                     }
 
                     long distanceSquared = (candidate.Position - attacker.Position).LengthSquaredRaw();
+                    // Deterministic tie-break: nearest first, then lowest entity id.
                     if (distanceSquared < bestDistanceSquared
                         || (distanceSquared == bestDistanceSquared && candidate.Id < targetUnitId))
                     {

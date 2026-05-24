@@ -8,6 +8,8 @@ internal enum RtsInputModeKind
 
 internal sealed class RtsInputModeState
 {
+	// Contract: this is client-only UI intent state. It must never mutate
+	// simulation directly; it only influences which command is emitted.
 	public RtsInputModeKind CurrentMode { get; private set; } = RtsInputModeKind.Normal;
 
 	public bool IsAttackMoveTargeting
