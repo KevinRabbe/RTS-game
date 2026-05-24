@@ -613,6 +613,92 @@ namespace RtsGame.Tests
             AssertEqual(enemyId, attacker.AttackTargetId, "attack-move should acquire once cadence window opens");
         }
 
+        private static void AttackMoveResumesMovementAfterTargetDies()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = CreateOccupancyState(905, 2);
+            int attackerId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Infantry, FixedVector2.FromInts(30, 30));
+            int enemyId = EntityFactory.CreateUnit(state, 1, UnitTypeId.Infantry, FixedVector2.FromInts(31, 30));
+            FindUnitById(state, enemyId).HitPoints = GameData.InfantryAttackDamage;
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AttackMove), new AttackMoveCommand(new[] { attackerId }, FixedVector2.FromInts(40, 30))));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            AssertEqual(false, state.EntityState.EntityLookup.ContainsKey(enemyId), "first acquired enemy should die in setup tick");
+
+            AddNoOp(buffer, state.Tick, 0, (uint)state.Tick);
+            AddNoOp(buffer, state.Tick, 1, (uint)state.Tick);
+            runner.AdvanceOneTick(state, rules, buffer);
+
+            Unit attacker = FindUnitById(state, attackerId);
+            AssertEqual(0, attacker.AttackTargetId, "attack-move attacker should clear dead acquired target");
+            AssertEqual(true, attacker.HasAttackMoveTarget, "attack-move intent should remain active after temporary target dies");
+            AssertEqual(true, attacker.HasMoveTarget, "attack-move attacker should resume travel after temporary target clears");
+            AssertEqual(WorkerTaskPhase.MovingToCommandMove, attacker.TaskPhase, "attack-move attacker should return to command-move phase after target clears");
+        }
+
+        private static void AttackMoveCompletesAtDestinationWithoutTarget()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = CreateOccupancyState(906, 2);
+            int attackerId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Infantry, FixedVector2.FromInts(30, 30));
+            Unit attacker = FindUnitById(state, attackerId);
+            attacker.HasAttackMoveTarget = true;
+            attacker.AttackMoveTarget = FixedVector2.FromInts(30, 30);
+            attacker.AttackTargetId = 0;
+            attacker.HasMoveTarget = false;
+            attacker.TaskPhase = WorkerTaskPhase.MovingToCommandMove;
+            var buffer = new CommandBuffer();
+            AddNoOp(buffer, 0, 0, 0);
+            AddNoOp(buffer, 0, 1, 0);
+
+            new TickRunner().AdvanceOneTick(state, rules, buffer);
+
+            attacker = FindUnitById(state, attackerId);
+            AssertEqual(false, attacker.HasAttackMoveTarget, "attack-move intent should clear once destination is already reached");
+            AssertEqual(false, attacker.HasMoveTarget, "completed attack-move should not keep a movement target");
+            AssertEqual(WorkerTaskPhase.Idle, attacker.TaskPhase, "completed attack-move should settle to idle");
+        }
+
+        private static void AttackMoveResumeStillRespectsAcquireCadence()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = CreateOccupancyState(907, 2);
+            int attackerId = EntityFactory.CreateUnit(state, 0, UnitTypeId.Infantry, FixedVector2.FromInts(30, 30));
+            int enemyAId = EntityFactory.CreateUnit(state, 1, UnitTypeId.Infantry, FixedVector2.FromInts(31, 30));
+            int enemyBId = EntityFactory.CreateUnit(state, 1, UnitTypeId.Infantry, FixedVector2.FromInts(31, 31));
+            FindUnitById(state, enemyAId).HitPoints = GameData.InfantryAttackDamage;
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AttackMove), new AttackMoveCommand(new[] { attackerId }, FixedVector2.FromInts(42, 30))));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
+            runner.AdvanceOneTick(state, rules, buffer);
+            AssertEqual(false, state.EntityState.EntityLookup.ContainsKey(enemyAId), "first enemy should die to establish resume cadence test");
+
+            AddNoOp(buffer, state.Tick, 0, (uint)state.Tick);
+            AddNoOp(buffer, state.Tick, 1, (uint)state.Tick);
+            runner.AdvanceOneTick(state, rules, buffer);
+            Unit attacker = FindUnitById(state, attackerId);
+            AssertEqual(0, attacker.AttackTargetId, "dead target should clear before any reacquire");
+
+            while (state.Tick < GameData.AttackMoveAcquireCadenceTicks)
+            {
+                AddNoOp(buffer, state.Tick, 0, (uint)state.Tick);
+                AddNoOp(buffer, state.Tick, 1, (uint)state.Tick);
+                runner.AdvanceOneTick(state, rules, buffer);
+                attacker = FindUnitById(state, attackerId);
+                AssertEqual(0, attacker.AttackTargetId, "reacquire should wait for acquisition cadence after resume");
+            }
+
+            AddNoOp(buffer, state.Tick, 0, (uint)state.Tick);
+            AddNoOp(buffer, state.Tick, 1, (uint)state.Tick);
+            runner.AdvanceOneTick(state, rules, buffer);
+            attacker = FindUnitById(state, attackerId);
+            AssertEqual(enemyBId, attacker.AttackTargetId, "attack-move should reacquire nearby enemy once cadence opens after resume");
+        }
+
         private static void AttackMoveAcquisitionReplayDeterminism()
         {
             var rules = GameRules.CreatePhaseZeroDefaults(2);

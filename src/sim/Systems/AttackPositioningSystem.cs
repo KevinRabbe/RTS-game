@@ -29,7 +29,7 @@ namespace RtsGame.Sim.Systems
                 bool hasAttackIntentState = attacker.AttackTargetId != 0
                     || attacker.ReservedInteractionKind == InteractionReservationKind.AttackSlot
                     || attacker.TaskPhase == WorkerTaskPhase.MovingToAttackSlot;
-                if (!hasAttackIntentState)
+                if (!hasAttackIntentState && !attacker.HasAttackMoveTarget)
                 {
                     continue;
                 }
@@ -46,7 +46,7 @@ namespace RtsGame.Sim.Systems
                         attacker.TaskPhase = WorkerTaskPhase.Idle;
                     }
 
-                    attacker.HasMoveTarget = false;
+                    ResumeAttackMoveTravel(state, attacker);
                     continue;
                 }
 
@@ -58,8 +58,7 @@ namespace RtsGame.Sim.Systems
                         SpatialRules.ClearInteractionReservation(state, attacker);
                     }
 
-                    attacker.HasMoveTarget = false;
-                    attacker.TaskPhase = WorkerTaskPhase.Idle;
+                    ResumeAttackMoveTravel(state, attacker);
                     continue;
                 }
 
@@ -124,6 +123,70 @@ namespace RtsGame.Sim.Systems
                 attacker.HasMoveTarget = false;
                 attacker.TaskPhase = WorkerTaskPhase.BlockedWaiting;
             }
+        }
+
+        private static void ResumeAttackMoveTravel(GameState state, Unit unit)
+        {
+            if (!unit.HasAttackMoveTarget)
+            {
+                unit.HasMoveTarget = false;
+                if (unit.TaskPhase == WorkerTaskPhase.MovingToAttackSlot)
+                {
+                    unit.TaskPhase = WorkerTaskPhase.Idle;
+                }
+
+                return;
+            }
+
+            int attackMoveTargetTileX = SpatialRules.GetTileX(unit.AttackMoveTarget);
+            int attackMoveTargetTileY = SpatialRules.GetTileY(unit.AttackMoveTarget);
+            int currentTileX = SpatialRules.GetTileX(unit.Position);
+            int currentTileY = SpatialRules.GetTileY(unit.Position);
+            if (currentTileX == attackMoveTargetTileX && currentTileY == attackMoveTargetTileY)
+            {
+                unit.HasAttackMoveTarget = false;
+                unit.HasMoveTarget = false;
+                unit.TaskPhase = WorkerTaskPhase.Idle;
+                if (unit.ReservedInteractionKind == InteractionReservationKind.MoveDestination)
+                {
+                    SpatialRules.ClearInteractionReservation(state, unit);
+                }
+
+                return;
+            }
+
+            int attackMoveReservationTarget = SpatialRules.EncodeTileKey(attackMoveTargetTileX, attackMoveTargetTileY);
+            if (unit.ReservedInteractionKind == InteractionReservationKind.MoveDestination
+                && unit.ReservedInteractionTargetId == attackMoveReservationTarget
+                && !SpatialRules.IsTileBlockedForUnitMovement(state, unit.ReservedInteractionTileX, unit.ReservedInteractionTileY))
+            {
+                unit.MoveTarget = FixedVector2.FromInts(unit.ReservedInteractionTileX, unit.ReservedInteractionTileY);
+                unit.HasMoveTarget = true;
+                unit.TaskPhase = WorkerTaskPhase.MovingToCommandMove;
+                return;
+            }
+
+            if (unit.ReservedInteractionKind != InteractionReservationKind.None)
+            {
+                SpatialRules.ClearInteractionReservation(state, unit);
+            }
+
+            if (SpatialRules.TryReserveNearestReachableMoveDestinationTile(
+                state,
+                unit,
+                attackMoveTargetTileX,
+                attackMoveTargetTileY,
+                6,
+                out SpatialRules.TileCoord destination))
+            {
+                unit.MoveTarget = FixedVector2.FromInts(destination.X, destination.Y);
+                unit.HasMoveTarget = true;
+                unit.TaskPhase = WorkerTaskPhase.MovingToCommandMove;
+                return;
+            }
+
+            unit.HasMoveTarget = false;
+            unit.TaskPhase = WorkerTaskPhase.BlockedWaiting;
         }
 
         private static bool IsInRange(Unit attacker, EntityTarget target)
