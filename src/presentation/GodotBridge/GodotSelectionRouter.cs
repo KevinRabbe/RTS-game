@@ -22,8 +22,71 @@ namespace RtsGame.Presentation.GodotBridge
         }
     }
 
+    public readonly struct GodotSelectionEditResult
+    {
+        public GodotSelectionEditResult(int[] selectedUnitIds, int selectedBuildingId, bool changed)
+        {
+            SelectedUnitIds = selectedUnitIds;
+            SelectedBuildingId = selectedBuildingId;
+            Changed = changed;
+        }
+
+        public int[] SelectedUnitIds { get; }
+        public int SelectedBuildingId { get; }
+        public bool Changed { get; }
+    }
+
     public static class GodotSelectionRouter
     {
+        public static GodotSelectionEditResult ResolveClickSelection(
+            IReadOnlyList<int> currentSelectedUnitIds,
+            int currentSelectedBuildingId,
+            GodotSelectionResult clickSelection,
+            bool additive)
+        {
+            if (!additive)
+            {
+                if (clickSelection.Kind == GodotSelectionKind.Unit)
+                {
+                    return new GodotSelectionEditResult(new[] { clickSelection.EntityId }, 0, true);
+                }
+
+                if (clickSelection.Kind == GodotSelectionKind.Building)
+                {
+                    return new GodotSelectionEditResult(new int[0], clickSelection.EntityId, true);
+                }
+
+                bool hadSelection = currentSelectedUnitIds.Count > 0 || currentSelectedBuildingId != 0;
+                return new GodotSelectionEditResult(new int[0], 0, hadSelection);
+            }
+
+            if (clickSelection.Kind == GodotSelectionKind.Unit)
+            {
+                var next = new List<int>(currentSelectedUnitIds.Count + 1);
+                for (int i = 0; i < currentSelectedUnitIds.Count; i++)
+                {
+                    next.Add(currentSelectedUnitIds[i]);
+                }
+
+                bool removed = next.Remove(clickSelection.EntityId);
+                if (!removed)
+                {
+                    next.Add(clickSelection.EntityId);
+                }
+
+                next.Sort();
+                return new GodotSelectionEditResult(next.ToArray(), 0, true);
+            }
+
+            if (clickSelection.Kind == GodotSelectionKind.Building)
+            {
+                bool changed = currentSelectedBuildingId != clickSelection.EntityId || currentSelectedUnitIds.Count > 0;
+                return new GodotSelectionEditResult(new int[0], clickSelection.EntityId, changed);
+            }
+
+            return new GodotSelectionEditResult(ToArray(currentSelectedUnitIds), currentSelectedBuildingId, false);
+        }
+
         public static int[] SelectUnitsInRectangle(GodotFrameDto frame, int localPlayerIndex, long leftRaw, long topRaw, long rightRaw, long bottomRaw)
         {
             long minX = leftRaw < rightRaw ? leftRaw : rightRaw;
@@ -85,6 +148,17 @@ namespace RtsGame.Presentation.GodotBridge
             }
 
             return new GodotSelectionResult(GodotSelectionKind.None, 0);
+        }
+
+        private static int[] ToArray(IReadOnlyList<int> values)
+        {
+            var result = new int[values.Count];
+            for (int i = 0; i < values.Count; i++)
+            {
+                result[i] = values[i];
+            }
+
+            return result;
         }
     }
 }

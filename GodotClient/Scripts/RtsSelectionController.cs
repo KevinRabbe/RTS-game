@@ -100,38 +100,64 @@ internal sealed class RtsSelectionController
 		Func<float, long> screenToRaw,
 		int clickedResourceId,
 		int hoveredResourceId,
-		Action<string> log)
+		Action<string> log,
+		bool additive = false)
 	{
-		_selectedUnitIds.Clear();
-		_selectedBuildingId = 0;
-
 		GodotSelectionResult selection = GodotSelectionRouter.SelectAt(
 			frame,
 			localPlayerIndex,
 			screenToRaw(screenPosition.X),
 			screenToRaw(screenPosition.Y));
 
-		if (selection.Kind == GodotSelectionKind.Unit)
+		if (selection.Kind == GodotSelectionKind.Unit || selection.Kind == GodotSelectionKind.Building || !additive)
 		{
-			_selectedUnitIds.Add(selection.EntityId);
-			log("select unit=" + selection.EntityId);
-			return;
-		}
+			GodotSelectionEditResult resolved = GodotSelectionRouter.ResolveClickSelection(
+				_selectedUnitIds,
+				_selectedBuildingId,
+				selection,
+				additive);
+			_selectedUnitIds.Clear();
+			for (int i = 0; i < resolved.SelectedUnitIds.Length; i++)
+			{
+				_selectedUnitIds.Add(resolved.SelectedUnitIds[i]);
+			}
 
-		if (selection.Kind == GodotSelectionKind.Building)
-		{
-			_selectedBuildingId = selection.EntityId;
-			log("select building=" + selection.EntityId);
-			return;
+			_selectedBuildingId = resolved.SelectedBuildingId;
+
+			if (selection.Kind == GodotSelectionKind.Unit)
+			{
+				log(additive ? "shift select unit=" + selection.EntityId : "select unit=" + selection.EntityId);
+				return;
+			}
+
+			if (selection.Kind == GodotSelectionKind.Building)
+			{
+				log(additive ? "shift select building=" + selection.EntityId : "select building=" + selection.EntityId);
+				return;
+			}
 		}
 
 		if (clickedResourceId != 0)
 		{
-			log("select resource=" + clickedResourceId + " hovered=" + hoveredResourceId);
+			if (!additive)
+			{
+				_selectedUnitIds.Clear();
+				_selectedBuildingId = 0;
+			}
+
+			log(additive ? "shift select resource=" + clickedResourceId + " hovered=" + hoveredResourceId : "select resource=" + clickedResourceId + " hovered=" + hoveredResourceId);
 			return;
 		}
 
-		log("selection cleared");
+		if (!additive)
+		{
+			_selectedUnitIds.Clear();
+			_selectedBuildingId = 0;
+			log("selection cleared");
+			return;
+		}
+
+		log("shift selection unchanged");
 	}
 
 	public int[] GetSelectedUnitIdsSorted()

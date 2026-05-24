@@ -654,5 +654,78 @@ namespace RtsGame.Tests
             AssertEqual(0, selection.EntityId, "empty selection should not expose an entity id");
         }
 
+        private static void GodotSelectionEditNormalClickReplacesSelection()
+        {
+            GodotSelectionEditResult edit = GodotSelectionRouter.ResolveClickSelection(
+                new[] { 10, 11 },
+                0,
+                new GodotSelectionResult(GodotSelectionKind.Unit, 12),
+                additive: false);
+
+            AssertEqual(1, edit.SelectedUnitIds.Length, "normal click should replace selected units");
+            AssertEqual(12, edit.SelectedUnitIds[0], "normal click should select the clicked unit");
+            AssertEqual(0, edit.SelectedBuildingId, "normal unit click should clear selected building");
+        }
+
+        private static void GodotSelectionEditShiftClickAddsOwnedUnit()
+        {
+            GodotSelectionEditResult edit = GodotSelectionRouter.ResolveClickSelection(
+                new[] { 10, 11 },
+                0,
+                new GodotSelectionResult(GodotSelectionKind.Unit, 12),
+                additive: true);
+
+            AssertEqual(3, edit.SelectedUnitIds.Length, "shift-click should add unit to current group");
+            AssertEqual(10, edit.SelectedUnitIds[0], "shift-click add should keep sorted deterministic order");
+            AssertEqual(11, edit.SelectedUnitIds[1], "shift-click add should keep sorted deterministic order");
+            AssertEqual(12, edit.SelectedUnitIds[2], "shift-click add should keep sorted deterministic order");
+        }
+
+        private static void GodotSelectionEditShiftClickRemovesSelectedUnit()
+        {
+            GodotSelectionEditResult edit = GodotSelectionRouter.ResolveClickSelection(
+                new[] { 10, 11, 12 },
+                0,
+                new GodotSelectionResult(GodotSelectionKind.Unit, 11),
+                additive: true);
+
+            AssertEqual(2, edit.SelectedUnitIds.Length, "shift-click selected unit should remove it from group");
+            AssertEqual(10, edit.SelectedUnitIds[0], "shift-click remove should keep sorted deterministic order");
+            AssertEqual(12, edit.SelectedUnitIds[1], "shift-click remove should keep sorted deterministic order");
+        }
+
+        private static void GodotSelectionEditShiftClickNoneKeepsSelection()
+        {
+            GodotSelectionEditResult edit = GodotSelectionRouter.ResolveClickSelection(
+                new[] { 10, 11 },
+                0,
+                new GodotSelectionResult(GodotSelectionKind.None, 0),
+                additive: true);
+
+            AssertEqual(2, edit.SelectedUnitIds.Length, "shift-click empty space should preserve current selection");
+            AssertEqual(10, edit.SelectedUnitIds[0], "shift-click empty space should keep current selection");
+            AssertEqual(11, edit.SelectedUnitIds[1], "shift-click empty space should keep current selection");
+            AssertEqual(0, edit.SelectedBuildingId, "shift-click empty space should keep building selection state");
+        }
+
+        private static void ControlGroupRecallWorksAfterShiftSelectionEdit()
+        {
+            var groups = new GodotControlGroupState();
+            groups.Assign(1, new[] { 10, 11 });
+            int[] baseRecall = groups.Recall(1);
+            GodotSelectionEditResult edit = GodotSelectionRouter.ResolveClickSelection(
+                baseRecall,
+                0,
+                new GodotSelectionResult(GodotSelectionKind.Unit, 12),
+                additive: true);
+            groups.Assign(1, edit.SelectedUnitIds);
+            int[] recalled = groups.Recall(1);
+
+            AssertEqual(3, recalled.Length, "control group should remain recallable after shift selection edit");
+            AssertEqual(10, recalled[0], "updated control group should keep deterministic sorted ids");
+            AssertEqual(11, recalled[1], "updated control group should keep deterministic sorted ids");
+            AssertEqual(12, recalled[2], "updated control group should keep deterministic sorted ids");
+        }
+
     }
 }

@@ -67,7 +67,8 @@ internal static class RtsInputMouseRouter
 					x => RtsCoordinateTransform.ScreenToRaw(x, 16),
 					findResourceAt(frame, mouseWorldPosition, 16),
 					hoveredResourceNodeId,
-					addDebugEvent);
+					addDebugEvent,
+					mouse.ShiftPressed);
 				inputModeState.ExitToNormal();
 				refreshFrame();
 				return;
@@ -112,7 +113,8 @@ internal static class RtsInputMouseRouter
 				x => RtsCoordinateTransform.ScreenToRaw(x, 16),
 				findResourceAt(frame, mouseWorldPosition, 16),
 				hoveredResourceNodeId,
-				addDebugEvent);
+				addDebugEvent,
+				mouse.ShiftPressed);
 			refreshFrame();
 			return;
 		}
