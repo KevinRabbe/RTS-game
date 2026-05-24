@@ -38,6 +38,11 @@ namespace RtsGame.Presentation.GodotBridge
                 new GodotHotkeyHelpEntry("Space", "Pause / unpause"),
                 new GodotHotkeyHelpEntry("", ""),
 
+                new GodotHotkeyHelpEntry("Control Groups:", ""),
+                new GodotHotkeyHelpEntry("Ctrl+1..9", "Assign selected units to control group"),
+                new GodotHotkeyHelpEntry("1..9", "Recall control group selection"),
+                new GodotHotkeyHelpEntry("", ""),
+
                 new GodotHotkeyHelpEntry("Building:", ""),
                 new GodotHotkeyHelpEntry("C", "Enter Town Center placement mode"),
                 new GodotHotkeyHelpEntry("A", "Enter Attack-Move targeting mode"),

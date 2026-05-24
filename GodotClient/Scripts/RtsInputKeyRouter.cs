@@ -22,6 +22,8 @@ internal static class RtsInputKeyRouter
 		Action<Vector2> tryCreateTradeRoute,
 		Action<int> trainFromSelectedBuilding,
 		Action<int> researchFromSelectedBuilding,
+		RtsSelectionController selectionController,
+		GodotControlGroupState controlGroups,
 		Action<string, Action<GodotClientFacade>> queueCommandAndConfirm,
 		Action refreshFrame,
 		Action queueRedraw,
@@ -37,6 +39,24 @@ internal static class RtsInputKeyRouter
 		int infantryAttackTechId,
 		int localPlayer)
 	{
+		if (TryResolveControlGroup(key, out int groupIndex))
+		{
+			if (key.CtrlPressed)
+			{
+				int[] selected = selectionController.GetSelectedUnitIdsSorted();
+				controlGroups.Assign(groupIndex, selected);
+				addDebugEvent("control group " + groupIndex + " assigned units=" + (selected.Length == 0 ? "none" : string.Join(",", selected)));
+				refreshFrame();
+				return;
+			}
+
+			int[] stored = controlGroups.Recall(groupIndex);
+			int[] recallable = GodotControlGroupResolver.FilterRecallableLocalUnitIds(frame, localPlayerIndex, stored);
+			selectionController.SelectUnitIds(recallable, addDebugEvent);
+			refreshFrame();
+			return;
+		}
+
 		if (key.Keycode == Key.F1)
 		{
 			startDryArabiaTest01();
@@ -185,6 +205,52 @@ internal static class RtsInputKeyRouter
 		if (key.Keycode == Key.Y)
 		{
 			researchFromSelectedBuilding(infantryAttackTechId);
+		}
+	}
+
+	private static bool TryResolveControlGroup(InputEventKey key, out int groupIndex)
+	{
+		groupIndex = 0;
+		switch (key.Keycode)
+		{
+			case Key.Key1:
+			case Key.Kp1:
+				groupIndex = 1;
+				return true;
+			case Key.Key2:
+			case Key.Kp2:
+				groupIndex = 2;
+				return true;
+			case Key.Key3:
+			case Key.Kp3:
+				groupIndex = 3;
+				return true;
+			case Key.Key4:
+			case Key.Kp4:
+				groupIndex = 4;
+				return true;
+			case Key.Key5:
+			case Key.Kp5:
+				groupIndex = 5;
+				return true;
+			case Key.Key6:
+			case Key.Kp6:
+				groupIndex = 6;
+				return true;
+			case Key.Key7:
+			case Key.Kp7:
+				groupIndex = 7;
+				return true;
+			case Key.Key8:
+			case Key.Kp8:
+				groupIndex = 8;
+				return true;
+			case Key.Key9:
+			case Key.Kp9:
+				groupIndex = 9;
+				return true;
+			default:
+				return false;
 		}
 	}
 }

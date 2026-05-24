@@ -374,6 +374,8 @@ namespace RtsGame.Tests
             AssertEqual(true, ContainsHotkey(entries, "F12", "Toggle screenshot mode"), "hotkey help should include F12 screenshot mode binding");
             AssertEqual(true, ContainsHotkey(entries, "H/F11", "Toggle hotkey help"), "hotkey help should include H/F11 help binding");
             AssertEqual(true, ContainsHotkey(entries, "Space", "Pause / unpause"), "hotkey help should include pause binding");
+            AssertEqual(true, ContainsHotkey(entries, "Ctrl+1..9", "Assign selected units to control group"), "hotkey help should include control group assignment binding");
+            AssertEqual(true, ContainsHotkey(entries, "1..9", "Recall control group selection"), "hotkey help should include control group recall binding");
             AssertEqual(true, ContainsHotkey(entries, "Left Click", "Select / confirm placement"), "hotkey help should include left-click selection behavior");
             AssertEqual(true, ContainsHotkey(entries, "Right Click", "Move, gather, attack, assign build, or cancel placement"), "hotkey help should include right-click context behavior");
             AssertEqual(true, ContainsHotkey(entries, "C", "Enter Town Center placement mode"), "hotkey help should include C placement binding");
@@ -386,6 +388,39 @@ namespace RtsGame.Tests
             AssertEqual(true, ContainsHotkey(entries, "I", "Train Infantry"), "hotkey help should include I train infantry binding");
             AssertEqual(true, ContainsHotkey(entries, "K", "Train Trade Cart"), "hotkey help should include K train trade cart binding");
             AssertEqual(true, ContainsHotkey(entries, "Y", "Research Infantry Attack I"), "hotkey help should include Y research binding");
+        }
+
+        private static void ControlGroupStateAssignRecallStoresSortedIds()
+        {
+            var groups = new GodotControlGroupState();
+            groups.Assign(1, new[] { 5, 5, 7, 9, 9 });
+            int[] recalled = groups.Recall(1);
+
+            AssertEqual(3, recalled.Length, "control group should store deduped ids");
+            AssertEqual(5, recalled[0], "control group should preserve deterministic id order");
+            AssertEqual(7, recalled[1], "control group should preserve deterministic id order");
+            AssertEqual(9, recalled[2], "control group should preserve deterministic id order");
+        }
+
+        private static void ControlGroupResolverFiltersMissingAndNonLocalUnits()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(
+                new[]
+                {
+                    CreateGodotPrimitive(VisualPrimitiveKind.UnitSquare, 101, 0, 5, 5),
+                    CreateGodotPrimitive(VisualPrimitiveKind.UnitSquare, 102, 1, 6, 6)
+                },
+                new GodotBuildingStatusDto[0],
+                new[]
+                {
+                    new GodotUnitStatusDto(101, (int)UnitTypeId.Villager, 30, 30, false, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, false, false, false, 0, 0, 0, 0, 0, false, 0, 0, 0),
+                    new GodotUnitStatusDto(102, (int)UnitTypeId.Villager, 30, 30, false, 0, 0, 0, 0, 6, 6, 0, 0, 0, 0, 0, 0, 0, false, false, false, 0, 0, 0, 0, 0, false, 0, 0, 0)
+                });
+
+            int[] recalled = GodotControlGroupResolver.FilterRecallableLocalUnitIds(frame, 0, new[] { 101, 102, 999 });
+
+            AssertEqual(1, recalled.Length, "control group recall should keep only visible local living units");
+            AssertEqual(101, recalled[0], "control group recall should keep local unit id");
         }
 
         private static void GodotScenarioViewHintsProvidesCombatCameraStart()

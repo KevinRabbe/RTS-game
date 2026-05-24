@@ -146,6 +146,30 @@ internal sealed class RtsSelectionController
 		return _selectedUnitIds.Contains(unitId);
 	}
 
+	public void SelectUnitIds(IReadOnlyList<int> unitIds, Action<string> log)
+	{
+		_selectedUnitIds.Clear();
+		_selectedBuildingId = 0;
+
+		for (int i = 0; i < unitIds.Count; i++)
+		{
+			int id = unitIds[i];
+			if (id > 0)
+			{
+				_selectedUnitIds.Add(id);
+			}
+		}
+
+		if (_selectedUnitIds.Count == 0)
+		{
+			log("control group recall none");
+		}
+		else
+		{
+			log("control group recall units=" + string.Join(",", _selectedUnitIds));
+		}
+	}
+
 	public void DrawDragRectangle(CanvasItem canvas)
 	{
 		if (!_dragActive)

@@ -20,6 +20,7 @@ public partial class RtsClientRoot : Node2D
 	private Camera2D? _camera;
 	private readonly RtsCameraController _cameraController = new RtsCameraController();
 	private readonly RtsSelectionController _selectionController = new RtsSelectionController();
+	private readonly GodotControlGroupState _controlGroups = new GodotControlGroupState();
 	private readonly RtsCommandMarker _commandMarker = new RtsCommandMarker();
 	private readonly RtsInputModeState _inputModeState = new RtsInputModeState();
 	private readonly RtsTradeRouteSelection _tradeRouteSelection = new RtsTradeRouteSelection();
@@ -211,6 +212,8 @@ public partial class RtsClientRoot : Node2D
 			TryCreateTradeRoute,
 			TrainFromSelectedBuilding,
 			ResearchFromSelectedBuilding,
+			_selectionController,
+			_controlGroups,
 			QueueCommandAndConfirm,
 			RefreshFrame,
 			QueueRedraw,
@@ -266,6 +269,7 @@ public partial class RtsClientRoot : Node2D
 			ref _tickAccumulator,
 			ref _paused);
 		_inputModeState.ExitToNormal();
+		_controlGroups.Reset();
 
 		ApplyScenarioCameraStartIfDefined();
 	}
