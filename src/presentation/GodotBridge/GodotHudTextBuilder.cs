@@ -33,6 +33,7 @@ namespace RtsGame.Presentation.GodotBridge
             string lineB = "Selected " + selected
                 + " (" + selectedCount + ")"
                 + GetSelectedGroupSummaryText(selectedUnitIds)
+                + GetSelectedTypeSummaryText(frame, selectedUnitIds)
                 + GetSelectedUnitStatusText(frame, selectedUnitIds)
                 + GetSelectedUnitActionHintText(frame, selectedUnitIds)
                 + "  Building " + selectedBuilding
@@ -251,6 +252,94 @@ namespace RtsGame.Presentation.GodotBridge
             }
 
             return " Group x" + selectedUnitIds.Length;
+        }
+
+        private static string GetSelectedTypeSummaryText(GodotFrameDto frame, int[] selectedUnitIds)
+        {
+            if (selectedUnitIds.Length <= 1)
+            {
+                return "";
+            }
+
+            int infantry = 0;
+            int villager = 0;
+            int scout = 0;
+            int cavalry = 0;
+            int siegeCannon = 0;
+            int tradeCart = 0;
+            int mangonel = 0;
+            int unknown = 0;
+            int counted = 0;
+
+            for (int i = 0; i < selectedUnitIds.Length; i++)
+            {
+                GodotUnitStatusDto? status = FindUnitStatus(frame, selectedUnitIds[i]);
+                if (status == null)
+                {
+                    continue;
+                }
+
+                counted++;
+                switch ((UnitTypeId)status.UnitTypeId)
+                {
+                    case UnitTypeId.Infantry:
+                        infantry++;
+                        break;
+                    case UnitTypeId.Villager:
+                        villager++;
+                        break;
+                    case UnitTypeId.Scout:
+                        scout++;
+                        break;
+                    case UnitTypeId.Cavalry:
+                        cavalry++;
+                        break;
+                    case UnitTypeId.SiegeCannon:
+                        siegeCannon++;
+                        break;
+                    case UnitTypeId.TradeCart:
+                        tradeCart++;
+                        break;
+                    case UnitTypeId.Mangonel:
+                        mangonel++;
+                        break;
+                    default:
+                        unknown++;
+                        break;
+                }
+            }
+
+            if (counted == 0)
+            {
+                return "";
+            }
+
+            string parts = "";
+            AppendTypeCount(ref parts, infantry, "Infantry");
+            AppendTypeCount(ref parts, villager, "Villager");
+            AppendTypeCount(ref parts, scout, "Scout");
+            AppendTypeCount(ref parts, cavalry, "Cavalry");
+            AppendTypeCount(ref parts, siegeCannon, "SiegeCannon");
+            AppendTypeCount(ref parts, tradeCart, "TradeCart");
+            AppendTypeCount(ref parts, mangonel, "Mangonel");
+            AppendTypeCount(ref parts, unknown, "Other");
+
+            return parts.Length == 0 ? "" : "  " + parts;
+        }
+
+        private static void AppendTypeCount(ref string parts, int count, string label)
+        {
+            if (count <= 0)
+            {
+                return;
+            }
+
+            if (parts.Length > 0)
+            {
+                parts += ", ";
+            }
+
+            parts += count + " " + label;
         }
 
         private static string GetSelectedUnitActionHintText(GodotFrameDto frame, int[] selectedUnitIds)

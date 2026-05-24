@@ -45,7 +45,7 @@ internal static class RtsInputKeyRouter
 			{
 				int[] selected = selectionController.GetSelectedUnitIdsSorted();
 				controlGroups.Assign(groupIndex, selected);
-				addDebugEvent("control group " + groupIndex + " assigned units=" + (selected.Length == 0 ? "none" : string.Join(",", selected)));
+				addDebugEvent(GodotControlGroupFeedbackFormatter.BuildAssignedText(groupIndex, selected.Length));
 				refreshFrame();
 				return;
 			}
@@ -53,6 +53,7 @@ internal static class RtsInputKeyRouter
 			int[] stored = controlGroups.Recall(groupIndex);
 			int[] recallable = GodotControlGroupResolver.FilterRecallableLocalUnitIds(frame, localPlayerIndex, stored);
 			selectionController.SelectUnitIds(recallable, addDebugEvent);
+			addDebugEvent(GodotControlGroupFeedbackFormatter.BuildRecalledText(groupIndex, recallable.Length));
 			refreshFrame();
 			return;
 		}

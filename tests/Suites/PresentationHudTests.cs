@@ -780,5 +780,59 @@ namespace RtsGame.Tests
             AssertEqual(true, lines[1].Contains("AttackTarget 88"), "selected status should include current attack target");
         }
 
+        private static void GodotControlGroupFeedbackFormatsAssignText()
+        {
+            string text = GodotControlGroupFeedbackFormatter.BuildAssignedText(1, 5);
+            AssertEqual("Group 1 assigned: 5 units", text, "control group assign feedback should be concise and stable");
+        }
+
+        private static void GodotControlGroupFeedbackFormatsRecallText()
+        {
+            string text = GodotControlGroupFeedbackFormatter.BuildRecalledText(2, 3);
+            AssertEqual("Group 2 recalled: 3 units", text, "control group recall feedback should be concise and stable");
+        }
+
+        private static void GodotControlGroupFeedbackFormatsEmptyText()
+        {
+            string text = GodotControlGroupFeedbackFormatter.BuildRecalledText(3, 0);
+            AssertEqual("Group 3 empty", text, "empty control group recall should be clearly visible");
+        }
+
+        private static void GodotHudTextIncludesSelectedTypeSummaryHomogeneous()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new[]
+                {
+                    new GodotUnitStatusDto(21, (int)UnitTypeId.Villager, false, 0, 0, 0, 0, 0, 0, 0, 0),
+                    new GodotUnitStatusDto(22, (int)UnitTypeId.Villager, false, 0, 0, 0, 0, 0, 0, 0, 0),
+                    new GodotUnitStatusDto(23, (int)UnitTypeId.Villager, false, 0, 0, 0, 0, 0, 0, 0, 0)
+                },
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new[] { 21, 22, 23 }, 0, 0, false);
+            AssertEqual(true, text.Contains("3 Villager"), "hud should include homogeneous selected type summary");
+        }
+
+        private static void GodotHudTextIncludesSelectedTypeSummaryMixed()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new[]
+                {
+                    new GodotUnitStatusDto(31, (int)UnitTypeId.Infantry, false, 0, 0, 0, 0, 0, 0, 0, 0),
+                    new GodotUnitStatusDto(32, (int)UnitTypeId.Infantry, false, 0, 0, 0, 0, 0, 0, 0, 0),
+                    new GodotUnitStatusDto(33, (int)UnitTypeId.Infantry, false, 0, 0, 0, 0, 0, 0, 0, 0),
+                    new GodotUnitStatusDto(34, (int)UnitTypeId.Infantry, false, 0, 0, 0, 0, 0, 0, 0, 0),
+                    new GodotUnitStatusDto(35, (int)UnitTypeId.Scout, false, 0, 0, 0, 0, 0, 0, 0, 0)
+                },
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new[] { 31, 32, 33, 34, 35 }, 0, 0, false);
+            AssertEqual(true, text.Contains("4 Infantry, 1 Scout"), "hud should include mixed selected type summary");
+        }
+
     }
 }
