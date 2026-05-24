@@ -755,10 +755,12 @@ namespace RtsGame.Tests
             buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.NoOp), new NoOpCommand()));
 
             bool acquired = false;
+            bool resumed = false;
             for (int tick = 0; tick < 160; tick++)
             {
                 runner.AdvanceOneTick(state, rules, buffer);
                 CaptureCombatTraceTick(state, attackers, traces, 160);
+                AssertNoStaleAttackSlotReservations(state, attackers, BuildTraceFailureMessage("attack-move pressure stale attack-slot reservation invariant", traces));
                 AssertNoDuplicateFinalPurposeReservations(state, BuildTraceFailureMessage("attack-move pressure reservation invariant", traces));
                 for (int i = 0; i < attackers.Length; i++)
                 {
@@ -771,7 +773,16 @@ namespace RtsGame.Tests
                     if (!attacker.IsDead && attacker.AttackTargetId != 0)
                     {
                         acquired = true;
-                        break;
+                    }
+
+                    if (!attacker.IsDead
+                        && attacker.HasAttackMoveTarget
+                        && attacker.AttackTargetId == 0
+                        && attacker.HasMoveTarget
+                        && attacker.TaskPhase == WorkerTaskPhase.MovingToCommandMove
+                        && tick > GameData.AttackMoveAcquireCadenceTicks)
+                    {
+                        resumed = true;
                     }
                 }
 
@@ -780,7 +791,143 @@ namespace RtsGame.Tests
             }
 
             AssertEqual(true, acquired, BuildTraceFailureMessage("attack-move pressure should acquire enemies under contact", traces));
+            AssertEqual(true, resumed, BuildTraceFailureMessage("attack-move pressure should resume movement after temporary combat", traces));
             AssertEqual(true, CountAliveUnitsForPlayer(state, 1) < enemies.Length || CountDamagedUnitsForPlayer(state, 1) > 0, BuildTraceFailureMessage("attack-move pressure should apply combat pressure", traces));
+        }
+
+        private static void AttackMovePressureFiftyVsFiftyStaysStable()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = GameInitializer.CreateNomadStart(2, 1);
+            int[] sideA = CreateInfantryLine(state, 0, 50, 8, 18);
+            int[] sideB = CreateInfantryLine(state, 1, 50, 82, 22);
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            var traces = new Queue<string>();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AttackMove), new AttackMoveCommand(sideA, FixedVector2.FromInts(86, 22))));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.AttackMove), new AttackMoveCommand(sideB, FixedVector2.FromInts(4, 18))));
+
+            int startA = CountAliveUnitsForPlayer(state, 0);
+            int startB = CountAliveUnitsForPlayer(state, 1);
+            int maxPathCalls = 0;
+            int maxAcquireWait = 0;
+            for (int tick = 0; tick < 560; tick++)
+            {
+                runner.AdvanceOneTick(state, rules, buffer);
+                int[] liveA = FilterAliveEntityIds(state, sideA);
+                int[] liveB = FilterAliveEntityIds(state, sideB);
+                CaptureCombatTraceTick(state, liveA, traces, 220);
+                CaptureCombatTraceTick(state, liveB, traces, 220);
+                AssertNoLiveUnitStacking(state, BuildTraceFailureMessage("attack-move 50v50 stacking invariant", traces));
+                AssertNoDuplicateFinalPurposeReservations(state, BuildTraceFailureMessage("attack-move 50v50 reservation invariant", traces));
+                AssertNoStaleAttackSlotReservations(state, liveA, BuildTraceFailureMessage("attack-move 50v50 stale attack-slot sideA invariant", traces));
+                AssertNoStaleAttackSlotReservations(state, liveB, BuildTraceFailureMessage("attack-move 50v50 stale attack-slot sideB invariant", traces));
+                AssertNoEndlessWorkerPhase(state, liveA, WorkerTaskPhase.MovingToAttackSlot, GameData.NoProgressTimeoutTicks * 2, BuildTraceFailureMessage("attack-move 50v50 sideA attack-slot no-progress invariant", traces));
+                AssertNoEndlessWorkerPhase(state, liveB, WorkerTaskPhase.MovingToAttackSlot, GameData.NoProgressTimeoutTicks * 2, BuildTraceFailureMessage("attack-move 50v50 sideB attack-slot no-progress invariant", traces));
+                maxPathCalls = Math.Max(maxPathCalls, state.DebugCounters.PathFindNextCalls + state.DebugCounters.PathFindCostCalls);
+                maxAcquireWait = Math.Max(maxAcquireWait, FindMaxAttackMoveAcquireWait(state, 0, 1));
+
+                AddNoOp(buffer, state.Tick, 0, (uint)state.Tick);
+                AddNoOp(buffer, state.Tick, 1, (uint)state.Tick);
+            }
+
+            int endA = CountAliveUnitsForPlayer(state, 0);
+            int endB = CountAliveUnitsForPlayer(state, 1);
+            AssertEqual(true, endA < startA || endB < startB, BuildTraceFailureMessage("attack-move 50v50 should produce casualties", traces));
+            AssertEqual(true, maxPathCalls <= GameData.PathQueryBudgetPerTick * 2, BuildTraceFailureMessage("attack-move 50v50 path query budget should stay bounded max=" + maxPathCalls, traces));
+            AssertEqual(true, maxAcquireWait <= GameData.AttackMoveAcquireCadenceTicks * 4, BuildTraceFailureMessage("attack-move 50v50 acquisition cadence should stay bounded maxWait=" + maxAcquireWait, traces));
+        }
+
+        private static void AttackMovePressureOneHundredFiftyVsOneHundredFiftyStaysStable()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(2);
+            GameState state = GameInitializer.CreateNomadStart(2, 1);
+            int[] sideA = CreateInfantryGrid(state, 0, 150, 6, 8, 15);
+            int[] sideB = CreateInfantryGrid(state, 1, 150, 62, 18, 15);
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            var traces = new Queue<string>();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AttackMove), new AttackMoveCommand(sideA, FixedVector2.FromInts(72, 22))));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.AttackMove), new AttackMoveCommand(sideB, FixedVector2.FromInts(2, 8))));
+
+            int maxPathCalls = 0;
+            int maxAcquireWait = 0;
+            for (int tick = 0; tick < 280; tick++)
+            {
+                runner.AdvanceOneTick(state, rules, buffer);
+                int[] liveA = FilterAliveEntityIds(state, sideA);
+                int[] liveB = FilterAliveEntityIds(state, sideB);
+                if (tick % 4 == 0)
+                {
+                    CaptureCombatTraceTick(state, liveA, traces, 300);
+                    CaptureCombatTraceTick(state, liveB, traces, 300);
+                    AssertNoLiveUnitStacking(state, BuildTraceFailureMessage("attack-move 150v150 stacking invariant", traces));
+                    AssertNoDuplicateFinalPurposeReservations(state, BuildTraceFailureMessage("attack-move 150v150 reservation invariant", traces));
+                    AssertNoStaleAttackSlotReservations(state, liveA, BuildTraceFailureMessage("attack-move 150v150 stale attack-slot sideA invariant", traces));
+                    AssertNoStaleAttackSlotReservations(state, liveB, BuildTraceFailureMessage("attack-move 150v150 stale attack-slot sideB invariant", traces));
+                }
+
+                AssertNoEndlessWorkerPhase(state, liveA, WorkerTaskPhase.MovingToAttackSlot, GameData.NoProgressTimeoutTicks * 2, "attack-move 150v150 sideA attack-slot no-progress invariant");
+                AssertNoEndlessWorkerPhase(state, liveB, WorkerTaskPhase.MovingToAttackSlot, GameData.NoProgressTimeoutTicks * 2, "attack-move 150v150 sideB attack-slot no-progress invariant");
+                maxPathCalls = Math.Max(maxPathCalls, state.DebugCounters.PathFindNextCalls + state.DebugCounters.PathFindCostCalls);
+                maxAcquireWait = Math.Max(maxAcquireWait, FindMaxAttackMoveAcquireWait(state, 0, 1));
+
+                AddNoOp(buffer, state.Tick, 0, (uint)state.Tick);
+                AddNoOp(buffer, state.Tick, 1, (uint)state.Tick);
+            }
+
+            AssertEqual(true, CountDamagedUnitsForPlayer(state, 0) > 0 || CountDamagedUnitsForPlayer(state, 1) > 0, BuildTraceFailureMessage("attack-move 150v150 should produce combat contact", traces));
+            AssertEqual(true, maxPathCalls <= GameData.PathQueryBudgetPerTick * 2, BuildTraceFailureMessage("attack-move 150v150 path query budget should stay bounded max=" + maxPathCalls, traces));
+            AssertEqual(true, maxAcquireWait <= GameData.AttackMoveAcquireCadenceTicks * 5, BuildTraceFailureMessage("attack-move 150v150 acquisition cadence should stay bounded maxWait=" + maxAcquireWait, traces));
+        }
+
+        private static void AttackMovePressureHotspotThreeAttackersVsDefenderStaysStable()
+        {
+            var rules = GameRules.CreatePhaseZeroDefaults(4);
+            GameState state = GameInitializer.CreateNomadStart(4, 1);
+            int defenderTcId = EntityFactory.CreateTownCenter(state, 0, FixedVector2.FromInts(44, 28));
+            Building defenderTc = FindBuildingById(state, defenderTcId);
+            defenderTc.IsUnderConstruction = false;
+            int[] attackersA = CreateInfantryGrid(state, 1, 50, 10, 26, 10);
+            int[] attackersB = CreateInfantryGrid(state, 2, 50, 74, 26, 10);
+            int[] attackersC = CreateInfantryGrid(state, 3, 50, 42, 50, 10);
+            int[] defenderUnits = CreateInfantryGrid(state, 0, 60, 40, 22, 10);
+            int[] allAttackers = Concat(attackersA, attackersB, attackersC);
+            var buffer = new CommandBuffer();
+            var runner = new TickRunner();
+            var traces = new Queue<string>();
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 1, 0, CommandType.AttackMove), new AttackMoveCommand(attackersA, defenderTc.Position)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 2, 0, CommandType.AttackMove), new AttackMoveCommand(attackersB, defenderTc.Position)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 3, 0, CommandType.AttackMove), new AttackMoveCommand(attackersC, defenderTc.Position)));
+            buffer.Add(new CommandEnvelope(new CommandHeader(0, 0, 0, CommandType.AttackMove), new AttackMoveCommand(defenderUnits, FixedVector2.FromInts(44, 34))));
+
+            int maxPathCalls = 0;
+            int maxAcquireWait = 0;
+            for (int tick = 0; tick < 340; tick++)
+            {
+                runner.AdvanceOneTick(state, rules, buffer);
+                if (tick % 4 == 0)
+                {
+                    CaptureCombatTraceTick(state, allAttackers, traces, 320);
+                    CaptureCombatTraceTick(state, defenderUnits, traces, 320);
+                    AssertNoLiveUnitStacking(state, BuildTraceFailureMessage("attack-move hotspot stacking invariant", traces));
+                    AssertNoDuplicateFinalPurposeReservations(state, BuildTraceFailureMessage("attack-move hotspot reservation invariant", traces));
+                    AssertNoStaleAttackSlotReservations(state, allAttackers, BuildTraceFailureMessage("attack-move hotspot stale attack-slot attackers invariant", traces));
+                    AssertNoStaleAttackSlotReservations(state, defenderUnits, BuildTraceFailureMessage("attack-move hotspot stale attack-slot defenders invariant", traces));
+                }
+
+                maxPathCalls = Math.Max(maxPathCalls, state.DebugCounters.PathFindNextCalls + state.DebugCounters.PathFindCostCalls);
+                maxAcquireWait = Math.Max(maxAcquireWait, FindMaxAttackMoveAcquireWait(state, 0, 1, 2, 3));
+
+                AddNoOp(buffer, state.Tick, 0, (uint)state.Tick);
+                AddNoOp(buffer, state.Tick, 1, (uint)state.Tick);
+                AddNoOp(buffer, state.Tick, 2, (uint)state.Tick);
+                AddNoOp(buffer, state.Tick, 3, (uint)state.Tick);
+            }
+
+            AssertEqual(true, CountDamagedUnitsForPlayer(state, 0) > 0 || CountDamagedUnitsForPlayer(state, 1) > 0 || CountDamagedUnitsForPlayer(state, 2) > 0 || CountDamagedUnitsForPlayer(state, 3) > 0, BuildTraceFailureMessage("attack-move hotspot should produce combat contact", traces));
+            AssertEqual(true, maxPathCalls <= GameData.PathQueryBudgetPerTick * 2, BuildTraceFailureMessage("attack-move hotspot path query budget should stay bounded max=" + maxPathCalls, traces));
+            AssertEqual(true, maxAcquireWait <= GameData.AttackMoveAcquireCadenceTicks * 5, BuildTraceFailureMessage("attack-move hotspot acquisition cadence should stay bounded maxWait=" + maxAcquireWait, traces));
         }
 
         private static int[] CreateInfantryLine(GameState state, int ownerPlayerIndex, int count, int startX, int y)
@@ -911,6 +1058,74 @@ namespace RtsGame.Tests
             return count;
         }
 
+        private static int FindMaxAttackMoveAcquireWait(GameState state, params int[] playerIndices)
+        {
+            int maxWait = 0;
+            for (int i = 0; i < state.EntityState.Units.Count; i++)
+            {
+                Unit unit = state.EntityState.Units[i];
+                if (unit.IsDead || !unit.HasAttackMoveTarget || unit.AttackTargetId != 0)
+                {
+                    continue;
+                }
+
+                bool includePlayer = false;
+                for (int p = 0; p < playerIndices.Length; p++)
+                {
+                    if (unit.OwnerPlayerIndex == playerIndices[p])
+                    {
+                        includePlayer = true;
+                        break;
+                    }
+                }
+
+                if (!includePlayer)
+                {
+                    continue;
+                }
+
+                int wait = unit.NextAttackMoveAcquireTick - state.Tick;
+                if (wait < 0)
+                {
+                    wait = 0;
+                }
+
+                if (wait > maxWait)
+                {
+                    maxWait = wait;
+                }
+            }
+
+            return maxWait;
+        }
+
+        private static void AssertNoStaleAttackSlotReservations(GameState state, int[] unitIds, string message)
+        {
+            for (int i = 0; i < unitIds.Length; i++)
+            {
+                int unitId = unitIds[i];
+                if (!state.EntityState.EntityLookup.TryGetValue(unitId, out EntityRef entityRef) || entityRef.Kind != EntityKind.Unit)
+                {
+                    continue;
+                }
+
+                if (entityRef.Index < 0 || entityRef.Index >= state.EntityState.Units.Count)
+                {
+                    continue;
+                }
+
+                Unit unit = state.EntityState.Units[entityRef.Index];
+                if (unit.Id != unitId
+                    || unit.IsDead
+                    || unit.ReservedInteractionKind != InteractionReservationKind.AttackSlot)
+                {
+                    continue;
+                }
+
+                AssertEqual(true, unit.AttackTargetId != 0, message + " stale attack-slot reservation without attack target unit=" + unit.Id);
+            }
+        }
+
         private static void CaptureCombatTraceTick(GameState state, int[] unitIds, Queue<string> traces, int maxEntries)
         {
             for (int i = 0; i < unitIds.Length; i++)
@@ -940,10 +1155,13 @@ namespace RtsGame.Tests
                     + " p=" + unit.OwnerPlayerIndex
                     + " tile=(" + tileX + "," + tileY + ")"
                     + " hp=" + unit.HitPoints
+                    + " am=" + unit.HasAttackMoveTarget
+                    + " amTarget=(" + SpatialRules.GetTileX(unit.AttackMoveTarget) + "," + SpatialRules.GetTileY(unit.AttackMoveTarget) + ")"
                     + " atkTarget=" + unit.AttackTargetId
                     + " phase=" + unit.TaskPhase
                     + " reserve=" + unit.ReservedInteractionKind + ":" + unit.ReservedInteractionTargetId + "@(" + unit.ReservedInteractionTileX + "," + unit.ReservedInteractionTileY + ")"
                     + " cooldown=" + unit.AttackCooldownTicksRemaining
+                    + " nextAcquire=" + unit.NextAttackMoveAcquireTick
                     + " noProgress=" + noProgressTicks
                     + " pathCalls=" + (state.DebugCounters.PathFindNextCalls + state.DebugCounters.PathFindCostCalls)
                     + " retargets=" + state.DebugCounters.ReservationRetargetCount;
