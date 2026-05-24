@@ -149,6 +149,53 @@ namespace RtsGame.Tests
             AssertEqual(true, text.Contains("HP 42/" + GameData.InfantryHitPoints), "hud should include selected combat health");
         }
 
+        private static void GodotHudTextIncludesAttackMoveDestination()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                12,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new[]
+                {
+                    new GodotUnitStatusDto(
+                        19,
+                        (int)UnitTypeId.Infantry,
+                        60,
+                        GameData.InfantryHitPoints,
+                        true,
+                        Fixed.FromInt(8).Raw,
+                        Fixed.FromInt(8).Raw,
+                        0,
+                        0,
+                        10,
+                        10,
+                        Fixed.FromInt(10).Raw,
+                        Fixed.FromInt(10).Raw,
+                        (int)WorkerTaskPhase.MovingToCommandMove,
+                        0,
+                        0,
+                        0,
+                        0,
+                        false,
+                        false,
+                        false,
+                        11,
+                        0,
+                        0,
+                        0,
+                        0,
+                        true,
+                        Fixed.FromInt(14).Raw,
+                        Fixed.FromInt(22).Raw,
+                        18)
+                },
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new[] { 19 }, 0, 0, false);
+
+            AssertEqual(true, text.Contains("AttackMove (14,22)"), "hud should include selected unit attack-move destination tile");
+            AssertEqual(true, text.Contains("Acquire @18"), "hud should include selected unit next attack-move acquisition tick");
+        }
+
         private static void GodotHudTextIncludesBuildingTrainingStatus()
         {
             GodotFrameDto frame = CreateGodotHudFrame(
@@ -556,6 +603,36 @@ namespace RtsGame.Tests
             AssertEqual(true, text.Contains("[NonCombatCannotAttack]"), "hud should include readable non-combat attack rejection hint");
         }
 
+        private static void GodotHudTextIncludesReadableNonCombatAttackMoveRejectionHint()
+        {
+            GodotFrameDto frame = new GodotFrameDto(
+                1,
+                "CombatTest01",
+                0,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotMatchDto(
+                    false,
+                    -1,
+                    -1,
+                    2,
+                    1,
+                    (int)CommandType.AttackMove,
+                    (int)CommandValidationReason.UnitCannotPerformAction,
+                    false,
+                    0,
+                    4,
+                    19,
+                    57,
+                    1,
+                    3),
+                new GodotPrimitiveDto[0],
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 0, 0, false);
+            AssertEqual(true, text.Contains("[NonCombatCannotAttackMove]"), "hud should include readable non-combat attack-move rejection hint");
+        }
+
         private static void GodotHudTextHandlesMissingStatus()
         {
             GodotFrameDto frame = CreateGodotHudFrame(
@@ -653,6 +730,54 @@ namespace RtsGame.Tests
             AssertEqual(true, lines[1].Contains("HP 25/" + GameData.VillagerHitPoints), "selected status should include health values");
             AssertEqual(true, lines[1].Contains("AttackCooldown -"), "selected status should include combat cooldown field");
             AssertEqual(true, lines[1].Contains("NoProgress 9"), "blocked waiting unit should expose no-progress ticks for stall diagnosis");
+        }
+
+        private static void GodotSelectedStatusIncludesAttackMoveDebugFields()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                22,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new[]
+                {
+                    new GodotUnitStatusDto(
+                        44,
+                        (int)UnitTypeId.Infantry,
+                        54,
+                        GameData.InfantryHitPoints,
+                        true,
+                        Fixed.FromInt(9).Raw,
+                        Fixed.FromInt(6).Raw,
+                        0,
+                        0,
+                        6,
+                        6,
+                        Fixed.FromInt(6).Raw,
+                        Fixed.FromInt(6).Raw,
+                        (int)WorkerTaskPhase.MovingToCommandMove,
+                        (int)InteractionReservationKind.AttackSlot,
+                        88,
+                        7,
+                        6,
+                        false,
+                        false,
+                        false,
+                        20,
+                        0,
+                        0,
+                        88,
+                        2,
+                        true,
+                        Fixed.FromInt(18).Raw,
+                        Fixed.FromInt(30).Raw,
+                        24)
+                },
+                new GodotBuildingStatusDto[0]);
+
+            string[] lines = GodotSelectedStatusBuilder.BuildLines(frame, new[] { 44 }, 0, 0);
+
+            AssertEqual(true, lines[1].Contains("AttackMoveTarget Tile(18,30)"), "selected status should include attack-move destination tile");
+            AssertEqual(true, lines[1].Contains("AttackMoveAcquire @24"), "selected status should include attack-move acquisition cadence field");
+            AssertEqual(true, lines[1].Contains("AttackTarget 88"), "selected status should include current attack target");
         }
 
     }

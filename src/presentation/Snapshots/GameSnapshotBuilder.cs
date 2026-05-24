@@ -47,6 +47,9 @@ namespace RtsGame.Presentation.Snapshots
                     unit.CarriedAmount,
                     unit.AttackTargetId,
                     unit.AttackCooldownTicksRemaining,
+                    unit.HasAttackMoveTarget,
+                    unit.AttackMoveTarget,
+                    unit.NextAttackMoveAcquireTick,
                     unit.TradeRouteAId,
                     unit.TradeRouteBId));
             }

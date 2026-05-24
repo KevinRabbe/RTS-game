@@ -327,7 +327,11 @@ namespace RtsGame.Presentation.GodotBridge
                 (int)snapshot.CarriedResourceType,
                 snapshot.CarriedAmount,
                 snapshot.AttackTargetId,
-                snapshot.AttackCooldownTicksRemaining);
+                snapshot.AttackCooldownTicksRemaining,
+                snapshot.HasAttackMoveTarget,
+                snapshot.AttackMoveTarget.X.Raw,
+                snapshot.AttackMoveTarget.Y.Raw,
+                snapshot.NextAttackMoveAcquireTick);
         }
 
         private static GodotBuildingStatusDto ToBuildingStatusDto(BuildingSnapshot snapshot)

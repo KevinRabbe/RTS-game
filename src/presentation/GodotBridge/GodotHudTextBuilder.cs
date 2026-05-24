@@ -2,6 +2,7 @@ namespace RtsGame.Presentation.GodotBridge
 {
     using RtsGame.Sim.Commands;
     using RtsGame.Sim.Data;
+    using RtsGame.Sim.Determinism;
 
     public static class GodotHudTextBuilder
     {
@@ -87,6 +88,16 @@ namespace RtsGame.Presentation.GodotBridge
             if (status.AttackTargetId != 0)
             {
                 return prefix + " Attack " + status.AttackTargetId + " CD " + status.AttackCooldownTicksRemaining;
+            }
+
+            if (status.HasAttackMoveTarget)
+            {
+                int targetTileX = new Fixed(status.AttackMoveTargetXRaw).FloorToInt();
+                int targetTileY = new Fixed(status.AttackMoveTargetYRaw).FloorToInt();
+                string acquire = status.NextAttackMoveAcquireTick <= frame.Tick
+                    ? "Acquire now"
+                    : "Acquire @" + status.NextAttackMoveAcquireTick;
+                return prefix + " AttackMove (" + targetTileX + "," + targetTileY + ") " + acquire;
             }
 
             if (status.AttackCooldownTicksRemaining > 0)
@@ -313,6 +324,13 @@ namespace RtsGame.Presentation.GodotBridge
                 && match.LastCommandReasonId == (int)CommandValidationReason.UnitCannotPerformAction)
             {
                 text += " [NonCombatCannotAttack]";
+            }
+
+            if (!match.LastCommandAccepted
+                && match.LastCommandTypeId == (int)CommandType.AttackMove
+                && match.LastCommandReasonId == (int)CommandValidationReason.UnitCannotPerformAction)
+            {
+                text += " [NonCombatCannotAttackMove]";
             }
 
             return text;

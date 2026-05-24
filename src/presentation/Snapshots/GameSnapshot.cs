@@ -57,6 +57,9 @@ namespace RtsGame.Presentation.Snapshots
         public int CarriedAmount { get; }
         public int AttackTargetId { get; }
         public int AttackCooldownTicksRemaining { get; }
+        public bool HasAttackMoveTarget { get; }
+        public FixedVector2 AttackMoveTarget { get; }
+        public int NextAttackMoveAcquireTick { get; }
         public int TradeRouteAId { get; }
         public int TradeRouteBId { get; }
 
@@ -83,6 +86,9 @@ namespace RtsGame.Presentation.Snapshots
             int carriedAmount,
             int attackTargetId,
             int attackCooldownTicksRemaining,
+            bool hasAttackMoveTarget,
+            FixedVector2 attackMoveTarget,
+            int nextAttackMoveAcquireTick,
             int tradeRouteAId,
             int tradeRouteBId)
         {
@@ -108,6 +114,9 @@ namespace RtsGame.Presentation.Snapshots
             CarriedAmount = carriedAmount;
             AttackTargetId = attackTargetId;
             AttackCooldownTicksRemaining = attackCooldownTicksRemaining;
+            HasAttackMoveTarget = hasAttackMoveTarget;
+            AttackMoveTarget = attackMoveTarget;
+            NextAttackMoveAcquireTick = nextAttackMoveAcquireTick;
             TradeRouteAId = tradeRouteAId;
             TradeRouteBId = tradeRouteBId;
         }

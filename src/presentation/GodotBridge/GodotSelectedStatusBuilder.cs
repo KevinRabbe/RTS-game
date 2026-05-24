@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using RtsGame.Presentation.Visuals;
 using RtsGame.Sim.Data;
+using RtsGame.Sim.Determinism;
 
 namespace RtsGame.Presentation.GodotBridge
 {
@@ -28,6 +29,14 @@ namespace RtsGame.Presentation.GodotBridge
                     string resource = unit.CurrentResourceNodeId == 0 ? "ResourceTarget -" : "ResourceTarget " + unit.CurrentResourceNodeId;
                     string attack = unit.AttackTargetId == 0 ? "AttackTarget -" : "AttackTarget " + unit.AttackTargetId;
                     string cooldown = unit.AttackCooldownTicksRemaining <= 0 ? "AttackCooldown -" : "AttackCooldown " + unit.AttackCooldownTicksRemaining;
+                    string attackMove = unit.HasAttackMoveTarget
+                        ? "AttackMoveTarget Tile(" + new Fixed(unit.AttackMoveTargetXRaw).FloorToInt() + "," + new Fixed(unit.AttackMoveTargetYRaw).FloorToInt() + ")"
+                        : "AttackMoveTarget -";
+                    string attackMoveAcquire = unit.HasAttackMoveTarget
+                        ? (unit.NextAttackMoveAcquireTick <= frame.Tick
+                            ? "AttackMoveAcquire now"
+                            : "AttackMoveAcquire @" + unit.NextAttackMoveAcquireTick)
+                        : "AttackMoveAcquire -";
                     string health = unit.MaxHitPoints <= 0 ? "HP -" : "HP " + unit.CurrentHitPoints + "/" + unit.MaxHitPoints;
                     string position = "Tile(" + unit.PositionTileX + "," + unit.PositionTileY + ") PosRaw(" + unit.PositionXRaw + "," + unit.PositionYRaw + ")";
                     string phase = "Phase " + ResolveTaskPhaseLabel(unit.TaskPhaseId);
@@ -56,7 +65,7 @@ namespace RtsGame.Presentation.GodotBridge
                         depositHint = "  DepositNeedsCompletedTC";
                     }
 
-                    return new[] { status, position + "  " + move + "  " + phase + "  " + reservation + "  " + ranges + "  " + noProgress + "  " + build + "  " + resource + "  " + attack + "  " + cooldown + "  " + health + "  " + carry + depositHint };
+                    return new[] { status, position + "  " + move + "  " + phase + "  " + reservation + "  " + ranges + "  " + noProgress + "  " + build + "  " + resource + "  " + attackMove + "  " + attackMoveAcquire + "  " + attack + "  " + cooldown + "  " + health + "  " + carry + depositHint };
                 }
             }
 

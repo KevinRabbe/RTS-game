@@ -153,6 +153,10 @@ namespace RtsGame.Presentation.GodotBridge
         public int CarriedAmount { get; }
         public int AttackTargetId { get; }
         public int AttackCooldownTicksRemaining { get; }
+        public bool HasAttackMoveTarget { get; }
+        public long AttackMoveTargetXRaw { get; }
+        public long AttackMoveTargetYRaw { get; }
+        public int NextAttackMoveAcquireTick { get; }
 
         public GodotUnitStatusDto(
             int unitId,
@@ -223,7 +227,11 @@ namespace RtsGame.Presentation.GodotBridge
                 carriedResourceTypeId,
                 carriedAmount,
                 attackTargetId,
-                attackCooldownTicksRemaining)
+                attackCooldownTicksRemaining,
+                false,
+                0,
+                0,
+                0)
         {
         }
 
@@ -278,7 +286,11 @@ namespace RtsGame.Presentation.GodotBridge
                 carriedResourceTypeId,
                 carriedAmount,
                 attackTargetId,
-                attackCooldownTicksRemaining)
+                attackCooldownTicksRemaining,
+                false,
+                0,
+                0,
+                0)
         {
         }
 
@@ -309,6 +321,71 @@ namespace RtsGame.Presentation.GodotBridge
             int carriedAmount,
             int attackTargetId,
             int attackCooldownTicksRemaining)
+            : this(
+                unitId,
+                unitTypeId,
+                currentHitPoints,
+                maxHitPoints,
+                hasMoveTarget,
+                moveTargetXRaw,
+                moveTargetYRaw,
+                currentBuildTargetId,
+                currentResourceNodeId,
+                positionTileX,
+                positionTileY,
+                positionXRaw,
+                positionYRaw,
+                taskPhaseId,
+                reservedInteractionKindId,
+                reservedInteractionTargetId,
+                reservedInteractionTileX,
+                reservedInteractionTileY,
+                inResourceInteractionRange,
+                inDropoffInteractionRange,
+                inBuildInteractionRange,
+                lastMovedTick,
+                carriedResourceTypeId,
+                carriedAmount,
+                attackTargetId,
+                attackCooldownTicksRemaining,
+                false,
+                0,
+                0,
+                0)
+        {
+        }
+
+        public GodotUnitStatusDto(
+            int unitId,
+            int unitTypeId,
+            int currentHitPoints,
+            int maxHitPoints,
+            bool hasMoveTarget,
+            long moveTargetXRaw,
+            long moveTargetYRaw,
+            int currentBuildTargetId,
+            int currentResourceNodeId,
+            int positionTileX,
+            int positionTileY,
+            long positionXRaw,
+            long positionYRaw,
+            int taskPhaseId,
+            int reservedInteractionKindId,
+            int reservedInteractionTargetId,
+            int reservedInteractionTileX,
+            int reservedInteractionTileY,
+            bool inResourceInteractionRange,
+            bool inDropoffInteractionRange,
+            bool inBuildInteractionRange,
+            int lastMovedTick,
+            int carriedResourceTypeId,
+            int carriedAmount,
+            int attackTargetId,
+            int attackCooldownTicksRemaining,
+            bool hasAttackMoveTarget,
+            long attackMoveTargetXRaw,
+            long attackMoveTargetYRaw,
+            int nextAttackMoveAcquireTick)
         {
             UnitId = unitId;
             UnitTypeId = unitTypeId;
@@ -336,6 +413,10 @@ namespace RtsGame.Presentation.GodotBridge
             CarriedAmount = carriedAmount;
             AttackTargetId = attackTargetId;
             AttackCooldownTicksRemaining = attackCooldownTicksRemaining;
+            HasAttackMoveTarget = hasAttackMoveTarget;
+            AttackMoveTargetXRaw = attackMoveTargetXRaw;
+            AttackMoveTargetYRaw = attackMoveTargetYRaw;
+            NextAttackMoveAcquireTick = nextAttackMoveAcquireTick;
         }
     }
 
