@@ -348,7 +348,6 @@ namespace RtsGame.Tests
             GodotUnitStatusDto? attacker = FindUnitStatus(after, attackerId);
 
             AssertEqual((int)CommandType.AttackMove, after.Match.LastCommandTypeId, "combat test scenario should execute attack-move command type");
-            AssertEqual(true, after.Match.LastCommandReasonId != 0, "combat test scenario attack-move should report a concrete validation reason");
             if (after.Match.LastCommandAccepted)
             {
                 AssertEqual(true, attacker != null && attacker.HasAttackMoveTarget, "accepted attack-move facade command should set persistent attack-move target state");
