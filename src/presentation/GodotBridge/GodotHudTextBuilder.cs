@@ -88,7 +88,15 @@ namespace RtsGame.Presentation.GodotBridge
 
             if (status.AttackTargetId != 0)
             {
-                return prefix + " Attack " + status.AttackTargetId + " CD " + status.AttackCooldownTicksRemaining;
+                string combat = prefix + " Attack " + status.AttackTargetId + " CD " + status.AttackCooldownTicksRemaining;
+                if (!status.HasAttackMoveTarget)
+                {
+                    return combat;
+                }
+
+                int amTileX = new Fixed(status.AttackMoveTargetXRaw).FloorToInt();
+                int amTileY = new Fixed(status.AttackMoveTargetYRaw).FloorToInt();
+                return combat + " AM(" + amTileX + "," + amTileY + ")";
             }
 
             if (status.HasAttackMoveTarget)

@@ -60,6 +60,7 @@ internal static class RtsInputMouseRouter
 			if (selection.Kind == GodotSelectionKind.Unit || selection.Kind == GodotSelectionKind.Building)
 			{
 				tradeRouteSelection.Clear();
+				addDebugEvent("attack-move mode: enemy click -> explicit attack");
 				selectionController.SelectAt(
 					frame,
 					localPlayerIndex,
@@ -95,6 +96,7 @@ internal static class RtsInputMouseRouter
 					tileToRaw,
 					queueCommandAndConfirm,
 					setCommandMarker);
+				addDebugEvent("attack-move issued tile=(" + tile.X + "," + tile.Y + ")");
 				addDebugEvent(
 					"lclick mode raw=(" + mouseXRaw + "," + mouseYRaw + ") tile=(" + tile.X + "," + tile.Y + ") route=" + resolved.Kind + " mode=" + inputModeState.CurrentMode);
 			}

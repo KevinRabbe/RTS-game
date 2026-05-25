@@ -377,9 +377,11 @@ namespace RtsGame.Tests
             AssertEqual(true, ContainsHotkey(entries, "Ctrl+1..9", "Assign selected units to control group"), "hotkey help should include control group assignment binding");
             AssertEqual(true, ContainsHotkey(entries, "1..9", "Recall control group selection"), "hotkey help should include control group recall binding");
             AssertEqual(true, ContainsHotkey(entries, "Left Click", "Select / confirm placement"), "hotkey help should include left-click selection behavior");
-            AssertEqual(true, ContainsHotkey(entries, "Right Click", "Move, gather, attack, assign build, or cancel placement"), "hotkey help should include right-click context behavior");
+            AssertEqual(true, ContainsHotkey(entries, "Right Click", "Normal mode: Move/Gather/Attack/Build, Placement mode: cancel"), "hotkey help should include right-click context behavior");
             AssertEqual(true, ContainsHotkey(entries, "C", "Enter Town Center placement mode"), "hotkey help should include C placement binding");
             AssertEqual(true, ContainsHotkey(entries, "A", "Enter Attack-Move targeting mode"), "hotkey help should include A attack-move mode binding");
+            AssertEqual(true, ContainsHotkey(entries, "A + Left Click", "Issue Attack-Move to ground"), "hotkey help should include explicit attack-move issue gesture");
+            AssertEqual(true, ContainsHotkey(entries, "A + Right Click", "Cancel Attack-Move mode, then use normal RMB context"), "hotkey help should include attack-move cancel/context gesture");
             AssertEqual(true, ContainsHotkey(entries, "W", "Place Wall at mouse"), "hotkey help should include W placement binding");
             AssertEqual(true, ContainsHotkey(entries, "T", "Place Trade Post at mouse"), "hotkey help should include T placement binding");
             AssertEqual(true, ContainsHotkey(entries, "Escape", "Cancel active mode"), "hotkey help should include escape cancel mode binding");

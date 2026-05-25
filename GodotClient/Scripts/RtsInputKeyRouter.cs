@@ -134,7 +134,7 @@ internal static class RtsInputKeyRouter
 			// Attack-move is an explicit temporary targeting mode. Normal RMB on ground
 			// remains move; we do not overload default RMB semantics with attack-move.
 			inputModeState.EnterAttackMoveTargeting();
-			addDebugEvent("attack-move targeting mode entered");
+			addDebugEvent("attack-move mode: LMB issue, RMB cancel+context, Esc cancel");
 			queueRedraw();
 			return;
 		}

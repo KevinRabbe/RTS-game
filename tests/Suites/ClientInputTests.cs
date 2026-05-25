@@ -325,6 +325,37 @@ namespace RtsGame.Tests
             AssertEqual(true, afterHp < beforeHp, "building target should take damage under sustained explicit attack pressure");
         }
 
+        private static void CombatTestScenarioSupportsAttackMoveThroughFacade()
+        {
+            GodotClientFacade facade = GodotClientFacade.CreateCombatTest01(101);
+            facade.AdvanceOneTick();
+            GodotFrameDto before = facade.GetFrame(0);
+            int attackerId = 0;
+            for (int i = 0; i < before.UnitStatuses.Length; i++)
+            {
+                if (before.UnitStatuses[i].UnitTypeId == (int)UnitTypeId.Infantry)
+                {
+                    attackerId = before.UnitStatuses[i].UnitId;
+                    break;
+                }
+            }
+
+            AssertEqual(true, attackerId != 0, "combat test scenario should expose local infantry attacker for attack-move smoke");
+
+            facade.QueueAttackMove(0, new[] { attackerId }, 74, 48);
+            facade.AdvanceOneTick();
+            GodotFrameDto after = facade.GetFrame(0);
+            GodotUnitStatusDto? attacker = FindUnitStatus(after, attackerId);
+
+            AssertEqual((int)CommandType.AttackMove, after.Match.LastCommandTypeId, "combat test scenario should execute attack-move command type");
+            AssertEqual(true, after.Match.LastCommandReasonId != 0, "combat test scenario attack-move should report a concrete validation reason");
+            if (after.Match.LastCommandAccepted)
+            {
+                AssertEqual(true, attacker != null && attacker.HasAttackMoveTarget, "accepted attack-move facade command should set persistent attack-move target state");
+                AssertEqual(true, attacker != null && (attacker.HasMoveTarget || attacker.AttackTargetId != 0), "accepted attack-move facade command should move or engage after command");
+            }
+        }
+
         private static void GodotInteractionRouterPrioritizesAttack()
         {
             GodotFrameDto frame = CreateGodotInteractionFrame(new[]

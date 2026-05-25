@@ -196,6 +196,53 @@ namespace RtsGame.Tests
             AssertEqual(true, text.Contains("Acquire @18"), "hud should include selected unit next attack-move acquisition tick");
         }
 
+        private static void GodotHudTextIncludesAttackMoveDestinationWhileEngagingTarget()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                15,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new[]
+                {
+                    new GodotUnitStatusDto(
+                        29,
+                        (int)UnitTypeId.Infantry,
+                        58,
+                        GameData.InfantryHitPoints,
+                        true,
+                        Fixed.FromInt(20).Raw,
+                        Fixed.FromInt(20).Raw,
+                        0,
+                        0,
+                        10,
+                        10,
+                        Fixed.FromInt(10).Raw,
+                        Fixed.FromInt(10).Raw,
+                        (int)WorkerTaskPhase.MovingToAttackSlot,
+                        0,
+                        0,
+                        0,
+                        0,
+                        false,
+                        false,
+                        false,
+                        0,
+                        0,
+                        0,
+                        88,
+                        3,
+                        true,
+                        Fixed.FromInt(30).Raw,
+                        Fixed.FromInt(42).Raw,
+                        17)
+                },
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new[] { 29 }, 0, 0, false);
+
+            AssertEqual(true, text.Contains("Attack 88 CD 3"), "hud should keep current attack target and cooldown while engaging");
+            AssertEqual(true, text.Contains("AM(30,42)"), "hud should keep attack-move destination visible while engaging temporary target");
+        }
+
         private static void GodotHudTextIncludesBuildingTrainingStatus()
         {
             GodotFrameDto frame = CreateGodotHudFrame(
