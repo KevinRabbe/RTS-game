@@ -457,6 +457,28 @@ namespace RtsGame.Tests
             AssertEqual(0L, centerYRaw, "missing focus center y should default to zero");
         }
 
+        private static void ControlGroupRecallTrackerDetectsDoubleTapWithinWindow()
+        {
+            var tracker = new GodotControlGroupRecallTracker(doubleTapWindowTicks: 24);
+
+            bool firstTap = tracker.ResolveDoubleTap(1, 100);
+            bool secondTap = tracker.ResolveDoubleTap(1, 112);
+
+            AssertEqual(false, firstTap, "first recall tap should not be treated as double-tap");
+            AssertEqual(true, secondTap, "second recall tap within window should be treated as double-tap");
+        }
+
+        private static void ControlGroupRecallTrackerRejectsTapOutsideWindow()
+        {
+            var tracker = new GodotControlGroupRecallTracker(doubleTapWindowTicks: 24);
+
+            bool firstTap = tracker.ResolveDoubleTap(2, 100);
+            bool lateTap = tracker.ResolveDoubleTap(2, 130);
+
+            AssertEqual(false, firstTap, "first recall tap should not be treated as double-tap");
+            AssertEqual(false, lateTap, "recall tap outside window should not be treated as double-tap");
+        }
+
         private static void GodotScenarioViewHintsProvidesCombatCameraStart()
         {
             bool hasHint = GodotScenarioViewHints.TryGetInitialCameraTile("CombatTest01", out int tileX, out int tileY);

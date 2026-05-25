@@ -390,6 +390,8 @@ namespace RtsGame.Tests
                 new TestCase("control group resolver filters missing and non local units", ControlGroupResolverFiltersMissingAndNonLocalUnits),
                 new TestCase("control group focus resolver returns center for recallable units", ControlGroupFocusResolverReturnsCenterForRecallableUnits),
                 new TestCase("control group focus resolver returns false for missing units", ControlGroupFocusResolverReturnsFalseForMissingUnits),
+                new TestCase("control group recall tracker detects double tap within window", ControlGroupRecallTrackerDetectsDoubleTapWithinWindow),
+                new TestCase("control group recall tracker rejects tap outside window", ControlGroupRecallTrackerRejectsTapOutsideWindow),
                 new TestCase("godot scenario view hints provides combat camera start", GodotScenarioViewHintsProvidesCombatCameraStart),
                 new TestCase("godot scenario view hints ignores unknown map", GodotScenarioViewHintsIgnoresUnknownMap),
                 new TestCase("tc placement preview valid at player 0 tc zone", TcPlacementPreviewValidAtPlayer0TcZone),

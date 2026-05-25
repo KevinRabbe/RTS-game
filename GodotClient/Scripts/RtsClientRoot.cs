@@ -21,6 +21,7 @@ public partial class RtsClientRoot : Node2D
 	private readonly RtsCameraController _cameraController = new RtsCameraController();
 	private readonly RtsSelectionController _selectionController = new RtsSelectionController();
 	private readonly GodotControlGroupState _controlGroups = new GodotControlGroupState();
+	private readonly GodotControlGroupRecallTracker _controlGroupRecallTracker = new GodotControlGroupRecallTracker();
 	private readonly RtsCommandMarker _commandMarker = new RtsCommandMarker();
 	private readonly RtsInputModeState _inputModeState = new RtsInputModeState();
 	private readonly RtsTradeRouteSelection _tradeRouteSelection = new RtsTradeRouteSelection();
@@ -214,6 +215,7 @@ public partial class RtsClientRoot : Node2D
 			ResearchFromSelectedBuilding,
 			_selectionController,
 			_controlGroups,
+			_controlGroupRecallTracker,
 			OnControlGroupRecalled,
 			QueueCommandAndConfirm,
 			RefreshFrame,
@@ -237,7 +239,7 @@ public partial class RtsClientRoot : Node2D
 		ResetLocalRuntimeState();
 	}
 
-	private void OnControlGroupRecalled(int[] recalledUnitIds)
+	private void OnControlGroupRecalled(int[] recalledUnitIds, bool isDoubleTap)
 	{
 		if (_camera == null || _frame == null || recalledUnitIds.Length == 0)
 		{
@@ -247,6 +249,10 @@ public partial class RtsClientRoot : Node2D
 		if (GodotControlGroupFocusResolver.TryResolveCenterRaw(_frame, recalledUnitIds, out long centerXRaw, out long centerYRaw))
 		{
 			_camera.Position = ToScreen(centerXRaw, centerYRaw);
+			if (isDoubleTap)
+			{
+				QueueRedraw();
+			}
 		}
 	}
 
@@ -284,6 +290,7 @@ public partial class RtsClientRoot : Node2D
 			ref _paused);
 		_inputModeState.ExitToNormal();
 		_controlGroups.Reset();
+		_controlGroupRecallTracker.Reset();
 
 		ApplyScenarioCameraStartIfDefined();
 	}
