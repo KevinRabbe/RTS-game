@@ -425,6 +425,38 @@ namespace RtsGame.Tests
             AssertEqual(101, recalled[0], "control group recall should keep local unit id");
         }
 
+        private static void ControlGroupFocusResolverReturnsCenterForRecallableUnits()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(
+                new[]
+                {
+                    CreateGodotPrimitive(VisualPrimitiveKind.UnitSquare, 201, 0, 10, 10),
+                    CreateGodotPrimitive(VisualPrimitiveKind.UnitSquare, 202, 0, 14, 6)
+                },
+                new GodotBuildingStatusDto[0],
+                new[]
+                {
+                    new GodotUnitStatusDto(201, (int)UnitTypeId.Infantry, 60, 60, false, 0, 0, 0, 0, 10, 10, Fixed.FromInt(10).Raw, Fixed.FromInt(10).Raw, 0, 0, 0, 0, 0, false, false, false, 0, 0, 0, 0, 0, false, 0, 0, 0),
+                    new GodotUnitStatusDto(202, (int)UnitTypeId.Infantry, 60, 60, false, 0, 0, 0, 0, 14, 6, Fixed.FromInt(14).Raw, Fixed.FromInt(6).Raw, 0, 0, 0, 0, 0, false, false, false, 0, 0, 0, 0, 0, false, 0, 0, 0)
+                });
+
+            bool resolved = GodotControlGroupFocusResolver.TryResolveCenterRaw(frame, new[] { 201, 202 }, out long centerXRaw, out long centerYRaw);
+
+            AssertEqual(true, resolved, "control group focus should resolve when units are present");
+            AssertEqual(Fixed.FromInt(12).Raw, centerXRaw, "control group focus should average x in raw coordinates");
+            AssertEqual(Fixed.FromInt(8).Raw, centerYRaw, "control group focus should average y in raw coordinates");
+        }
+
+        private static void ControlGroupFocusResolverReturnsFalseForMissingUnits()
+        {
+            GodotFrameDto frame = CreateGodotInteractionFrame(new GodotPrimitiveDto[0], new GodotBuildingStatusDto[0], new GodotUnitStatusDto[0]);
+            bool resolved = GodotControlGroupFocusResolver.TryResolveCenterRaw(frame, new[] { 999 }, out long centerXRaw, out long centerYRaw);
+
+            AssertEqual(false, resolved, "control group focus should fail when recalled units are missing");
+            AssertEqual(0L, centerXRaw, "missing focus center x should default to zero");
+            AssertEqual(0L, centerYRaw, "missing focus center y should default to zero");
+        }
+
         private static void GodotScenarioViewHintsProvidesCombatCameraStart()
         {
             bool hasHint = GodotScenarioViewHints.TryGetInitialCameraTile("CombatTest01", out int tileX, out int tileY);

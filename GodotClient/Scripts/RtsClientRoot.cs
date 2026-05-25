@@ -214,6 +214,7 @@ public partial class RtsClientRoot : Node2D
 			ResearchFromSelectedBuilding,
 			_selectionController,
 			_controlGroups,
+			OnControlGroupRecalled,
 			QueueCommandAndConfirm,
 			RefreshFrame,
 			QueueRedraw,
@@ -234,6 +235,19 @@ public partial class RtsClientRoot : Node2D
 	{
 		_facade = RtsSessionBootstrap.StartLocalMatch(DefaultMatchSeed, playerCount);
 		ResetLocalRuntimeState();
+	}
+
+	private void OnControlGroupRecalled(int[] recalledUnitIds)
+	{
+		if (_camera == null || _frame == null || recalledUnitIds.Length == 0)
+		{
+			return;
+		}
+
+		if (GodotControlGroupFocusResolver.TryResolveCenterRaw(_frame, recalledUnitIds, out long centerXRaw, out long centerYRaw))
+		{
+			_camera.Position = ToScreen(centerXRaw, centerYRaw);
+		}
 	}
 
 	private const string DryArabiaMapName = "DryArabiaTest01";

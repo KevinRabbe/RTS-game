@@ -388,6 +388,8 @@ namespace RtsGame.Tests
                 new TestCase("godot hotkey help contains known bindings", GodotHotkeyHelpContainsKnownBindings),
                 new TestCase("control group state assign recall stores sorted ids", ControlGroupStateAssignRecallStoresSortedIds),
                 new TestCase("control group resolver filters missing and non local units", ControlGroupResolverFiltersMissingAndNonLocalUnits),
+                new TestCase("control group focus resolver returns center for recallable units", ControlGroupFocusResolverReturnsCenterForRecallableUnits),
+                new TestCase("control group focus resolver returns false for missing units", ControlGroupFocusResolverReturnsFalseForMissingUnits),
                 new TestCase("godot scenario view hints provides combat camera start", GodotScenarioViewHintsProvidesCombatCameraStart),
                 new TestCase("godot scenario view hints ignores unknown map", GodotScenarioViewHintsIgnoresUnknownMap),
                 new TestCase("tc placement preview valid at player 0 tc zone", TcPlacementPreviewValidAtPlayer0TcZone),

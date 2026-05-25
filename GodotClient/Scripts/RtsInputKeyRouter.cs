@@ -24,6 +24,7 @@ internal static class RtsInputKeyRouter
 		Action<int> researchFromSelectedBuilding,
 		RtsSelectionController selectionController,
 		GodotControlGroupState controlGroups,
+		Action<int[]> onControlGroupRecalled,
 		Action<string, Action<GodotClientFacade>> queueCommandAndConfirm,
 		Action refreshFrame,
 		Action queueRedraw,
@@ -53,6 +54,7 @@ internal static class RtsInputKeyRouter
 			int[] stored = controlGroups.Recall(groupIndex);
 			int[] recallable = GodotControlGroupResolver.FilterRecallableLocalUnitIds(frame, localPlayerIndex, stored);
 			selectionController.SelectUnitIds(recallable, addDebugEvent);
+			onControlGroupRecalled(recallable);
 			addDebugEvent(GodotControlGroupFeedbackFormatter.BuildRecalledText(groupIndex, recallable.Length));
 			refreshFrame();
 			return;
