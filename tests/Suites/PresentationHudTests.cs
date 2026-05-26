@@ -833,6 +833,12 @@ namespace RtsGame.Tests
             AssertEqual("Group 1 assigned: 5 units", text, "control group assign feedback should be concise and stable");
         }
 
+        private static void GodotControlGroupFeedbackFormatsAddedText()
+        {
+            string text = GodotControlGroupFeedbackFormatter.BuildAddedText(1, 7);
+            AssertEqual("Group 1 added: 7 units", text, "control group additive assign feedback should be concise and stable");
+        }
+
         private static void GodotControlGroupFeedbackFormatsRecallText()
         {
             string text = GodotControlGroupFeedbackFormatter.BuildRecalledText(2, 3);

@@ -375,6 +375,7 @@ namespace RtsGame.Tests
             AssertEqual(true, ContainsHotkey(entries, "H/F11", "Toggle hotkey help"), "hotkey help should include H/F11 help binding");
             AssertEqual(true, ContainsHotkey(entries, "Space", "Pause / unpause"), "hotkey help should include pause binding");
             AssertEqual(true, ContainsHotkey(entries, "Ctrl+1..9", "Assign selected units to control group"), "hotkey help should include control group assignment binding");
+            AssertEqual(true, ContainsHotkey(entries, "Shift+1..9", "Add selected units to control group"), "hotkey help should include control group additive assignment binding");
             AssertEqual(true, ContainsHotkey(entries, "1..9", "Recall control group selection"), "hotkey help should include control group recall binding");
             AssertEqual(true, ContainsHotkey(entries, "Left Click", "Select / confirm placement"), "hotkey help should include left-click selection behavior");
             AssertEqual(true, ContainsHotkey(entries, "Right Click", "Normal mode: Move/Gather/Attack/Build, Placement mode: cancel"), "hotkey help should include right-click context behavior");
@@ -402,6 +403,22 @@ namespace RtsGame.Tests
             AssertEqual(5, recalled[0], "control group should preserve deterministic id order");
             AssertEqual(7, recalled[1], "control group should preserve deterministic id order");
             AssertEqual(9, recalled[2], "control group should preserve deterministic id order");
+        }
+
+        private static void ControlGroupStateShiftAddMergesAndDedupes()
+        {
+            var groups = new GodotControlGroupState();
+            groups.Assign(2, new[] { 3, 5, 7 });
+            int total = groups.AddToGroup(2, new[] { 5, 6, 8 });
+            int[] recalled = groups.Recall(2);
+
+            AssertEqual(5, total, "add-to-group should report total merged unit count");
+            AssertEqual(5, recalled.Length, "add-to-group should merge and dedupe ids");
+            AssertEqual(3, recalled[0], "merged group should remain deterministically sorted");
+            AssertEqual(5, recalled[1], "merged group should remain deterministically sorted");
+            AssertEqual(6, recalled[2], "merged group should include new id");
+            AssertEqual(7, recalled[3], "merged group should retain existing id");
+            AssertEqual(8, recalled[4], "merged group should include new id");
         }
 
         private static void ControlGroupResolverFiltersMissingAndNonLocalUnits()

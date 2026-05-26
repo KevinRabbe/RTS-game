@@ -40,6 +40,7 @@ namespace RtsGame.Presentation.GodotBridge
 
                 new GodotHotkeyHelpEntry("Control Groups:", ""),
                 new GodotHotkeyHelpEntry("Ctrl+1..9", "Assign selected units to control group"),
+                new GodotHotkeyHelpEntry("Shift+1..9", "Add selected units to control group"),
                 new GodotHotkeyHelpEntry("1..9", "Recall control group selection"),
                 new GodotHotkeyHelpEntry("", ""),
 

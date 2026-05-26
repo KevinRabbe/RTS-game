@@ -62,6 +62,39 @@ namespace RtsGame.Presentation.GodotBridge
             Array.Copy(group, copy, group.Length);
             return copy;
         }
+
+        public int AddToGroup(int groupIndex, IReadOnlyList<int> unitIds)
+        {
+            if (groupIndex < 1 || groupIndex > 9 || unitIds.Count == 0)
+            {
+                return Recall(groupIndex).Length;
+            }
+
+            int[] existing = Recall(groupIndex);
+            var merged = new int[existing.Length + unitIds.Count];
+            int write = 0;
+            for (int i = 0; i < existing.Length; i++)
+            {
+                merged[write++] = existing[i];
+            }
+
+            for (int i = 0; i < unitIds.Count; i++)
+            {
+                int id = unitIds[i];
+                if (id > 0)
+                {
+                    merged[write++] = id;
+                }
+            }
+
+            Array.Sort(merged, 0, write);
+            if (write < merged.Length)
+            {
+                Array.Resize(ref merged, write);
+            }
+
+            Assign(groupIndex, merged);
+            return Recall(groupIndex).Length;
+        }
     }
 }
-

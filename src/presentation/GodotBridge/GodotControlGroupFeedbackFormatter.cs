@@ -7,6 +7,11 @@ namespace RtsGame.Presentation.GodotBridge
             return "Group " + groupIndex + " assigned: " + selectedUnitCount + " units";
         }
 
+        public static string BuildAddedText(int groupIndex, int totalUnitCount)
+        {
+            return "Group " + groupIndex + " added: " + totalUnitCount + " units";
+        }
+
         public static string BuildRecalledText(int groupIndex, int recalledUnitCount)
         {
             if (recalledUnitCount <= 0)
@@ -18,4 +23,3 @@ namespace RtsGame.Presentation.GodotBridge
         }
     }
 }
-
