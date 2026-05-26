@@ -440,6 +440,7 @@ public partial class RtsClientRoot : Node2D
 		}
 
 		int[] selectedUnitIds = _selectionController.GetSelectedUnitIdsSorted();
+		int[] matchedControlGroups = _controlGroups.FindAllExactMatchGroupIndices(selectedUnitIds);
 		string[] lines = GodotHudTextBuilder.BuildLines(
 			_frame,
 			selectedUnitIds,
@@ -447,6 +448,7 @@ public partial class RtsClientRoot : Node2D
 			_hoveredResourceNodeId,
 			_paused,
 			_controlGroups.FindExactMatchGroupIndex(selectedUnitIds),
+			matchedControlGroups,
 			ResolveInputModeLabel(_inputModeState.CurrentMode));
 
 		RtsHudTopBarRenderer.DrawMain(this, uiOrigin, lines, _spriteRenderer);

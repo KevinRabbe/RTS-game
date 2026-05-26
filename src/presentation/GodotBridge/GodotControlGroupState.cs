@@ -130,5 +130,40 @@ namespace RtsGame.Presentation.GodotBridge
 
             return 0;
         }
+
+        public int[] FindAllExactMatchGroupIndices(IReadOnlyList<int> selectedUnitIds)
+        {
+            if (selectedUnitIds.Count == 0)
+            {
+                return Array.Empty<int>();
+            }
+
+            var matches = new List<int>(2);
+            for (int groupIndex = 1; groupIndex <= 9; groupIndex++)
+            {
+                int[] group = _groups[groupIndex];
+                if (group == null || group.Length != selectedUnitIds.Count)
+                {
+                    continue;
+                }
+
+                bool isMatch = true;
+                for (int i = 0; i < group.Length; i++)
+                {
+                    if (group[i] != selectedUnitIds[i])
+                    {
+                        isMatch = false;
+                        break;
+                    }
+                }
+
+                if (isMatch)
+                {
+                    matches.Add(groupIndex);
+                }
+            }
+
+            return matches.Count == 0 ? Array.Empty<int>() : matches.ToArray();
+        }
     }
 }

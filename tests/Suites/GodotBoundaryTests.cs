@@ -421,6 +421,28 @@ namespace RtsGame.Tests
             AssertEqual(8, recalled[4], "merged group should include new id");
         }
 
+        private static void ControlGroupStateFindsAllExactMatchIndices()
+        {
+            var groups = new GodotControlGroupState();
+            groups.Assign(1, new[] { 5, 7, 9 });
+            groups.Assign(3, new[] { 5, 7, 9 });
+            groups.Assign(4, new[] { 5, 9 });
+
+            int[] matches = groups.FindAllExactMatchGroupIndices(new[] { 5, 7, 9 });
+            AssertEqual(2, matches.Length, "matching control groups should include every exact deterministic match");
+            AssertEqual(1, matches[0], "matching control groups should be returned in ascending group order");
+            AssertEqual(3, matches[1], "matching control groups should be returned in ascending group order");
+        }
+
+        private static void ControlGroupStateFindsNoMatchesForDifferentSelection()
+        {
+            var groups = new GodotControlGroupState();
+            groups.Assign(1, new[] { 5, 7, 9 });
+
+            int[] matches = groups.FindAllExactMatchGroupIndices(new[] { 5, 7 });
+            AssertEqual(0, matches.Length, "different selection cardinality should not produce a control-group match");
+        }
+
         private static void ControlGroupResolverFiltersMissingAndNonLocalUnits()
         {
             GodotFrameDto frame = CreateGodotInteractionFrame(

@@ -919,7 +919,7 @@ namespace RtsGame.Tests
                 new GodotUnitStatusDto[0],
                 new GodotBuildingStatusDto[0]);
 
-            string text = GodotHudTextBuilder.Build(frame, new int[0], 0, 0, false, 0, "AttackMove");
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 0, 0, false, 0, null, "AttackMove");
             AssertEqual(true, text.Contains("Mode AttackMove"), "hud should expose active input mode for command clarity");
         }
 
@@ -931,8 +931,20 @@ namespace RtsGame.Tests
                 new GodotUnitStatusDto[0],
                 new GodotBuildingStatusDto[0]);
 
-            string text = GodotHudTextBuilder.Build(frame, new int[0], 0, 0, false, 0, "");
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 0, 0, false, 0, null, "");
             AssertEqual(false, text.Contains("Mode "), "hud should omit input mode label when no temporary command mode is active");
+        }
+
+        private static void GodotHudTextIncludesMultipleSelectedControlGroupIndicators()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new[] { new GodotUnitStatusDto(43, (int)UnitTypeId.Infantry, false, 0, 0, 0, 0, 0, 0, 0, 0) },
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new[] { 43 }, 0, 0, false, 0, new[] { 1, 3 }, "");
+            AssertEqual(true, text.Contains("CG:1,3"), "hud should include all matching control groups when selection is shared");
         }
 
     }

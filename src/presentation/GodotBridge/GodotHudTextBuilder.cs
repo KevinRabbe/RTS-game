@@ -13,6 +13,7 @@ namespace RtsGame.Presentation.GodotBridge
             int hoveredResourceNodeId,
             bool paused,
             int selectedControlGroupIndex = 0,
+            int[]? selectedControlGroupIndices = null,
             string inputModeLabel = "")
         {
             GodotLocalPlayerDto player = frame.LocalPlayer;
@@ -34,7 +35,7 @@ namespace RtsGame.Presentation.GodotBridge
 
             string lineB = "Selected " + selected
                 + " (" + selectedCount + ")"
-                + GetSelectedControlGroupIndicatorText(selectedControlGroupIndex)
+                + GetSelectedControlGroupIndicatorText(selectedControlGroupIndex, selectedControlGroupIndices)
                 + GetSelectedGroupSummaryText(selectedUnitIds)
                 + GetSelectedTypeSummaryText(frame, selectedUnitIds)
                 + GetSelectedUnitStatusText(frame, selectedUnitIds)
@@ -59,9 +60,10 @@ namespace RtsGame.Presentation.GodotBridge
             int hoveredResourceNodeId,
             bool paused,
             int selectedControlGroupIndex = 0,
+            int[]? selectedControlGroupIndices = null,
             string inputModeLabel = "")
         {
-            return string.Join("  ", BuildLines(frame, selectedUnitIds, selectedBuildingId, hoveredResourceNodeId, paused, selectedControlGroupIndex, inputModeLabel));
+            return string.Join("  ", BuildLines(frame, selectedUnitIds, selectedBuildingId, hoveredResourceNodeId, paused, selectedControlGroupIndex, selectedControlGroupIndices, inputModeLabel));
         }
 
         public static string GetSelectedUnitStatusText(GodotFrameDto frame, int[] selectedUnitIds)
@@ -258,8 +260,13 @@ namespace RtsGame.Presentation.GodotBridge
             return "  Press H for hotkeys";
         }
 
-        private static string GetSelectedControlGroupIndicatorText(int selectedControlGroupIndex)
+        private static string GetSelectedControlGroupIndicatorText(int selectedControlGroupIndex, int[]? selectedControlGroupIndices)
         {
+            if (selectedControlGroupIndices != null && selectedControlGroupIndices.Length > 0)
+            {
+                return " CG:" + string.Join(",", selectedControlGroupIndices);
+            }
+
             if (selectedControlGroupIndex < 1 || selectedControlGroupIndex > 9)
             {
                 return "";
