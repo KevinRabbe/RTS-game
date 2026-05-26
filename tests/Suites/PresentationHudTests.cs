@@ -887,5 +887,29 @@ namespace RtsGame.Tests
             AssertEqual(true, text.Contains("4 Infantry, 1 Scout"), "hud should include mixed selected type summary");
         }
 
+        private static void GodotHudTextIncludesSelectedControlGroupIndicator()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new[] { new GodotUnitStatusDto(41, (int)UnitTypeId.Infantry, false, 0, 0, 0, 0, 0, 0, 0, 0) },
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new[] { 41 }, 0, 0, false, selectedControlGroupIndex: 3);
+            AssertEqual(true, text.Contains("CG:3"), "hud should include selected control group indicator when current selection matches a group");
+        }
+
+        private static void GodotHudTextOmitsSelectedControlGroupIndicatorWhenNoMatch()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new[] { new GodotUnitStatusDto(42, (int)UnitTypeId.Infantry, false, 0, 0, 0, 0, 0, 0, 0, 0) },
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new[] { 42 }, 0, 0, false);
+            AssertEqual(false, text.Contains("CG:"), "hud should omit control group indicator when current selection does not match a group");
+        }
+
     }
 }

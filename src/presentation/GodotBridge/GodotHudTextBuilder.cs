@@ -11,7 +11,8 @@ namespace RtsGame.Presentation.GodotBridge
             int[] selectedUnitIds,
             int selectedBuildingId,
             int hoveredResourceNodeId,
-            bool paused)
+            bool paused,
+            int selectedControlGroupIndex = 0)
         {
             GodotLocalPlayerDto player = frame.LocalPlayer;
             string selected = selectedUnitIds.Length == 0 ? "none" : string.Join(",", selectedUnitIds);
@@ -32,6 +33,7 @@ namespace RtsGame.Presentation.GodotBridge
 
             string lineB = "Selected " + selected
                 + " (" + selectedCount + ")"
+                + GetSelectedControlGroupIndicatorText(selectedControlGroupIndex)
                 + GetSelectedGroupSummaryText(selectedUnitIds)
                 + GetSelectedTypeSummaryText(frame, selectedUnitIds)
                 + GetSelectedUnitStatusText(frame, selectedUnitIds)
@@ -53,9 +55,10 @@ namespace RtsGame.Presentation.GodotBridge
             int[] selectedUnitIds,
             int selectedBuildingId,
             int hoveredResourceNodeId,
-            bool paused)
+            bool paused,
+            int selectedControlGroupIndex = 0)
         {
-            return string.Join("  ", BuildLines(frame, selectedUnitIds, selectedBuildingId, hoveredResourceNodeId, paused));
+            return string.Join("  ", BuildLines(frame, selectedUnitIds, selectedBuildingId, hoveredResourceNodeId, paused, selectedControlGroupIndex));
         }
 
         public static string GetSelectedUnitStatusText(GodotFrameDto frame, int[] selectedUnitIds)
@@ -250,6 +253,16 @@ namespace RtsGame.Presentation.GodotBridge
         private static string GetControlHintText()
         {
             return "  Press H for hotkeys";
+        }
+
+        private static string GetSelectedControlGroupIndicatorText(int selectedControlGroupIndex)
+        {
+            if (selectedControlGroupIndex < 1 || selectedControlGroupIndex > 9)
+            {
+                return "";
+            }
+
+            return " CG:" + selectedControlGroupIndex;
         }
 
         private static string GetSelectedGroupSummaryText(int[] selectedUnitIds)

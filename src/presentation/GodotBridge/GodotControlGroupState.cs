@@ -96,5 +96,39 @@ namespace RtsGame.Presentation.GodotBridge
             Assign(groupIndex, merged);
             return Recall(groupIndex).Length;
         }
+
+        public int FindExactMatchGroupIndex(IReadOnlyList<int> selectedUnitIds)
+        {
+            if (selectedUnitIds.Count == 0)
+            {
+                return 0;
+            }
+
+            for (int groupIndex = 1; groupIndex <= 9; groupIndex++)
+            {
+                int[] group = _groups[groupIndex];
+                if (group == null || group.Length != selectedUnitIds.Count)
+                {
+                    continue;
+                }
+
+                bool matches = true;
+                for (int i = 0; i < group.Length; i++)
+                {
+                    if (group[i] != selectedUnitIds[i])
+                    {
+                        matches = false;
+                        break;
+                    }
+                }
+
+                if (matches)
+                {
+                    return groupIndex;
+                }
+            }
+
+            return 0;
+        }
     }
 }

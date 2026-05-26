@@ -357,6 +357,8 @@ namespace RtsGame.Tests
                 new TestCase("godot control group feedback formats empty text", GodotControlGroupFeedbackFormatsEmptyText),
                 new TestCase("godot hud text includes selected type summary homogeneous", GodotHudTextIncludesSelectedTypeSummaryHomogeneous),
                 new TestCase("godot hud text includes selected type summary mixed", GodotHudTextIncludesSelectedTypeSummaryMixed),
+                new TestCase("godot hud text includes selected control group indicator", GodotHudTextIncludesSelectedControlGroupIndicator),
+                new TestCase("godot hud text omits selected control group indicator when no match", GodotHudTextOmitsSelectedControlGroupIndicatorWhenNoMatch),
                 new TestCase("godot primitive hit test includes boundary", GodotPrimitiveHitTestIncludesBoundary),
                 new TestCase("godot building hit test includes footprint boundary", GodotBuildingHitTestIncludesFootprintBoundary),
                 new TestCase("godot primitive hit test supports rectangular bounds", GodotPrimitiveHitTestSupportsRectangularBounds),
