@@ -1,6 +1,6 @@
 # Current Vertical Slice
 
-## Accepted State (Phase 9C.8 Entry)
+## Accepted State (Post-10A Selection/Control Pass)
 
 - Branch: `phase-6-visual-placeholder-pipeline`
 - `MovementEngineV2` and `GatherEngineV2` are default-on and accepted as prototype-ready.
@@ -14,6 +14,14 @@
 - Combat test lab scenarios are implemented (`F2 CombatTest01` + enemy building target).
 - Combat scenario UX polish is complete (scenario camera hint + clearer hotkey labels).
 - Code documentation and targeted contract comments pass is complete (9C.8).
+- Control group and selection quality pass is implemented:
+  - `Ctrl+1..9` assign + `1..9` recall
+  - `Shift+1..9` additive control-group merge
+  - double-tap control-group recall camera jump
+  - shift-click unit selection toggles
+  - double-click same-type owned unit selection
+  - shift-drag additive rectangle selection toggles
+  - HUD control-group feedback plus matched `CG:x` indicator
 - Full gate remains green:
   - tests: `512/512 PASS`
   - `chaos-v4` (`5000` ticks): `desync=False`, `invariant_failures=0`
@@ -89,3 +97,9 @@ Next recommended phase:
 1. **10A — Control Groups and Selection Quality**
 
 Reason: highest value for both economy and combat without touching simulation balance contracts.
+
+## Updated Next Phase Intent
+
+1. **10B - Command/Selection UX Depth**
+
+Reason: extend player control quality (queueing/prioritized intents/readability) while preserving deterministic simulation contracts and avoiding balance churn.

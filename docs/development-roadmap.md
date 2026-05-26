@@ -21,6 +21,13 @@ Completed tracks:
   - 9B.1 deterministic CombatTest01 (F2)
   - 9B.2 enemy building target in CombatTest01
   - 9B.3 combat scenario UX polish
+- 10A control groups and selection quality implemented:
+  - assign/recall groups (`Ctrl+1..9` / `1..9`)
+  - additive group merge (`Shift+1..9`)
+  - double-tap recall camera jump
+  - shift-click toggles + double-click same-type selection
+  - shift-drag additive rectangle selection toggles
+  - matched control-group HUD indicator (`CG:x`)
 
 Current gate status:
 
@@ -87,3 +94,13 @@ Guardrails:
 - High-pop policy: [high-pop-simulation-architecture.md](high-pop-simulation-architecture.md)
 - Load risk classification: [architecture-load-audit.md](architecture-load-audit.md)
 - Combat scale plan: [combat-architecture.md](combat-architecture.md)
+
+## Updated Next Active Stage
+
+**10B - Command/Selection UX Depth**
+
+Near-term target:
+
+1. Improve player command clarity and queueing ergonomics without simulation rewrites.
+2. Preserve accepted `Attack` / `AttackMove` input contracts while adding low-risk UX depth.
+3. Keep stage presentation/client-side first; no balance/system churn.
