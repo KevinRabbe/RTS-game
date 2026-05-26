@@ -251,9 +251,6 @@ internal sealed class RtsSelectionController
 		Func<float, long> screenToRaw,
 		Action<string> log)
 	{
-		_selectedUnitIds.Clear();
-		_selectedBuildingId = 0;
-
 		int[] selected = GodotSelectionRouter.SelectUnitsInRectangle(
 			frame,
 			localPlayerIndex,
@@ -262,18 +259,30 @@ internal sealed class RtsSelectionController
 			screenToRaw(_dragCurrent.X),
 			screenToRaw(_dragCurrent.Y));
 
-		for (int i = 0; i < selected.Length; i++)
+		GodotSelectionEditResult resolved = GodotSelectionRouter.ResolveRectangleSelection(
+			_selectedUnitIds,
+			_selectedBuildingId,
+			selected,
+			_dragAdditive);
+		_selectedUnitIds.Clear();
+		for (int i = 0; i < resolved.SelectedUnitIds.Length; i++)
 		{
-			_selectedUnitIds.Add(selected[i]);
+			_selectedUnitIds.Add(resolved.SelectedUnitIds[i]);
+		}
+		_selectedBuildingId = resolved.SelectedBuildingId;
+
+		if (_dragAdditive)
+		{
+			if (!resolved.Changed)
+			{
+				log("shift box selection unchanged");
+				return;
+			}
+
+			log("shift box select units=" + string.Join(",", _selectedUnitIds));
+			return;
 		}
 
-		if (selected.Length == 0)
-		{
-			log("box select none");
-		}
-		else
-		{
-			log("box select units=" + string.Join(",", selected));
-		}
+		log(selected.Length == 0 ? "box select none" : "box select units=" + string.Join(",", selected));
 	}
 }

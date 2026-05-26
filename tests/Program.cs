@@ -319,6 +319,8 @@ namespace RtsGame.Tests
                 new TestCase("godot selection edit shift click adds owned unit", GodotSelectionEditShiftClickAddsOwnedUnit),
                 new TestCase("godot selection edit shift click removes selected unit", GodotSelectionEditShiftClickRemovesSelectedUnit),
                 new TestCase("godot selection edit shift click none keeps selection", GodotSelectionEditShiftClickNoneKeepsSelection),
+                new TestCase("godot selection edit shift drag adds rectangle units", GodotSelectionEditShiftDragAddsRectangleUnits),
+                new TestCase("godot selection edit shift drag toggles existing rectangle units", GodotSelectionEditShiftDragTogglesExistingRectangleUnits),
                 new TestCase("control group recall works after shift selection edit", ControlGroupRecallWorksAfterShiftSelectionEdit),
                 new TestCase("godot hud text includes economy and selection", GodotHudTextIncludesEconomyAndSelection),
                 new TestCase("godot hud text build lines returns two lines", GodotHudTextBuildLinesReturnsTwoLines),

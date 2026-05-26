@@ -738,6 +738,37 @@ namespace RtsGame.Tests
             AssertEqual(0, edit.SelectedBuildingId, "shift-click empty space should keep building selection state");
         }
 
+        private static void GodotSelectionEditShiftDragAddsRectangleUnits()
+        {
+            GodotSelectionEditResult edit = GodotSelectionRouter.ResolveRectangleSelection(
+                new[] { 10, 11 },
+                0,
+                new[] { 12, 13 },
+                additive: true);
+
+            AssertEqual(4, edit.SelectedUnitIds.Length, "shift-drag should add rectangle units to current selection");
+            AssertEqual(10, edit.SelectedUnitIds[0], "shift-drag add should keep sorted deterministic order");
+            AssertEqual(11, edit.SelectedUnitIds[1], "shift-drag add should keep sorted deterministic order");
+            AssertEqual(12, edit.SelectedUnitIds[2], "shift-drag add should keep sorted deterministic order");
+            AssertEqual(13, edit.SelectedUnitIds[3], "shift-drag add should keep sorted deterministic order");
+            AssertEqual(0, edit.SelectedBuildingId, "shift-drag unit selection should clear building selection");
+        }
+
+        private static void GodotSelectionEditShiftDragTogglesExistingRectangleUnits()
+        {
+            GodotSelectionEditResult edit = GodotSelectionRouter.ResolveRectangleSelection(
+                new[] { 10, 11, 12 },
+                0,
+                new[] { 11, 13 },
+                additive: true);
+
+            AssertEqual(3, edit.SelectedUnitIds.Length, "shift-drag should toggle overlapping rectangle units");
+            AssertEqual(10, edit.SelectedUnitIds[0], "shift-drag toggle should keep sorted deterministic order");
+            AssertEqual(12, edit.SelectedUnitIds[1], "shift-drag toggle should keep sorted deterministic order");
+            AssertEqual(13, edit.SelectedUnitIds[2], "shift-drag toggle should keep sorted deterministic order");
+            AssertEqual(0, edit.SelectedBuildingId, "shift-drag unit toggle should clear building selection");
+        }
+
         private static void GodotSelectionRouterDoubleClickOwnedVillagerSelectsSameType()
         {
             GodotFrameDto frame = CreateGodotInteractionFrame(new[]

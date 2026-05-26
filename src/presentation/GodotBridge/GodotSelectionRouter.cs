@@ -159,6 +159,48 @@ namespace RtsGame.Presentation.GodotBridge
             return selected.ToArray();
         }
 
+        public static GodotSelectionEditResult ResolveRectangleSelection(
+            IReadOnlyList<int> currentSelectedUnitIds,
+            int currentSelectedBuildingId,
+            IReadOnlyList<int> rectangleSelectedUnitIds,
+            bool additive)
+        {
+            if (!additive)
+            {
+                int[] next = ToArray(rectangleSelectedUnitIds);
+                return new GodotSelectionEditResult(next, 0, true);
+            }
+
+            if (rectangleSelectedUnitIds.Count == 0)
+            {
+                return new GodotSelectionEditResult(ToArray(currentSelectedUnitIds), currentSelectedBuildingId, false);
+            }
+
+            var nextSelection = new List<int>(currentSelectedUnitIds.Count + rectangleSelectedUnitIds.Count);
+            for (int i = 0; i < currentSelectedUnitIds.Count; i++)
+            {
+                nextSelection.Add(currentSelectedUnitIds[i]);
+            }
+
+            bool changed = false;
+            for (int i = 0; i < rectangleSelectedUnitIds.Count; i++)
+            {
+                int unitId = rectangleSelectedUnitIds[i];
+                bool removed = nextSelection.Remove(unitId);
+                if (removed)
+                {
+                    changed = true;
+                    continue;
+                }
+
+                nextSelection.Add(unitId);
+                changed = true;
+            }
+
+            nextSelection.Sort();
+            return new GodotSelectionEditResult(nextSelection.ToArray(), 0, changed || currentSelectedBuildingId != 0);
+        }
+
         public static GodotSelectionResult SelectAt(GodotFrameDto frame, int localPlayerIndex, long xRaw, long yRaw)
         {
             for (int i = 0; i < frame.Primitives.Length; i++)
