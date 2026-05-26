@@ -12,7 +12,8 @@ namespace RtsGame.Presentation.GodotBridge
             int selectedBuildingId,
             int hoveredResourceNodeId,
             bool paused,
-            int selectedControlGroupIndex = 0)
+            int selectedControlGroupIndex = 0,
+            string inputModeLabel = "")
         {
             GodotLocalPlayerDto player = frame.LocalPlayer;
             string selected = selectedUnitIds.Length == 0 ? "none" : string.Join(",", selectedUnitIds);
@@ -44,6 +45,7 @@ namespace RtsGame.Presentation.GodotBridge
                 + GetSelectedBuildingResearchActionText(frame, selectedBuildingId)
                 + GetSelectedBuildingActionHintText(frame, selectedBuildingId)
                 + "  Resource " + hoveredResource
+                + GetInputModeText(inputModeLabel)
                 + (paused ? "  Paused" : "")
                 + GetControlHintText();
 
@@ -56,9 +58,10 @@ namespace RtsGame.Presentation.GodotBridge
             int selectedBuildingId,
             int hoveredResourceNodeId,
             bool paused,
-            int selectedControlGroupIndex = 0)
+            int selectedControlGroupIndex = 0,
+            string inputModeLabel = "")
         {
-            return string.Join("  ", BuildLines(frame, selectedUnitIds, selectedBuildingId, hoveredResourceNodeId, paused, selectedControlGroupIndex));
+            return string.Join("  ", BuildLines(frame, selectedUnitIds, selectedBuildingId, hoveredResourceNodeId, paused, selectedControlGroupIndex, inputModeLabel));
         }
 
         public static string GetSelectedUnitStatusText(GodotFrameDto frame, int[] selectedUnitIds)
@@ -263,6 +266,16 @@ namespace RtsGame.Presentation.GodotBridge
             }
 
             return " CG:" + selectedControlGroupIndex;
+        }
+
+        private static string GetInputModeText(string inputModeLabel)
+        {
+            if (string.IsNullOrWhiteSpace(inputModeLabel))
+            {
+                return "";
+            }
+
+            return "  Mode " + inputModeLabel;
         }
 
         private static string GetSelectedGroupSummaryText(int[] selectedUnitIds)

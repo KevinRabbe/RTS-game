@@ -911,5 +911,29 @@ namespace RtsGame.Tests
             AssertEqual(false, text.Contains("CG:"), "hud should omit control group indicator when current selection does not match a group");
         }
 
+        private static void GodotHudTextIncludesInputModeLabelWhenActive()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 0, 0, false, 0, "AttackMove");
+            AssertEqual(true, text.Contains("Mode AttackMove"), "hud should expose active input mode for command clarity");
+        }
+
+        private static void GodotHudTextOmitsInputModeLabelWhenNormal()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new int[0], 0, 0, false, 0, "");
+            AssertEqual(false, text.Contains("Mode "), "hud should omit input mode label when no temporary command mode is active");
+        }
+
     }
 }

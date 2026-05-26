@@ -116,19 +116,36 @@ internal sealed class RtsSelectionController
 	{
 		long xRaw = screenToRaw(screenPosition.X);
 		long yRaw = screenToRaw(screenPosition.Y);
-		if (!additive && selectSameType)
+		if (selectSameType)
 		{
 			int[] sameTypeUnits = GodotSelectionRouter.SelectOwnedUnitsOfSameTypeAt(frame, localPlayerIndex, xRaw, yRaw);
 			if (sameTypeUnits.Length > 0)
 			{
-				_selectedUnitIds.Clear();
-				_selectedBuildingId = 0;
-				for (int i = 0; i < sameTypeUnits.Length; i++)
+				if (!additive)
 				{
-					_selectedUnitIds.Add(sameTypeUnits[i]);
+					_selectedUnitIds.Clear();
+					_selectedBuildingId = 0;
+					for (int i = 0; i < sameTypeUnits.Length; i++)
+					{
+						_selectedUnitIds.Add(sameTypeUnits[i]);
+					}
+
+					log("double select same-type units=" + string.Join(",", sameTypeUnits));
+					return;
 				}
 
-				log("double select same-type units=" + string.Join(",", sameTypeUnits));
+				GodotSelectionEditResult sameTypeEdit = GodotSelectionRouter.ResolveRectangleSelection(
+					_selectedUnitIds,
+					_selectedBuildingId,
+					sameTypeUnits,
+					additive: true);
+				_selectedUnitIds.Clear();
+				for (int i = 0; i < sameTypeEdit.SelectedUnitIds.Length; i++)
+				{
+					_selectedUnitIds.Add(sameTypeEdit.SelectedUnitIds[i]);
+				}
+				_selectedBuildingId = sameTypeEdit.SelectedBuildingId;
+				log("shift double select same-type units=" + string.Join(",", _selectedUnitIds));
 				return;
 			}
 		}

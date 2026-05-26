@@ -446,7 +446,8 @@ public partial class RtsClientRoot : Node2D
 			_selectionController.SelectedBuildingId,
 			_hoveredResourceNodeId,
 			_paused,
-			_controlGroups.FindExactMatchGroupIndex(selectedUnitIds));
+			_controlGroups.FindExactMatchGroupIndex(selectedUnitIds),
+			ResolveInputModeLabel(_inputModeState.CurrentMode));
 
 		RtsHudTopBarRenderer.DrawMain(this, uiOrigin, lines, _spriteRenderer);
 
@@ -557,6 +558,21 @@ public partial class RtsClientRoot : Node2D
 	private static Vector2I ScreenToTile(Vector2 screenPosition)
 	{
 		return RtsCoordinateTransform.ScreenToTile(screenPosition, TilePixels);
+	}
+
+	private static string ResolveInputModeLabel(RtsInputModeKind mode)
+	{
+		switch (mode)
+		{
+			case RtsInputModeKind.AttackMoveTargeting:
+				return "AttackMove";
+			case RtsInputModeKind.TownCenterPlacement:
+				return "TCPlacement";
+			case RtsInputModeKind.TradeRouteTargeting:
+				return "TradeRoute";
+			default:
+				return "";
+		}
 	}
 
 	private void RefreshFrame()
