@@ -26,4 +26,16 @@ internal static class RtsHoverStateResolver
 		long yRaw = RtsCoordinateTransform.ScreenToRaw(screenPosition.Y, tilePixels);
 		return RtsHoverProbe.FindLocalBuildingAt(frame, localPlayerIndex, xRaw, yRaw);
 	}
+
+	internal static int FindHoveredUnitAt(GodotFrameDto? frame, Vector2 screenPosition, int tilePixels)
+	{
+		if (frame == null)
+		{
+			return 0;
+		}
+
+		long xRaw = RtsCoordinateTransform.ScreenToRaw(screenPosition.X, tilePixels);
+		long yRaw = RtsCoordinateTransform.ScreenToRaw(screenPosition.Y, tilePixels);
+		return RtsHoverProbe.FindHoveredUnitAt(frame, xRaw, yRaw);
+	}
 }

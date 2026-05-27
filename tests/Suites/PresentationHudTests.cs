@@ -995,6 +995,31 @@ namespace RtsGame.Tests
             AssertEqual(true, text.Contains("HoverR 4"), "hud should include hovered resource label when building hover is absent");
         }
 
+        private static void GodotHudTextIncludesHoveredUnitLabelWhenNoBuildingHover()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new[] { 11 }, 0, 0, false, 0, null, "", "", hoveredBuildingId: 0, hoveredUnitId: 88);
+            AssertEqual(true, text.Contains("HoverU 88"), "hud should include hovered unit label when building hover is absent");
+        }
+
+        private static void GodotHudTextPrefersHoveredBuildingOverHoveredUnit()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new[] { 11 }, 0, 4, false, 0, null, "", "", hoveredBuildingId: 27, hoveredUnitId: 88);
+            AssertEqual(true, text.Contains("HoverB 27"), "hud should prefer hovered building label when both building and unit hover are present");
+            AssertEqual(false, text.Contains("HoverU 88"), "hud should omit hovered unit label when hovered building is present");
+        }
+
         private static void GodotHudTextIncludesMultipleSelectedControlGroupIndicators()
         {
             GodotFrameDto frame = CreateGodotHudFrame(

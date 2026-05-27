@@ -16,7 +16,8 @@ namespace RtsGame.Presentation.GodotBridge
             int[]? selectedControlGroupIndices = null,
             string inputModeLabel = "",
             string contextHintLabel = "",
-            int hoveredBuildingId = 0)
+            int hoveredBuildingId = 0,
+            int hoveredUnitId = 0)
         {
             GodotLocalPlayerDto player = frame.LocalPlayer;
             string selected = selectedUnitIds.Length == 0 ? "none" : string.Join(",", selectedUnitIds);
@@ -48,7 +49,7 @@ namespace RtsGame.Presentation.GodotBridge
                 + GetSelectedBuildingResearchActionText(frame, selectedBuildingId)
                 + GetSelectedBuildingActionHintText(frame, selectedBuildingId)
                 + "  Resource " + hoveredResource
-                + GetHoveredTargetText(hoveredBuildingId, hoveredResourceNodeId)
+                + GetHoveredTargetText(hoveredBuildingId, hoveredResourceNodeId, hoveredUnitId)
                 + GetInputModeText(inputModeLabel)
                 + GetContextHintText(contextHintLabel)
                 + (paused ? "  Paused" : "")
@@ -67,9 +68,10 @@ namespace RtsGame.Presentation.GodotBridge
             int[]? selectedControlGroupIndices = null,
             string inputModeLabel = "",
             string contextHintLabel = "",
-            int hoveredBuildingId = 0)
+            int hoveredBuildingId = 0,
+            int hoveredUnitId = 0)
         {
-            return string.Join("  ", BuildLines(frame, selectedUnitIds, selectedBuildingId, hoveredResourceNodeId, paused, selectedControlGroupIndex, selectedControlGroupIndices, inputModeLabel, contextHintLabel, hoveredBuildingId));
+            return string.Join("  ", BuildLines(frame, selectedUnitIds, selectedBuildingId, hoveredResourceNodeId, paused, selectedControlGroupIndex, selectedControlGroupIndices, inputModeLabel, contextHintLabel, hoveredBuildingId, hoveredUnitId));
         }
 
         public static string GetSelectedUnitStatusText(GodotFrameDto frame, int[] selectedUnitIds)
@@ -301,11 +303,16 @@ namespace RtsGame.Presentation.GodotBridge
             return "  " + contextHintLabel;
         }
 
-        private static string GetHoveredTargetText(int hoveredBuildingId, int hoveredResourceNodeId)
+        private static string GetHoveredTargetText(int hoveredBuildingId, int hoveredResourceNodeId, int hoveredUnitId)
         {
             if (hoveredBuildingId != 0)
             {
                 return " HoverB " + hoveredBuildingId;
+            }
+
+            if (hoveredUnitId != 0)
+            {
+                return " HoverU " + hoveredUnitId;
             }
 
             if (hoveredResourceNodeId != 0)

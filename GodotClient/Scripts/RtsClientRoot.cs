@@ -34,6 +34,7 @@ public partial class RtsClientRoot : Node2D
 	private bool _showDebugOverlay = true;
 	private bool _showHotkeyHelp;
 	private bool _screenshotMode;
+	private int _hoveredUnitId;
 	private int _hoveredResourceNodeId;
 	private int _hoveredBuildingId;
 
@@ -288,6 +289,8 @@ public partial class RtsClientRoot : Node2D
 			ref _hoveredResourceNodeId,
 			ref _tickAccumulator,
 			ref _paused);
+		_hoveredUnitId = 0;
+		_hoveredBuildingId = 0;
 		_inputModeState.ExitToNormal();
 		_controlGroups.Reset();
 		_controlGroupRecallTracker.Reset();
@@ -451,7 +454,8 @@ public partial class RtsClientRoot : Node2D
 			matchedControlGroups,
 			ResolveInputModeLabel(_inputModeState.CurrentMode),
 			ResolveContextHintLabel(),
-			_hoveredBuildingId);
+			_hoveredBuildingId,
+			_hoveredUnitId);
 
 		RtsHudTopBarRenderer.DrawMain(this, uiOrigin, lines, _spriteRenderer);
 
@@ -628,6 +632,7 @@ public partial class RtsClientRoot : Node2D
 			_debugEventLog.Add(depositEvent);
 		}
 		Vector2 mouse = GetGlobalMousePosition();
+		_hoveredUnitId = RtsHoverStateResolver.FindHoveredUnitAt(_frame, mouse, (int)TilePixels);
 		_hoveredResourceNodeId = RtsHoverStateResolver.FindResourceAt(_frame, mouse, (int)TilePixels);
 		_hoveredBuildingId = RtsHoverStateResolver.FindHoveredBuildingAt(_frame, LocalPlayerIndex, mouse, (int)TilePixels);
 		QueueRedraw();
@@ -641,10 +646,12 @@ public partial class RtsClientRoot : Node2D
 		}
 
 		Vector2 mouse = GetGlobalMousePosition();
+		int hoveredUnit = RtsHoverStateResolver.FindHoveredUnitAt(_frame, mouse, (int)TilePixels);
 		int hoveredResource = RtsHoverStateResolver.FindResourceAt(_frame, mouse, (int)TilePixels);
 		int hoveredBuilding = RtsHoverStateResolver.FindHoveredBuildingAt(_frame, LocalPlayerIndex, mouse, (int)TilePixels);
-		if (hoveredResource != _hoveredResourceNodeId || hoveredBuilding != _hoveredBuildingId)
+		if (hoveredUnit != _hoveredUnitId || hoveredResource != _hoveredResourceNodeId || hoveredBuilding != _hoveredBuildingId)
 		{
+			_hoveredUnitId = hoveredUnit;
 			_hoveredResourceNodeId = hoveredResource;
 			_hoveredBuildingId = hoveredBuilding;
 			QueueRedraw();
