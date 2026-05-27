@@ -851,6 +851,12 @@ namespace RtsGame.Tests
             AssertEqual("Group 3 empty", text, "empty control group recall should be clearly visible");
         }
 
+        private static void GodotControlGroupFeedbackFormatsFocusText()
+        {
+            string text = GodotControlGroupFeedbackFormatter.BuildCameraFocusedText(4);
+            AssertEqual("Group 4 focus", text, "double-tap recall focus feedback should be concise and stable");
+        }
+
         private static void GodotHudTextIncludesSelectedTypeSummaryHomogeneous()
         {
             GodotFrameDto frame = CreateGodotHudFrame(

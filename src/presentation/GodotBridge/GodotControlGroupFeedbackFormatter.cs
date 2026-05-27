@@ -21,5 +21,10 @@ namespace RtsGame.Presentation.GodotBridge
 
             return "Group " + groupIndex + " recalled: " + recalledUnitCount + " units";
         }
+
+        public static string BuildCameraFocusedText(int groupIndex)
+        {
+            return "Group " + groupIndex + " focus";
+        }
     }
 }

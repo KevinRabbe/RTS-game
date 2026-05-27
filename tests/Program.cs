@@ -357,6 +357,7 @@ namespace RtsGame.Tests
                 new TestCase("godot control group feedback formats added text", GodotControlGroupFeedbackFormatsAddedText),
                 new TestCase("godot control group feedback formats recall text", GodotControlGroupFeedbackFormatsRecallText),
                 new TestCase("godot control group feedback formats empty text", GodotControlGroupFeedbackFormatsEmptyText),
+                new TestCase("godot control group feedback formats focus text", GodotControlGroupFeedbackFormatsFocusText),
                 new TestCase("godot hud text includes selected type summary homogeneous", GodotHudTextIncludesSelectedTypeSummaryHomogeneous),
                 new TestCase("godot hud text includes selected type summary mixed", GodotHudTextIncludesSelectedTypeSummaryMixed),
                 new TestCase("godot hud text includes selected control group indicator", GodotHudTextIncludesSelectedControlGroupIndicator),

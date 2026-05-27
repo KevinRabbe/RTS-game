@@ -69,7 +69,7 @@ internal static class RtsInputKeyRouter
 			onControlGroupRecalled(recallable, isDoubleTap);
 			if (isDoubleTap && recallable.Length > 0)
 			{
-				addDebugEvent("Group " + groupIndex + " camera jump");
+				addDebugEvent(GodotControlGroupFeedbackFormatter.BuildCameraFocusedText(groupIndex));
 			}
 			addDebugEvent(GodotControlGroupFeedbackFormatter.BuildRecalledText(groupIndex, recallable.Length));
 			refreshFrame();
