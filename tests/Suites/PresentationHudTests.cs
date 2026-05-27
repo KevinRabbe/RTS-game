@@ -971,6 +971,30 @@ namespace RtsGame.Tests
             AssertEqual(false, text.Contains("RMB "), "hud should omit contextual command hint when not provided");
         }
 
+        private static void GodotHudTextIncludesHoveredBuildingLabelWhenPresent()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new[] { 11 }, 0, 0, false, 0, null, "", "", hoveredBuildingId: 27);
+            AssertEqual(true, text.Contains("HoverB 27"), "hud should include hovered building label when building hover is present");
+        }
+
+        private static void GodotHudTextIncludesHoveredResourceLabelWhenNoBuildingHover()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new[] { 11 }, 0, 4, false, 0, null, "", "");
+            AssertEqual(true, text.Contains("HoverR 4"), "hud should include hovered resource label when building hover is absent");
+        }
+
         private static void GodotHudTextIncludesMultipleSelectedControlGroupIndicators()
         {
             GodotFrameDto frame = CreateGodotHudFrame(

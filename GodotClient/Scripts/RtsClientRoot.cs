@@ -450,7 +450,8 @@ public partial class RtsClientRoot : Node2D
 			_controlGroups.FindExactMatchGroupIndex(selectedUnitIds),
 			matchedControlGroups,
 			ResolveInputModeLabel(_inputModeState.CurrentMode),
-			ResolveContextHintLabel());
+			ResolveContextHintLabel(),
+			_hoveredBuildingId);
 
 		RtsHudTopBarRenderer.DrawMain(this, uiOrigin, lines, _spriteRenderer);
 

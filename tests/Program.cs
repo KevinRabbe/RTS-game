@@ -367,6 +367,8 @@ namespace RtsGame.Tests
                 new TestCase("godot hud text includes context command hint when provided", GodotHudTextIncludesContextCommandHintWhenProvided),
                 new TestCase("godot hud text includes context command hint target suffix", GodotHudTextIncludesContextCommandHintTargetSuffix),
                 new TestCase("godot hud text omits context command hint when empty", GodotHudTextOmitsContextCommandHintWhenEmpty),
+                new TestCase("godot hud text includes hovered building label when present", GodotHudTextIncludesHoveredBuildingLabelWhenPresent),
+                new TestCase("godot hud text includes hovered resource label when no building hover", GodotHudTextIncludesHoveredResourceLabelWhenNoBuildingHover),
                 new TestCase("godot primitive hit test includes boundary", GodotPrimitiveHitTestIncludesBoundary),
                 new TestCase("godot building hit test includes footprint boundary", GodotBuildingHitTestIncludesFootprintBoundary),
                 new TestCase("godot primitive hit test supports rectangular bounds", GodotPrimitiveHitTestSupportsRectangularBounds),
