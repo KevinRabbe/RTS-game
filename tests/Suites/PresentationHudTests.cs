@@ -947,6 +947,18 @@ namespace RtsGame.Tests
             AssertEqual(true, text.Contains("RMB Gather"), "hud should include contextual command hint when provided");
         }
 
+        private static void GodotHudTextIncludesContextCommandHintTargetSuffix()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new[] { 11 }, 0, 0, false, 0, null, "", "RMB Attack T88");
+            AssertEqual(true, text.Contains("RMB Attack T88"), "hud should include contextual target suffix for command clarity");
+        }
+
         private static void GodotHudTextOmitsContextCommandHintWhenEmpty()
         {
             GodotFrameDto frame = CreateGodotHudFrame(

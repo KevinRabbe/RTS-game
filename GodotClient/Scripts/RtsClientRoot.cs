@@ -565,19 +565,24 @@ public partial class RtsClientRoot : Node2D
 
 	private string ResolveContextHintLabel()
 	{
-		if (_frame == null || !_selectionController.HasSelectedUnits)
+		if (_frame == null)
 		{
 			return "";
 		}
 
 		if (_tcPlacementState.IsActive)
 		{
-			return "LMB Place TC  RMB Cancel";
+			return RtsContextHintFormatter.BuildPlacementHint(isTownCenterPlacement: true);
 		}
 
 		if (_inputModeState.IsAttackMoveTargeting)
 		{
-			return "LMB AttackMove/Attack  RMB Cancel->Context";
+			return RtsContextHintFormatter.BuildAttackMoveModeHint(isAttackMoveTargeting: true);
+		}
+
+		if (!_selectionController.HasSelectedUnits)
+		{
+			return "";
 		}
 
 		Vector2 mouse = GetGlobalMousePosition();
@@ -591,21 +596,11 @@ public partial class RtsClientRoot : Node2D
 			mouseXRaw,
 			mouseYRaw);
 
-		switch (resolved.Kind)
-		{
-			case RtsResolvedCommandKind.Attack:
-				return "RMB Attack";
-			case RtsResolvedCommandKind.AssignBuild:
-				return "RMB Build";
-			case RtsResolvedCommandKind.Gather:
-				return "RMB Gather";
-			case RtsResolvedCommandKind.Move:
-				return "RMB Move";
-			case RtsResolvedCommandKind.AttackMove:
-				return "RMB AttackMove";
-			default:
-				return "";
-		}
+		return RtsContextHintFormatter.BuildNormalCommandHint(
+			_selectionController.HasSelectedUnits,
+			resolved.Kind,
+			resolved.TargetEntityId,
+			resolved.ResourceNodeId);
 	}
 
 	private static string ResolveInputModeLabel(RtsInputModeKind mode)
