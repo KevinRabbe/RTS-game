@@ -935,6 +935,30 @@ namespace RtsGame.Tests
             AssertEqual(false, text.Contains("Mode "), "hud should omit input mode label when no temporary command mode is active");
         }
 
+        private static void GodotHudTextIncludesContextCommandHintWhenProvided()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new[] { 11 }, 0, 0, false, 0, null, "", "RMB Gather");
+            AssertEqual(true, text.Contains("RMB Gather"), "hud should include contextual command hint when provided");
+        }
+
+        private static void GodotHudTextOmitsContextCommandHintWhenEmpty()
+        {
+            GodotFrameDto frame = CreateGodotHudFrame(
+                1,
+                new GodotLocalPlayerDto(0, 0, 0, 0, 0, false, false, false),
+                new GodotUnitStatusDto[0],
+                new GodotBuildingStatusDto[0]);
+
+            string text = GodotHudTextBuilder.Build(frame, new[] { 11 }, 0, 0, false, 0, null, "", "");
+            AssertEqual(false, text.Contains("RMB "), "hud should omit contextual command hint when not provided");
+        }
+
         private static void GodotHudTextIncludesMultipleSelectedControlGroupIndicators()
         {
             GodotFrameDto frame = CreateGodotHudFrame(

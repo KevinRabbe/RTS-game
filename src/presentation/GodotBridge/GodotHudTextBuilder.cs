@@ -14,7 +14,8 @@ namespace RtsGame.Presentation.GodotBridge
             bool paused,
             int selectedControlGroupIndex = 0,
             int[]? selectedControlGroupIndices = null,
-            string inputModeLabel = "")
+            string inputModeLabel = "",
+            string contextHintLabel = "")
         {
             GodotLocalPlayerDto player = frame.LocalPlayer;
             string selected = selectedUnitIds.Length == 0 ? "none" : string.Join(",", selectedUnitIds);
@@ -47,6 +48,7 @@ namespace RtsGame.Presentation.GodotBridge
                 + GetSelectedBuildingActionHintText(frame, selectedBuildingId)
                 + "  Resource " + hoveredResource
                 + GetInputModeText(inputModeLabel)
+                + GetContextHintText(contextHintLabel)
                 + (paused ? "  Paused" : "")
                 + GetControlHintText();
 
@@ -61,9 +63,10 @@ namespace RtsGame.Presentation.GodotBridge
             bool paused,
             int selectedControlGroupIndex = 0,
             int[]? selectedControlGroupIndices = null,
-            string inputModeLabel = "")
+            string inputModeLabel = "",
+            string contextHintLabel = "")
         {
-            return string.Join("  ", BuildLines(frame, selectedUnitIds, selectedBuildingId, hoveredResourceNodeId, paused, selectedControlGroupIndex, selectedControlGroupIndices, inputModeLabel));
+            return string.Join("  ", BuildLines(frame, selectedUnitIds, selectedBuildingId, hoveredResourceNodeId, paused, selectedControlGroupIndex, selectedControlGroupIndices, inputModeLabel, contextHintLabel));
         }
 
         public static string GetSelectedUnitStatusText(GodotFrameDto frame, int[] selectedUnitIds)
@@ -283,6 +286,16 @@ namespace RtsGame.Presentation.GodotBridge
             }
 
             return "  Mode " + inputModeLabel;
+        }
+
+        private static string GetContextHintText(string contextHintLabel)
+        {
+            if (string.IsNullOrWhiteSpace(contextHintLabel))
+            {
+                return "";
+            }
+
+            return "  " + contextHintLabel;
         }
 
         private static string GetSelectedGroupSummaryText(int[] selectedUnitIds)

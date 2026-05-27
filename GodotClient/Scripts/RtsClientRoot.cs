@@ -449,7 +449,8 @@ public partial class RtsClientRoot : Node2D
 			_paused,
 			_controlGroups.FindExactMatchGroupIndex(selectedUnitIds),
 			matchedControlGroups,
-			ResolveInputModeLabel(_inputModeState.CurrentMode));
+			ResolveInputModeLabel(_inputModeState.CurrentMode),
+			ResolveContextHintLabel());
 
 		RtsHudTopBarRenderer.DrawMain(this, uiOrigin, lines, _spriteRenderer);
 
@@ -560,6 +561,51 @@ public partial class RtsClientRoot : Node2D
 	private static Vector2I ScreenToTile(Vector2 screenPosition)
 	{
 		return RtsCoordinateTransform.ScreenToTile(screenPosition, TilePixels);
+	}
+
+	private string ResolveContextHintLabel()
+	{
+		if (_frame == null || !_selectionController.HasSelectedUnits)
+		{
+			return "";
+		}
+
+		if (_tcPlacementState.IsActive)
+		{
+			return "LMB Place TC  RMB Cancel";
+		}
+
+		if (_inputModeState.IsAttackMoveTargeting)
+		{
+			return "LMB AttackMove/Attack  RMB Cancel->Context";
+		}
+
+		Vector2 mouse = GetGlobalMousePosition();
+		long mouseXRaw = ScreenToRaw(mouse.X);
+		long mouseYRaw = ScreenToRaw(mouse.Y);
+		RtsResolvedCommand resolved = RtsCommandModeResolver.ResolveModeClick(
+			RtsInputModeKind.Normal,
+			_frame,
+			LocalPlayerIndex,
+			_selectionController.HasSelectedUnits,
+			mouseXRaw,
+			mouseYRaw);
+
+		switch (resolved.Kind)
+		{
+			case RtsResolvedCommandKind.Attack:
+				return "RMB Attack";
+			case RtsResolvedCommandKind.AssignBuild:
+				return "RMB Build";
+			case RtsResolvedCommandKind.Gather:
+				return "RMB Gather";
+			case RtsResolvedCommandKind.Move:
+				return "RMB Move";
+			case RtsResolvedCommandKind.AttackMove:
+				return "RMB AttackMove";
+			default:
+				return "";
+		}
 	}
 
 	private static string ResolveInputModeLabel(RtsInputModeKind mode)
