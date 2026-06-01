@@ -378,6 +378,9 @@ namespace RtsGame.Tests
             AssertEqual(true, ContainsHotkey(entries, "Shift+1..9", "Add selected units to control group"), "hotkey help should include control group additive assignment binding");
             AssertEqual(true, ContainsHotkey(entries, "1..9", "Recall control group selection"), "hotkey help should include control group recall binding");
             AssertEqual(true, ContainsHotkey(entries, "Left Click", "Select / confirm placement"), "hotkey help should include left-click selection behavior");
+            AssertEqual(true, ContainsHotkey(entries, "Shift + Left Click", "Toggle selected owned unit"), "hotkey help should include shift-click toggle behavior");
+            AssertEqual(true, ContainsHotkey(entries, "Double Left Click", "Select visible owned units of same type"), "hotkey help should include double-click same-type behavior");
+            AssertEqual(true, ContainsHotkey(entries, "Shift + Drag", "Toggle rectangle-selected owned units"), "hotkey help should include shift-drag toggle behavior");
             AssertEqual(true, ContainsHotkey(entries, "Right Click", "Normal mode: Move/Gather/Attack/Build, Placement mode: cancel"), "hotkey help should include right-click context behavior");
             AssertEqual(true, ContainsHotkey(entries, "C", "Enter Town Center placement mode"), "hotkey help should include C placement binding");
             AssertEqual(true, ContainsHotkey(entries, "A", "Enter Attack-Move targeting mode"), "hotkey help should include A attack-move mode binding");

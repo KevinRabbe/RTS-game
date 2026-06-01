@@ -65,6 +65,9 @@ namespace RtsGame.Presentation.GodotBridge
 
                 new GodotHotkeyHelpEntry("Mouse:", ""),
                 new GodotHotkeyHelpEntry("Left Click", "Select / confirm placement"),
+                new GodotHotkeyHelpEntry("Shift + Left Click", "Toggle selected owned unit"),
+                new GodotHotkeyHelpEntry("Double Left Click", "Select visible owned units of same type"),
+                new GodotHotkeyHelpEntry("Shift + Drag", "Toggle rectangle-selected owned units"),
                 new GodotHotkeyHelpEntry("Right Click", "Move, gather, attack, assign build, or cancel placement")
             };
         }
